@@ -1,0 +1,35 @@
+name: Score Rollup Worker
+
+on:
+  schedule:
+    # Every 15 minutes, 24/7.
+    # GitHub Actions cron runs in UTC. Minimum interval is 5 minutes.
+    - cron: '*/15 * * * *'
+  # Allow manual trigger from the Actions tab for testing.
+  workflow_dispatch:
+
+jobs:
+  run-worker:
+    name: Trigger score-rollup worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: POST /api/cron/worker
+        run: |
+          HTTP_STATUS=$(curl \
+            --silent \
+            --output /tmp/worker-response.json \
+            --write-out "%{http_code}" \
+            --request POST \
+            --header "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --header "Content-Type: application/json" \
+            "${{ secrets.VERCEL_APP_URL }}/api/cron/worker")
+
+          echo "Response body:"
+          cat /tmp/worker-response.json
+
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "Worker returned unexpected status: $HTTP_STATUS"
+            exit 1
+          fi

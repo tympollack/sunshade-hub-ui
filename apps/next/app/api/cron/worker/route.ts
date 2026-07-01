@@ -11,6 +11,11 @@ interface ScoreDeltaEvent {
   occurredAt: number;
 }
 
+interface StreamEntry {
+  id: string;
+  message: Record<string, string>;
+}
+
 function currentPeriodKeys(now: Date): { periodType: PeriodType; periodKey: string }[] {
   const keys: { periodType: PeriodType; periodKey: string }[] = [];
 
@@ -34,31 +39,34 @@ function currentPeriodKeys(now: Date): { periodType: PeriodType; periodKey: stri
 }
 
 /**
- * POST /api/cron/score-rollup
- * Triggered by Vercel Cron every 15 minutes (see vercel.json).
- * Drains up to 1000 entries from the Upstash Redis stream,
- * aggregates score deltas in memory, then flushes them to
- * leaderboard_entries via apply_leaderboard_deltas (exactly-once,
- * offset tracked in Postgres stream_offsets table).
+ * POST /api/cron/worker
+ * Triggered every 15 minutes by a GitHub Actions workflow (.github/workflows/worker-cron.yml).
+ * Drains up to 1000 entries from the Upstash Redis stream, aggregates score deltas
+ * in memory, then flushes them to leaderboard_entries via apply_leaderboard_deltas
+ * (exactly-once, offset tracked in Postgres stream_offsets).
  *
- * Auth: CRON_SECRET header — Vercel injects this automatically for
- * cron jobs when set in project env vars. Requests without it are
- * rejected to prevent external triggering.
+ * Auth: CRON_SECRET env var is REQUIRED. Requests without a matching
+ *       Authorization: Bearer <CRON_SECRET> header are rejected with 401.
+ *       Set CRON_SECRET in both Vercel env vars and the GitHub repo secret.
  */
 export async function POST(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = req.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+
+  if (!cronSecret) {
+    console.error('CRON_SECRET env var is not set — refusing to run unprotected');
+    return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
+  }
+
+  const authHeader = req.headers.get('authorization');
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const redis = getRedis();
   const supabase = createServiceClient();
 
-  // Read the last-processed stream ID from Postgres so we resume correctly
-  // after a cold start or a failed previous run.
+  // Resume from the last-processed stream offset stored in Postgres,
+  // so a cold start or failed previous run never reprocesses old events.
   const { data: offsetRow } = await supabase
     .from('stream_offsets')
     .select('last_id')
@@ -67,16 +75,14 @@ export async function POST(req: NextRequest) {
 
   const lastId: string = offsetRow?.last_id ?? '0-0';
 
-  // Drain up to 1000 messages from the stream in one call.
-  // @upstash/redis xread returns { id: string; message: Record<string,string> }[] | null
+  // Drain up to 1000 messages in one call.
   const messages = await redis.xread(SCORE_EVENTS_STREAM, lastId, { count: 1000 });
 
   if (!messages || messages.length === 0) {
     return NextResponse.json({ processed: 0, message: 'No new events' });
   }
 
-  // Aggregate deltas in memory before writing to Postgres — reduces DB round-trips.
-  // Map key: `${periodType}:${periodKey}:${scope}:${profileId}`
+  // Aggregate deltas in memory — one map entry per (period, scope, profile).
   const aggregated = new Map<string, {
     period_type: string;
     period_key:  string;
@@ -85,11 +91,6 @@ export async function POST(req: NextRequest) {
     delta:       number;
   }>();
 
-  interface StreamEntry {
-    id: string;
-    message: Record<string, string>;
-  }
-
   let batchLastId = lastId;
 
   for (const entry of messages as StreamEntry[]) {
@@ -97,16 +98,13 @@ export async function POST(req: NextRequest) {
 
     let event: ScoreDeltaEvent;
     try {
-      const raw = entry.message['payload'];
-      event = JSON.parse(raw) as ScoreDeltaEvent;
+      event = JSON.parse(entry.message['payload']) as ScoreDeltaEvent;
     } catch {
       console.warn('Skipping malformed score event:', entry.id);
       continue;
     }
 
-    const eventDate = new Date(event.occurredAt);
-
-    for (const { periodType, periodKey } of currentPeriodKeys(eventDate)) {
+    for (const { periodType, periodKey } of currentPeriodKeys(new Date(event.occurredAt))) {
       const mapKey = `${periodType}:${periodKey}:${event.scope}:${event.profileId}`;
       const existing = aggregated.get(mapKey);
       if (existing) {
@@ -125,8 +123,8 @@ export async function POST(req: NextRequest) {
 
   const deltas = Array.from(aggregated.values());
 
-  // Flush to Postgres atomically — apply_leaderboard_deltas also updates
-  // stream_offsets in the same transaction, so exactly-once is guaranteed.
+  // Flush atomically — apply_leaderboard_deltas updates stream_offsets in the
+  // same transaction, guaranteeing exactly-once application.
   const { error } = await supabase.rpc('apply_leaderboard_deltas', {
     deltas,
     p_stream_name: SCORE_EVENTS_STREAM,
