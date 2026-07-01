@@ -19,6 +19,8 @@ jobs:
         run: |
           HTTP_STATUS=$(curl \
             --silent \
+            --location \
+            --max-redirs 3 \
             --output /tmp/worker-response.json \
             --write-out "%{http_code}" \
             --request POST \
