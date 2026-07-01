@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "strictNullChecks": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "paths": {
+      "app/*": ["./packages/app/*"]
+    },
+    "baseUrl": ".",
+    "jsx": "react-jsx"
+  }
+}

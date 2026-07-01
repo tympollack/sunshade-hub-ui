@@ -1,0 +1,9 @@
+{
+  "name": "@sunshade/supabase",
+  "version": "0.0.0",
+  "main": "./src/client.ts",
+  "types": "./src/client.ts",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.0"
+  }
+}
