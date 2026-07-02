@@ -1,95 +1,118 @@
-# Blank Solito Example Monorepo 🕴
+# SunShade Hub UI
 
-```sh
-npx create-solito-app@latest my-solito-app
+> Decentralized · Privacy-First · Sustainable Infrastructure
+
+Cross-platform hub for the SunShade / Critterverse ecosystem. Built on a Solito monorepo (Expo + Next.js), deployed to Vercel, with background jobs triggered by cron-job.org and data stored in Supabase + Upstash Redis.
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Web | Next.js 15 (App Router), deployed to Vercel |
+| Mobile | Expo SDK 54, built with EAS |
+| Shared UI | Solito + Moti + React Native Web |
+| Database | Supabase (Postgres + Auth + RLS) |
+| Cache / Queue | Upstash Redis (REST API) |
+| Cron | cron-job.org → Vercel API routes |
+
+## Folder layout
+
+```
+apps/
+  expo/          React Native app (EAS build)
+  next/          Next.js web app (Vercel)
+    app/
+      api/
+        cron/
+          worker/           Score rollup — drains Redis stream → leaderboard_entries
+          leaderboard-reset/ Archive weekly/monthly leaderboard periods
+          db-cleanup/        Purge expired rows across schemas
+        events/             POST  Sync game events from client
+        leaderboard/[scope] GET   Public leaderboard reads
+        ledger/transaction/ POST  Idempotent currency transactions
+        score/              POST  Queue score delta to Redis stream
+      dashboard/            Dashboard page
+      users/[userId]/       User profile page
+    lib/
+      supabase-server.ts    Service-role Supabase client
+      redis.ts              Upstash Redis client
+    utils/
+      cron-auth.ts          Shared CRON_SECRET Bearer token verifier
+      redis-lock.ts         Distributed Redis mutex (SET NX EX)
+
+packages/
+  app/                      Shared React Native / web components
+    features/hub/           Hub UI screens and components
+    provider/               Cross-platform providers
+    navigation/             React Navigation config (native)
+
+supabase/
+  migrations/               Ordered SQL migrations
+  functions/                Deno edge functions
 ```
 
-👾 [View the website](https://example.solito.dev)
+## Environment variables
 
-## ⚡️ Instantly clone & deploy
+### Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnandorojo%2Fsolito%2Ftree%2Fmaster%2Fexample-monorepos%2Fblank&env=ENABLE_ROOT_PATH_BUILD_CACHE&root-directory=apps/next&envDescription=Set%20this%20environment%20variable%20to%201%20for%20Turborepo%20to%20cache%20your%20node_modules.&envLink=https%3A%2F%2Ftwitter.com%2Fjaredpalmer%2Fstatus%2F1488954563533189124&project-name=solito-app&repo-name=solito-app&demo-title=Solito%20App%20%E2%9A%A1%EF%B8%8F&demo-description=React%20Native%20%2B%20Next.js%20starter%20with%20Solito.%20Made%20by%20Fernando%20Rojo.&demo-url=https%3A%2F%2Fsolito.dev%2Fstarter&demo-image=https%3A%2F%2Fsolito.dev%2Fimg%2Fog.png&build-command=cd+..%2F..%3Bnpx+turbo+run+build+--filter%3Dnext-app)
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server only) |
+| `UPSTASH_REDIS_REST_URL` | Upstash REST URL |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash REST token |
+| `CRON_SECRET` | Shared secret for cron route authorization |
 
-## 🔦 About
+### cron-job.org jobs
 
-This monorepo is a blank(ish) starter for an Expo + Next.js app.
+| Job | URL | Schedule |
+|---|---|---|
+| Score Rollup | `/api/cron/worker` | Every 15 min |
+| Leaderboard Reset | `/api/cron/leaderboard-reset` | Daily 00:05 UTC |
+| DB Cleanup | `/api/cron/db-cleanup` | Nightly |
 
-While it's pretty barebones, it does a lot of the annoying config for you. The folder structure is opinionated, based on my long experience building for this stack.
+All jobs POST with `Authorization: Bearer <CRON_SECRET>`.
 
-## 📦 Included packages
-
-- `solito` for cross-platform navigation
-- `moti` for animations
-- Expo SDK 53
-- Next.js 15
-- React Navigation 7
-- React 19 (read more below)
-- React Compiler
-
-For more, see the [compatibility docs](https://solito.dev/compatibility).
-
-## 🗂 Folder layout
-
-- `apps` entry points for each app
-
-  - `expo`
-  - `next`
-
-- `packages` shared packages across apps
-  - `app` you'll be importing most files from `app/`
-    - `features` (don't use a `screens` folder. organize by feature.)
-    - `provider` (all the providers that wrap the app, and some no-ops for Web.)
-    - `navigation` Next.js has a `pages/` folder. React Native doesn't. This folder contains navigation-related code for RN. You may use it for any navigation code, such as custom links.
-
-You can add other folders inside of `packages/` if you know what you're doing and have a good reason to.
-
-## 🏁 Start the app
-
-- Install dependencies: `yarn`
-
-- Next.js local dev: `yarn web`
-  - Runs `yarn next`
-- Expo local dev:
-  - First, build a dev client onto your device or simulator
-    - `cd apps/expo`
-    - Then, either `expo run:ios`, or `eas build`
-  - After building the dev client, from the root of the monorepo...
-    - `yarn native` (This runs `expo start --dev-client`)
-
-## 🆕 Add new dependencies
-
-### Pure JS dependencies
-
-If you're installing a JavaScript-only dependency that will be used across platforms, install it in `packages/app`:
+## Local dev
 
 ```sh
-cd packages/app
-yarn add date-fns
-cd ../..
+# Install dependencies
 yarn
+
+# Next.js
+yarn web
+
+# Expo (after building a dev client via EAS)
+yarn native
 ```
 
-### Native dependencies
-
-If you're installing a library with any native code, you must install it in `apps/expo`:
+## EAS builds
 
 ```sh
 cd apps/expo
-yarn add react-native-reanimated
 
-cd ../..
-yarn
+# Development (APK / simulator)
+eas build --profile development --platform android
+eas build --profile development --platform ios
+
+# Internal preview
+eas build --profile preview --platform all
+
+# Production
+eas build --profile production --platform all
 ```
 
-You can also install the native library inside of `packages/app` if you want to get autoimport for that package inside of the `app` folder. However, you need to be careful and install the _exact_ same version in both packages. If the versions mismatch at all, you'll potentially get terrible bugs. This is a classic monorepo issue. I use `lerna-update-wizard` to help with this (you don't need to use Lerna to use that lib).
+## Database migrations
 
-## 🎙 About the creator
+```sh
+# Apply all pending migrations to the linked Supabase project
+supabase db push
+```
 
-Follow Fernando Rojo on Twitter: [@FernandoTheRojo](https://twitter.com/fernandotherojo)
+## Key architectural notes
 
-## 🧐 Why use Expo + Next.js?
-
-See my talk about this topic at Next.js Conf 2021:
-
-<a href="https://www.youtube.com/watch?v=0lnbdRweJtA"><img width="1332" alt="image" src="https://user-images.githubusercontent.com/13172299/157299915-b633e083-f271-48c6-a262-7b7eef765be5.png">
-</a>
+- `tsconfig.json` path alias must be `@app/*` not `app/*` — `app/*` shadows the Next.js App Router directory.
+- Upstash Redis uses the REST client (`@upstash/redis`) with `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`, not a TCP URL.
+- The distributed Redis lock (`cron:global_critical_lock`) prevents `leaderboard-reset` and `db-cleanup` from running concurrently.
+- Vercel root directory is set to `apps/next` in the Vercel dashboard project settings.

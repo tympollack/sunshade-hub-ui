@@ -3,6 +3,7 @@
     "app": "*",
     "expo": "^54.0.16",
     "expo-constants": "~18.0.13",
+    "expo-dev-client": "~6.0.21",
     "expo-image": "~3.0.10",
     "expo-linear-gradient": "~15.0.7",
     "expo-linking": "~8.0.8",
