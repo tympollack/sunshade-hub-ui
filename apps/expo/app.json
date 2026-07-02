@@ -31,9 +31,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
+        "projectId": "98b8ff82-5fe9-4818-b197-29b2b35ac43b"
       }
     },
-    "owner": "YOUR_EXPO_USERNAME"
+    "owner": "neocows-team"
   }
 }
