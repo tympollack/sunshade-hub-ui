@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '../../../../lib/supabase-server';
 import { getRedis, SCORE_EVENTS_STREAM } from '../../../../lib/redis';
+import { verifyCronAuth } from '../../../../utils/cron-auth';
 
 type PeriodType = 'weekly' | 'monthly' | 'alltime';
 
@@ -50,17 +51,8 @@ function currentPeriodKeys(now: Date): { periodType: PeriodType; periodKey: stri
  *       Set CRON_SECRET in both Vercel env vars and the GitHub repo secret.
  */
 export async function POST(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret) {
-    console.error('CRON_SECRET env var is not set — refusing to run unprotected');
-    return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
-  }
-
-  const authHeader = req.headers.get('authorization');
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authError = verifyCronAuth(req);
+  if (authError) return authError;
 
   const redis = getRedis();
   const supabase = createServiceClient();
