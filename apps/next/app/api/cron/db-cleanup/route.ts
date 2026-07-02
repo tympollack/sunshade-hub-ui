@@ -60,16 +60,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Purge matches older than 1 year.
+    // Purge chess.matches older than 1 year.
     const { error: matchesError } = await supabase
+      .schema('chess')
       .from('matches')
       .delete()
       .lt('created_at', oneYearAgo);
 
     if (matchesError) {
-      console.error('db-cleanup matches error:', matchesError);
+      console.error('db-cleanup chess.matches error:', matchesError);
       return NextResponse.json(
-        { error: 'matches cleanup failed', detail: matchesError.message },
+        { error: 'chess.matches cleanup failed', detail: matchesError.message },
+        { status: 500 }
+      );
+    }
+
+    // Purge chess.points_ledger entries older than 1 year.
+    const { error: chessLedgerError } = await supabase
+      .schema('chess')
+      .from('points_ledger')
+      .delete()
+      .lt('created_at', oneYearAgo);
+
+    if (chessLedgerError) {
+      console.error('db-cleanup chess.points_ledger error:', chessLedgerError);
+      return NextResponse.json(
+        { error: 'chess.points_ledger cleanup failed', detail: chessLedgerError.message },
         { status: 500 }
       );
     }
