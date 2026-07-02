@@ -14,6 +14,7 @@ export interface EdgeNode {
 export interface GameStat {
   game_name: string;
   matches_played: number;
+  wins: number;
   win_rate: number;
   local_currency: number;
   achievements_unlocked: number;

@@ -37,7 +37,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
 
     supabase
       .from('game_stats')
-      .select('game_name, matches_played, win_rate, local_currency, achievements_unlocked, achievements_total')
+      .select('game_name, matches_played, wins, win_rate, local_currency, achievements_unlocked, achievements_total')
       .eq('user_id', user.id)
       .eq('game_name', 'SunShade Chess')
       .maybeSingle(),
