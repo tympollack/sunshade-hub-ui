@@ -41,6 +41,9 @@ yarn-error.log
 .env.local
 .env.*.local
 
+# EAS / store submission secrets
+google-services-key.json
+
 # BUCK
 buck-out/
 \.buckd/

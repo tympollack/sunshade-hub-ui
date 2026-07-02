@@ -1,22 +1,39 @@
 {
   "expo": {
-    "name": "solito-blank",
-    "slug": "solito-blank",
+    "name": "Sunshade Hub",
+    "slug": "sunshade-hub",
     "version": "1.0.0",
-    "scheme": "solito-blank",
+    "scheme": "sunshade-hub",
     "platforms": [
       "ios",
       "android"
     ],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0d0d0d"
+    },
     "ios": {
-      "bundleIdentifier": "com.solito.blank"
+      "bundleIdentifier": "com.sunshade.hub",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.sunshade.hub",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0d0d0d"
+      }
     },
     "newArchEnabled": true,
     "experiments": {
       "reactCanary": true
     },
-    "android": {
-      "package": "com.solito.blank"
-    }
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
+    },
+    "owner": "YOUR_EXPO_USERNAME"
   }
 }
