@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   const { data: profile, error: profileErr } = await supabase
     .from('profiles')
     .select('id')
-    .eq('auth_user_id', user.id)
+    .eq('id', user.id)
     .maybeSingle();
 
   if (profileErr || !profile) {

@@ -46,16 +46,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Purge points_ledger entries older than 1 year.
+    // Purge hub_tokens_ledger entries older than 1 year.
     const { error: ledgerError } = await supabase
-      .from('points_ledger')
+      .from('hub_tokens_ledger')
       .delete()
       .lt('created_at', oneYearAgo);
 
     if (ledgerError) {
-      console.error('db-cleanup points_ledger error:', ledgerError);
+      console.error('db-cleanup hub_tokens_ledger error:', ledgerError);
       return NextResponse.json(
-        { error: 'points_ledger cleanup failed', detail: ledgerError.message },
+        { error: 'hub_tokens_ledger cleanup failed', detail: ledgerError.message },
         { status: 500 }
       );
     }

@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     .from('profiles')
     .select('id')
     .eq('id', profileId)
-    .eq('auth_user_id', user.id)
+    .eq('id', user.id)
     .maybeSingle();
 
   if (profileErr || !profile) {
