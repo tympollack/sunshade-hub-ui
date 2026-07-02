@@ -28,18 +28,20 @@ export async function POST(req: NextRequest) {
 
   try {
     const supabase = createServiceClient();
+    const now = new Date().toISOString();
+    const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Purge game_events older than 90 days that have already been synced.
+    // Deactivate hub_events whose end_time has passed.
     const { error: eventsError } = await supabase
-      .from('game_events')
-      .delete()
-      .eq('synced', true)
-      .lt('created_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
+      .from('hub_events')
+      .update({ is_active: false })
+      .eq('is_active', true)
+      .lt('end_time', now);
 
     if (eventsError) {
-      console.error('db-cleanup game_events error:', eventsError);
+      console.error('db-cleanup hub_events error:', eventsError);
       return NextResponse.json(
-        { error: 'game_events cleanup failed', detail: eventsError.message },
+        { error: 'hub_events cleanup failed', detail: eventsError.message },
         { status: 500 }
       );
     }
@@ -48,12 +50,26 @@ export async function POST(req: NextRequest) {
     const { error: ledgerError } = await supabase
       .from('points_ledger')
       .delete()
-      .lt('created_at', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString());
+      .lt('created_at', oneYearAgo);
 
     if (ledgerError) {
       console.error('db-cleanup points_ledger error:', ledgerError);
       return NextResponse.json(
         { error: 'points_ledger cleanup failed', detail: ledgerError.message },
+        { status: 500 }
+      );
+    }
+
+    // Purge matches older than 1 year.
+    const { error: matchesError } = await supabase
+      .from('matches')
+      .delete()
+      .lt('created_at', oneYearAgo);
+
+    if (matchesError) {
+      console.error('db-cleanup matches error:', matchesError);
+      return NextResponse.json(
+        { error: 'matches cleanup failed', detail: matchesError.message },
         { status: 500 }
       );
     }
