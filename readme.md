@@ -126,8 +126,8 @@ For manual runs use the environment-aware script:
 ```
 
 Required `.env.local` or environment variables:
-- `SUPABASE_STAGING_PROJECT_REF=tpbpmhscsxchnezukpev`
-- `SUPABASE_PROD_PROJECT_REF=rweehbzsflhhtwjrjnvy`
+- `SUPABASE_STAGING_PROJECT_REF=<staging-project-ref>`
+- `SUPABASE_PROD_PROJECT_REF=<prod-project-ref>`
 
 ## Key architectural notes
 
