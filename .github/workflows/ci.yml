@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - staging
+      - master
+  pull_request:
+    branches:
+      - staging
+      - master
+
+jobs:
+  build:
+    name: Type-check & build Next.js
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type-check
+        run: npx tsc --noEmit
+        working-directory: apps/next
+
+      - name: Build
+        run: npm run build
+        working-directory: apps/next
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
