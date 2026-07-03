@@ -17,10 +17,16 @@ create table if not exists public.edge_nodes (
 );
 
 alter table public.edge_nodes enable row level security;
-create policy "Users read own edge_nodes"
-  on public.edge_nodes for select using (auth.uid() = user_id);
-create policy "Users manage own edge_nodes"
-  on public.edge_nodes for all using (auth.uid() = user_id);
+do $$ begin
+  create policy "Users read own edge_nodes"
+    on public.edge_nodes for select using (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create policy "Users manage own edge_nodes"
+    on public.edge_nodes for all using (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;
 
 -- 3. game_stats: per-game aggregated stats for a user
 create table if not exists public.game_stats (
@@ -37,8 +43,11 @@ create table if not exists public.game_stats (
 );
 
 alter table public.game_stats enable row level security;
-create policy "Users read own game_stats"
-  on public.game_stats for select using (auth.uid() = user_id);
+do $$ begin
+  create policy "Users read own game_stats"
+    on public.game_stats for select using (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;
 
 -- 4. match_history: individual match records for a user
 create table if not exists public.match_history (
@@ -53,8 +62,11 @@ create table if not exists public.match_history (
 );
 
 alter table public.match_history enable row level security;
-create policy "Users read own match_history"
-  on public.match_history for select using (auth.uid() = user_id);
+do $$ begin
+  create policy "Users read own match_history"
+    on public.match_history for select using (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;
 
 -- 5. ecosystem_logs: activity feed entries for a user
 create table if not exists public.ecosystem_logs (
@@ -67,5 +79,8 @@ create table if not exists public.ecosystem_logs (
 );
 
 alter table public.ecosystem_logs enable row level security;
-create policy "Users read own ecosystem_logs"
-  on public.ecosystem_logs for select using (auth.uid() = user_id);
+do $$ begin
+  create policy "Users read own ecosystem_logs"
+    on public.ecosystem_logs for select using (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;

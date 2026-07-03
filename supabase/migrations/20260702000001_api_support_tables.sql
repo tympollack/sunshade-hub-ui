@@ -13,10 +13,16 @@ create table if not exists public.game_events (
 );
 
 alter table public.game_events enable row level security;
-create policy "Users read own game_events"
-  on public.game_events for select using (auth.uid() = profile_id);
-create policy "Users insert own game_events"
-  on public.game_events for insert with check (auth.uid() = profile_id);
+do $$ begin
+  create policy "Users read own game_events"
+    on public.game_events for select using (auth.uid() = profile_id);
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create policy "Users insert own game_events"
+    on public.game_events for insert with check (auth.uid() = profile_id);
+exception when duplicate_object then null;
+end $$;
 
 -- leaderboard_entries: live scores per (profile, scope, period)
 create table if not exists public.leaderboard_entries (
@@ -31,8 +37,11 @@ create table if not exists public.leaderboard_entries (
 );
 
 alter table public.leaderboard_entries enable row level security;
-create policy "Public read leaderboard_entries"
-  on public.leaderboard_entries for select to authenticated, anon using (true);
+do $$ begin
+  create policy "Public read leaderboard_entries"
+    on public.leaderboard_entries for select to authenticated, anon using (true);
+exception when duplicate_object then null;
+end $$;
 
 -- stream_offsets: tracks last-consumed Redis stream position per named stream
 create table if not exists public.stream_offsets (

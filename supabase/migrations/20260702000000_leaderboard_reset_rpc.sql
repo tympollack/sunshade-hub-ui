@@ -56,5 +56,8 @@ create table if not exists public.leaderboard_history (
 );
 
 alter table public.leaderboard_history enable row level security;
-create policy "Public read on leaderboard_history"
-  on public.leaderboard_history for select to authenticated, anon using (true);
+do $$ begin
+  create policy "Public read on leaderboard_history"
+    on public.leaderboard_history for select to authenticated, anon using (true);
+exception when duplicate_object then null;
+end $$;
