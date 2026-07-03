@@ -29,9 +29,18 @@
     "experiments": {
       "reactCanary": true
     },
+    "updates": {
+      "url": "https://u.expo.dev/9373ab7f-19cb-4abb-a24d-fef654f60a98",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
       "eas": {
-        "projectId": "98b8ff82-5fe9-4818-b197-29b2b35ac43b"
+        "projectId": "9373ab7f-19cb-4abb-a24d-fef654f60a98"
       }
     },
     "owner": "neocows-team"

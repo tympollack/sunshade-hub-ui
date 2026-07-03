@@ -7,7 +7,10 @@ create table if not exists public.hub_achievements (
 );
 
 alter table public.hub_achievements enable row level security;
-create policy "Public read hub achievements" on public.hub_achievements for select using (true);
+do $$ begin
+  create policy "Public read hub achievements" on public.hub_achievements for select using (true);
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists public.user_hub_achievements (
   user_id uuid references public.profiles(id) on delete cascade,
@@ -17,8 +20,17 @@ create table if not exists public.user_hub_achievements (
 );
 
 alter table public.user_hub_achievements enable row level security;
-create policy "Public read user_hub_achievements" on public.user_hub_achievements for select using (true);
-create policy "Users can manage own hub achievements for dev" on public.user_hub_achievements for all using (auth.uid() = user_id);
+do $$ begin
+  create policy "Public read user_hub_achievements" on public.user_hub_achievements for select using (true);
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create policy "Users can manage own hub achievements for dev" on public.user_hub_achievements for all using (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;
 
 -- Also add a policy for chess achievements so we can toggle them from the UI
-create policy "Users can manage own chess achievements for dev" on chess.user_achievements for all using (auth.uid() = user_id);
+do $$ begin
+  create policy "Users can manage own chess achievements for dev" on chess.user_achievements for all using (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;
