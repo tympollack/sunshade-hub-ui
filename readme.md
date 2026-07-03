@@ -2,6 +2,15 @@
 
 > Decentralized · Privacy-First · Sustainable Infrastructure
 
+## Pipeline Status
+
+| Workflow | Staging | Production |
+|---|---|---|
+| **CI** (build + typecheck) | [![CI](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/ci.yml/badge.svg?branch=staging)](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/ci.yml) | [![CI](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/ci.yml) |
+| **DB Migrations** | [![DB Migrations](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/db-migrate.yml/badge.svg?branch=staging)](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/db-migrate.yml) | [![DB Migrations](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/db-migrate.yml/badge.svg?branch=master)](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/db-migrate.yml) |
+| **OTA Update** | [![OTA Update](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/eas-update.yml/badge.svg?branch=staging)](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/eas-update.yml) | [![OTA Update](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/eas-update.yml/badge.svg?branch=master)](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/eas-update.yml) |
+| **Score Rollup** | [![Score Rollup](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/worker-cron.yml/badge.svg)](https://github.com/tympollack/sunshade-hub-ui/actions/workflows/worker-cron.yml) | ← shared cron |
+
 Cross-platform hub for the SunShade / Critterverse ecosystem. Built on a Solito monorepo (Expo + Next.js), deployed to Vercel, with background jobs triggered by cron-job.org and data stored in Supabase + Upstash Redis.
 
 ## Stack
@@ -105,10 +114,20 @@ eas build --profile production --platform all
 
 ## Database migrations
 
+Migrations run automatically on push via GitHub Actions (`db-migrate.yml`).
+For manual runs use the environment-aware script:
+
 ```sh
-# Apply all pending migrations to the linked Supabase project
-supabase db push
+# Staging
+.\scripts\db-migrate.ps1 -Env staging
+
+# Production (requires typing "yes" at the prompt)
+.\scripts\db-migrate.ps1 -Env prod
 ```
+
+Required `.env.local` or environment variables:
+- `SUPABASE_STAGING_PROJECT_REF=tpbpmhscsxchnezukpev`
+- `SUPABASE_PROD_PROJECT_REF=rweehbzsflhhtwjrjnvy`
 
 ## Key architectural notes
 
