@@ -8,8 +8,14 @@ create table if not exists profiles (
 );
 
 alter table profiles enable row level security;
-create policy "Public read profiles" on profiles for select using (true);
-create policy "Users update own profile" on profiles for update using (auth.uid() = id);
+do $$ begin
+  create policy "Public read profiles" on profiles for select using (true);
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create policy "Users update own profile" on profiles for update using (auth.uid() = id);
+exception when duplicate_object then null;
+end $$;
 
 -- 2. Game-Specific Identity & Stats
 create table if not exists game_stats (
@@ -21,10 +27,16 @@ create table if not exists game_stats (
 );
 
 alter table game_stats enable row level security;
-create policy "Public read game stats" on game_stats for select using (true);
+do $$ begin
+  create policy "Public read game stats" on game_stats for select using (true);
+exception when duplicate_object then null;
+end $$;
 
 -- 3. Append-Only Points Ledger (Currency)
-create type ledger_reason as enum ('match_win', 'achievement', 'daily_login', 'purchase');
+do $$ begin
+  create type ledger_reason as enum ('match_win', 'achievement', 'daily_login', 'purchase');
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists points_ledger (
   id uuid primary key default gen_random_uuid(),
@@ -36,7 +48,10 @@ create table if not exists points_ledger (
 );
 
 alter table points_ledger enable row level security;
-create policy "Users can view own ledger" on points_ledger for select using (auth.uid() = user_id);
+do $$ begin
+  create policy "Users can view own ledger" on points_ledger for select using (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;
 
 -- 4. Hub Chat
 create table if not exists hub_messages (
@@ -48,11 +63,20 @@ create table if not exists hub_messages (
 );
 
 alter table hub_messages enable row level security;
-create policy "Public read messages" on hub_messages for select using (true);
-create policy "Users insert own messages" on hub_messages for insert with check (auth.uid() = sender_id);
+do $$ begin
+  create policy "Public read messages" on hub_messages for select using (true);
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create policy "Users insert own messages" on hub_messages for insert with check (auth.uid() = sender_id);
+exception when duplicate_object then null;
+end $$;
 
 -- 5. Match Engine Ledger
-create type match_status as enum ('pending', 'active', 'completed', 'aborted');
+do $$ begin
+  create type match_status as enum ('pending', 'active', 'completed', 'aborted');
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists matches (
   id uuid primary key default gen_random_uuid(),
@@ -67,7 +91,10 @@ create table if not exists matches (
 );
 
 alter table matches enable row level security;
-create policy "Public read matches" on matches for select using (true);
+do $$ begin
+  create policy "Public read matches" on matches for select using (true);
+exception when duplicate_object then null;
+end $$;
 
 -- 6. Gamification (Achievements)
 create table if not exists achievements (
@@ -78,7 +105,10 @@ create table if not exists achievements (
 );
 
 alter table achievements enable row level security;
-create policy "Public read achievements" on achievements for select using (true);
+do $$ begin
+  create policy "Public read achievements" on achievements for select using (true);
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists user_achievements (
   user_id uuid references profiles(id) on delete cascade,
@@ -88,7 +118,10 @@ create table if not exists user_achievements (
 );
 
 alter table user_achievements enable row level security;
-create policy "Public read user_achievements" on user_achievements for select using (true);
+do $$ begin
+  create policy "Public read user_achievements" on user_achievements for select using (true);
+exception when duplicate_object then null;
+end $$;
 
 -- Note: Community Poll tables from previous iteration removed for brevity in this gaming-focused update, 
 -- but would normally exist alongside these tables.

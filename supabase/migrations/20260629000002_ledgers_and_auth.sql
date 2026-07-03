@@ -1,8 +1,15 @@
--- 1. Move points_ledger to chess schema
-alter table public.points_ledger set schema chess;
+-- 1. Move points_ledger to chess schema (idempotent)
+do $$ begin
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'points_ledger') then
+    alter table public.points_ledger set schema chess;
+  end if;
+end $$;
 
 -- 2. Create Global Hub Tokens Ledger
-create type public.hub_ledger_reason as enum ('daily_login', 'purchase', 'governance_reward');
+do $$ begin
+  create type public.hub_ledger_reason as enum ('daily_login', 'purchase', 'governance_reward');
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists public.hub_tokens_ledger (
   id uuid primary key default gen_random_uuid(),
@@ -14,7 +21,10 @@ create table if not exists public.hub_tokens_ledger (
 );
 
 alter table public.hub_tokens_ledger enable row level security;
-create policy "Users can view own hub tokens" on public.hub_tokens_ledger for select using (auth.uid() = user_id);
+do $$ begin
+  create policy "Users can view own hub tokens" on public.hub_tokens_ledger for select using (auth.uid() = user_id);
+exception when duplicate_object then null;
+end $$;
 
 -- 3. Automatic Profile Creation Trigger
 -- Function that automatically executes when a new user signs up in auth.users
@@ -27,7 +37,10 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Trigger the function every time a user is created
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
+-- Trigger the function every time a user is created (idempotent)
+do $$ begin
+  create trigger on_auth_user_created
+    after insert on auth.users
+    for each row execute procedure public.handle_new_user();
+exception when duplicate_object then null;
+end $$;
