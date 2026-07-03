@@ -29,6 +29,15 @@
     "experiments": {
       "reactCanary": true
     },
+    "updates": {
+      "url": "https://u.expo.dev/98b8ff82-5fe9-4818-b197-29b2b35ac43b",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
       "eas": {
         "projectId": "98b8ff82-5fe9-4818-b197-29b2b35ac43b"

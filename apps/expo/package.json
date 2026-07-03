@@ -2,6 +2,7 @@
   "dependencies": {
     "app": "*",
     "expo": "^54.0.16",
+    "expo-updates": "~0.28.0",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "~6.0.21",
     "expo-image": "~3.0.10",
