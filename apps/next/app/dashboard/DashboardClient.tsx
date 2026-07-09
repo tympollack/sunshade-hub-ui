@@ -5,6 +5,7 @@ import { supabase } from '@sunshade/supabase';
 import { AuthGate } from 'ui';
 import { EventsCarousel } from 'ui/src/EventsCarousel';
 import { useTheme } from 'next-themes';
+import { OTAManager } from './OTAManager';
 import {
   LayoutDashboard,
   Swords,
@@ -54,6 +55,24 @@ export default function DashboardClient({
   const [session, setSession] = useState<any>(null);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [submittingInvite, setSubmittingInvite] = useState(false);
+
+  const handleClaimInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingInvite(true);
+    setInviteError(null);
+    try {
+      const { error } = await supabase.rpc('claim_invite', { invite_code: inviteCode.toUpperCase() });
+      if (error) throw error;
+      window.location.reload();
+    } catch (err: any) {
+      setInviteError(err.message || 'Invalid code');
+    } finally {
+      setSubmittingInvite(false);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -203,6 +222,33 @@ export default function DashboardClient({
 
           <div className="flex-1 p-4 sm:p-8 custom-scrollbar relative overflow-y-auto lg:overflow-hidden flex flex-col">
             <div className={`max-w-7xl w-full mx-auto flex-1 flex flex-col ${activeView === 'Overview' ? 'space-y-6 lg:overflow-y-auto' : ''}`}>
+
+              {profile?.status === 'pending_invite' && (
+                <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 mb-2 shrink-0">
+                  <div className="w-full md:w-auto">
+                    <h3 className="font-bold text-orange-600 dark:text-orange-400 text-lg">Guest Mode Active</h3>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">You are browsing in preview mode. To unlock games, nodes, and ecosystem features, redeem an invite code.</p>
+                    {inviteError && <p className="text-xs text-red-500 mt-1 font-medium">{inviteError}</p>}
+                  </div>
+                  <form className="flex gap-2 w-full md:w-auto shrink-0" onSubmit={handleClaimInvite}>
+                    <input 
+                      type="text" 
+                      placeholder="Invite Code" 
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                      required
+                      className="px-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm w-full md:w-48 outline-none focus:border-orange-500 transition-colors uppercase" 
+                    />
+                    <button 
+                      type="submit"
+                      disabled={submittingInvite}
+                      className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:bg-zinc-500 text-white font-medium rounded-lg text-sm whitespace-nowrap transition-colors"
+                    >
+                      {submittingInvite ? 'Verifying...' : 'Redeem'}
+                    </button>
+                  </form>
+                </div>
+              )}
 
               {activeView === 'Overview' && (
                 <>
@@ -373,7 +419,7 @@ export default function DashboardClient({
                     </div>
                   </div>
                   <div className={`shrink-0 md:h-full md:overflow-y-auto custom-scrollbar transition-all duration-300 ease-out ${selectedGame ? 'w-full md:w-[320px] lg:w-[360px] xl:w-[400px] opacity-100 mt-6 md:mt-0 ml-0 md:ml-4 lg:ml-6' : 'w-0 h-0 md:h-full opacity-0 m-0 overflow-hidden'}`}>
-                    <GameDetailsDrawer game={selectedGame} isOpen={!!selectedGame} onClose={() => setSelectedGame(null)} />
+                    <GameDetailsDrawer game={selectedGame} isOpen={!!selectedGame} onClose={() => setSelectedGame(null)} isGuest={profile?.status === 'pending_invite'} />
                   </div>
                 </div>
               )}
@@ -390,6 +436,8 @@ export default function DashboardClient({
           <MobileNavItem icon={<Server size={22} />} label="Nodes" />
           <MobileNavItem icon={<Settings size={22} />} label="Settings" />
         </nav>
+
+        <OTAManager />
       </div>
     </AuthGate>
   );

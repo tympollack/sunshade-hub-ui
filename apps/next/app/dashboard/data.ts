@@ -26,7 +26,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('display_name, global_hub_tokens, critterverse_elo')
+      .select('display_name, global_hub_tokens, critterverse_elo, status')
       .eq('id', user.id)
       .maybeSingle(),
 
@@ -63,6 +63,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
         email: user.email ?? '',
         global_hub_tokens: profileRow.global_hub_tokens ?? 0,
         critterverse_elo: profileRow.critterverse_elo ?? 1200,
+        status: profileRow.status ?? 'pending_invite',
       }
     : null;
 

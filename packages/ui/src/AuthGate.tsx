@@ -50,10 +50,84 @@ const LoginForm = () => {
   );
 };
 
+const InviteForm = ({ onClaimed }: { onClaimed: () => void }) => {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    
+    try {
+      const { data, error } = await supabase.rpc('claim_invite', { invite_code: code });
+      
+      if (error) {
+        throw error;
+      }
+      
+      onClaimed();
+    } catch (err: any) {
+      setError(err.message || 'Failed to claim invite code');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#111111', color: 'white', fontFamily: 'sans-serif' }}>
+      <img src="/logo.png" alt="SunShade Systems" style={{ width: 260, height: 'auto', marginBottom: 24 }} />
+      <div style={{ marginBottom: 32, textAlign: 'center', maxWidth: 320 }}>
+        <h2 style={{ margin: '0 0 8px 0', fontSize: 20 }}>Invite Required</h2>
+        <p style={{ margin: 0, color: '#a1a1aa', fontSize: 14 }}>Enter your invitation code to access the SunShade Hub.</p>
+      </div>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 300 }}>
+        <input
+          type="text"
+          placeholder="Invite Code (e.g., SUN-...)"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          required
+          style={{ padding: '10px 14px', borderRadius: 6, border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: 14, outline: 'none', textTransform: 'uppercase' }}
+        />
+        {error && <div style={{ color: '#ef4444', fontSize: 12 }}>{error}</div>}
+        <button
+          type="submit"
+          disabled={submitting}
+          style={{ padding: '11px 0', borderRadius: 6, border: 'none', background: submitting ? '#7c3010' : '#ea580c', color: 'white', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer' }}
+        >
+          {submitting ? 'Verifying...' : 'Redeem Code'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
 export const AuthGate = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+        
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching profile:', error);
+      }
+      setProfile(data);
+    } catch (err) {
+      console.error('Error in fetchProfile:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -67,7 +141,11 @@ export const AuthGate = ({ children }: { children: React.ReactNode }) => {
       .then(({ data: { session } }) => {
         clearTimeout(timeout);
         setSession(session);
-        setLoading(false);
+        if (session?.user) {
+          fetchProfile(session.user.id);
+        } else {
+          setLoading(false);
+        }
       })
       .catch((err: unknown) => {
         clearTimeout(timeout);
@@ -78,7 +156,13 @@ export const AuthGate = ({ children }: { children: React.ReactNode }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      setLoading(false);
+      if (session?.user) {
+        setLoading(true);
+        fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+        setLoading(false);
+      }
     });
 
     return () => {
@@ -106,6 +190,7 @@ export const AuthGate = ({ children }: { children: React.ReactNode }) => {
     return <LoginForm />;
   }
 
+  // Allow 'pending_invite' users to view the dashboard (guest mode)
   return (
     <>
       {children}

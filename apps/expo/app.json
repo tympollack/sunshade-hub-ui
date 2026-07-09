@@ -15,15 +15,18 @@
       "backgroundColor": "#0d0d0d"
     },
     "ios": {
-      "bundleIdentifier": "com.sunshade.hub",
+      "bundleIdentifier": "icu.sunshade.hub",
       "supportsTablet": true
     },
     "android": {
-      "package": "com.sunshade.hub",
+      "package": "icu.sunshade.hub",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0d0d0d"
-      }
+      },
+      "permissions": [
+        "android.permission.REQUEST_INSTALL_PACKAGES"
+      ]
     },
     "newArchEnabled": true,
     "experiments": {

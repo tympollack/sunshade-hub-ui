@@ -3,6 +3,7 @@ export interface DashboardProfile {
   critterverse_elo: number;
   display_name: string;
   email: string;
+  status: string;
 }
 
 export interface EdgeNode {
