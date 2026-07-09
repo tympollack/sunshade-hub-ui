@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { getDashboardData } from './data';
 import DashboardClient from './DashboardClient';
+import { OTAManager } from './OTAManager';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = { title: 'Dashboard' };

@@ -5,6 +5,7 @@ interface GameDetailsDrawerProps {
   game: any;
   isOpen: boolean;
   onClose: () => void;
+  isGuest?: boolean;
 }
 
 const MOCK_STATS = [
@@ -20,7 +21,7 @@ const MOCK_BOUNTIES = [
   { id: 3, title: 'Grandmaster', description: 'Reach 2000 ELO', progress: 1850, target: 2000, type: 'Season', reward: '1,000 CP', icon: <Trophy size={16} /> },
 ];
 
-export function GameDetailsDrawer({ game, isOpen, onClose }: GameDetailsDrawerProps) {
+export function GameDetailsDrawer({ game, isOpen, onClose, isGuest = false }: GameDetailsDrawerProps) {
   const [shouldRender, setShouldRender] = useState(isOpen);
 
   useEffect(() => {
@@ -65,10 +66,21 @@ export function GameDetailsDrawer({ game, isOpen, onClose }: GameDetailsDrawerPr
             </button>
             <button 
               onClick={handleLaunch}
-              className="flex-1 flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-5 py-3 rounded-xl font-bold text-lg transition-all shadow-lg shadow-orange-600/20"
+              disabled={isGuest}
+              className={`flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-lg transition-all ${
+                isGuest 
+                  ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 cursor-not-allowed' 
+                  : 'bg-orange-600 hover:bg-orange-500 text-white shadow-lg shadow-orange-600/20'
+              }`}
             >
-              <Play size={20} className="fill-current" />
-              Play Now
+              {isGuest ? (
+                'Invite Required'
+              ) : (
+                <>
+                  <Play size={20} className="fill-current" />
+                  Play Now
+                </>
+              )}
             </button>
           </div>
           
