@@ -18,7 +18,7 @@ const LoginForm = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#111111', color: 'white', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', width: '100%', background: '#111111', color: 'white', fontFamily: 'sans-serif' }}>
       <img src="/logo.png" alt="SunShade Systems" style={{ width: 260, height: 'auto', marginBottom: 32 }} />
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 300 }}>
         <input
@@ -76,7 +76,7 @@ const InviteForm = ({ onClaimed }: { onClaimed: () => void }) => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#111111', color: 'white', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', width: '100%', background: '#111111', color: 'white', fontFamily: 'sans-serif' }}>
       <img src="/logo.png" alt="SunShade Systems" style={{ width: 260, height: 'auto', marginBottom: 24 }} />
       <div style={{ marginBottom: 32, textAlign: 'center', maxWidth: 320 }}>
         <h2 style={{ margin: '0 0 8px 0', fontSize: 20 }}>Invite Required</h2>
@@ -172,7 +172,7 @@ export const AuthGate = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   if (authError) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#111111', color: 'white', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', width: '100%', background: '#111111', color: 'white', fontFamily: 'sans-serif' }}>
       <img src="/logo.png" alt="SunShade Systems" style={{ width: 300, height: 'auto', marginBottom: 20 }} />
       <div style={{ color: '#ef4444', marginBottom: 8, fontWeight: 600 }}>Auth Error</div>
       <div style={{ color: '#a1a1aa', fontSize: 13, maxWidth: 400, textAlign: 'center' }}>{authError}</div>
@@ -180,7 +180,7 @@ export const AuthGate = ({ children }: { children: React.ReactNode }) => {
   );
 
   if (loading) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#111111', color: 'white', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', width: '100%', background: '#111111', color: 'white', fontFamily: 'sans-serif' }}>
       <img src="/logo.png" alt="SunShade Systems" style={{ width: 300, height: 'auto', marginBottom: 20 }} />
       <div style={{ color: '#a1a1aa' }}>Initializing Secure Session...</div>
     </div>

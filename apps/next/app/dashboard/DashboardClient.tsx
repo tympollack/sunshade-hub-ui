@@ -28,6 +28,21 @@ import type {
   EcosystemLog,
 } from './types';
 
+const HARDCODED_GAMES = [
+  { id: 'g1', title: 'Second Wind', description: 'A thrilling post-apocalyptic runner.', deep_link_scheme: 'secondwind', web_fallback_url: 'https://sunshade.icu' },
+  { id: 'g2', title: 'Puk Huk', description: 'Fast paced arcade action.', deep_link_scheme: 'pukhuk', web_fallback_url: 'https://sunshade.icu' },
+  { id: 'g3', title: 'Dart Up', description: 'Hit the bullseye in this competitive dart thrower.', deep_link_scheme: 'dartup', web_fallback_url: 'https://sunshade.icu' },
+  { id: 'g4', title: 'SunShade Chess', description: 'Competitive chess matches with ELO ratings.', deep_link_scheme: 'chess', web_fallback_url: 'https://sunshade.icu' },
+  { id: 'g5', title: 'Pocket Pitch', description: 'Baseball in your pocket.', deep_link_scheme: 'pocketpitch', web_fallback_url: 'https://sunshade.icu' },
+];
+
+const HARDCODED_UTILITIES = [
+  { id: 'u1', title: 'PatchWork', description: 'System update and deployment utility.', deep_link_scheme: 'patchwork', web_fallback_url: 'https://sunshade.icu' },
+  { id: 'u2', title: 'LexShade', description: 'Advanced legal and document parsing.', deep_link_scheme: 'lexshade', web_fallback_url: 'https://sunshade.icu' },
+  { id: 'u3', title: 'Speak for the Dead', description: 'Digital archival and communication tool.', deep_link_scheme: 'speak', web_fallback_url: 'https://speak.sunshade.icu' },
+  { id: 'u4', title: 'Project Valerie', description: 'Next generation AI initiative.', deep_link_scheme: 'valerie', web_fallback_url: 'https://sunshade.icu' },
+];
+
 interface DashboardClientProps {
   profile: DashboardProfile | null;
   edgeNodes: EdgeNode[];
@@ -46,7 +61,8 @@ export default function DashboardClient({
   const [activeView, setActiveView] = useState('Overview');
   const [chessAchievements, setChessAchievements] = useState<any[]>([]);
   const [hubAchievements, setHubAchievements] = useState<any[]>([]);
-  const [hubGames, setHubGames] = useState<any[]>([]);
+  const [hubGames, setHubGames] = useState<any[]>(HARDCODED_GAMES);
+  const [hubUtilities, setHubUtilities] = useState<any[]>(HARDCODED_UTILITIES);
   const [hubEvents, setHubEvents] = useState<any[]>([]);
   const [selectedGame, setSelectedGame] = useState<any | null>(null);
   const [userChessUnlocks, setUserChessUnlocks] = useState<Record<string, boolean>>({});
@@ -102,7 +118,7 @@ export default function DashboardClient({
 
     if (chessData) setChessAchievements(chessData);
     if (hubData) setHubAchievements(hubData);
-    if (gamesData) setHubGames(gamesData);
+    if (gamesData) setHubGames([...HARDCODED_GAMES, ...gamesData]);
     if (eventsData) setHubEvents(eventsData);
 
     const chessUnlocks: Record<string, boolean> = {};
@@ -407,15 +423,30 @@ export default function DashboardClient({
                   <div className="flex-1 w-full flex flex-col md:h-full md:overflow-hidden">
                     <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-4 md:mb-6 shrink-0 mt-6 md:mt-0">Game Library</h2>
                     <div className="flex-1 md:overflow-y-auto custom-scrollbar md:pr-2">
-                      {hubGames.length === 0 ? (
-                        <p className="text-zinc-500">No games found.</p>
-                      ) : (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                          {hubGames.map((game) => (
-                            <GameLibraryCard key={game.id} game={game} onSelect={() => setSelectedGame(game)} />
-                          ))}
-                        </div>
-                      )}
+                      <div className="mb-8">
+                        {hubGames.length === 0 ? (
+                          <p className="text-zinc-500">No games found.</p>
+                        ) : (
+                          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {hubGames.map((game) => (
+                              <GameLibraryCard key={game.id} game={game} onSelect={() => setSelectedGame(game)} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-4 md:mb-6 shrink-0">Civic Utilities</h2>
+                      <div className="mb-8">
+                        {hubUtilities.length === 0 ? (
+                          <p className="text-zinc-500">No utilities found.</p>
+                        ) : (
+                          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {hubUtilities.map((utility) => (
+                              <GameLibraryCard key={utility.id} game={utility} onSelect={() => setSelectedGame(utility)} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className={`shrink-0 md:h-full md:overflow-y-auto custom-scrollbar transition-all duration-300 ease-out ${selectedGame ? 'w-full md:w-[320px] lg:w-[360px] xl:w-[400px] opacity-100 mt-6 md:mt-0 ml-0 md:ml-4 lg:ml-6' : 'w-0 h-0 md:h-full opacity-0 m-0 overflow-hidden'}`}>
