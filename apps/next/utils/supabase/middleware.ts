@@ -39,6 +39,7 @@ export async function updateSession(request: NextRequest) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = '/dashboard';
+      url.searchParams.set('debug_reason', 'no_user');
       const redirectResponse = NextResponse.redirect(url);
       supabaseResponse.cookies.getAll().forEach((cookie) => {
         redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
@@ -46,7 +47,7 @@ export async function updateSession(request: NextRequest) {
       return redirectResponse;
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
@@ -55,6 +56,9 @@ export async function updateSession(request: NextRequest) {
     if (!profile || profile.role !== 'admin') {
       const url = request.nextUrl.clone();
       url.pathname = '/dashboard';
+      url.searchParams.set('debug_reason', 'not_admin');
+      url.searchParams.set('debug_role', profile?.role || 'null');
+      url.searchParams.set('debug_error', error?.message || 'none');
       const redirectResponse = NextResponse.redirect(url);
       supabaseResponse.cookies.getAll().forEach((cookie) => {
         redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
