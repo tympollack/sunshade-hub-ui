@@ -11,6 +11,7 @@ export function useHubPresence(userId?: string) {
     if (!userId) return;
 
     // 1. Join the shared Hub Presence channel
+
     const channel = supabase.channel('sunshade_global_hub');
 
     channel
@@ -30,6 +31,7 @@ export function useHubPresence(userId?: string) {
             user_id: userId, 
             status: 'online',
             current_app: 'hub_dashboard' 
+
           });
         }
       });
@@ -40,4 +42,5 @@ export function useHubPresence(userId?: string) {
   }, [userId]);
 
   return { activeUsers, onlineCount };
+
 }
