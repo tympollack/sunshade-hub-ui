@@ -19,10 +19,11 @@ export async function updateSession(request: NextRequest) {
           supabaseResponse = NextResponse.next({
             request,
           });
+          const isLocal = request.nextUrl.hostname === 'localhost' || request.nextUrl.hostname === '127.0.0.1';
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, {
               ...options,
-              domain: '.sunshade.icu',
+              ...(!isLocal && { domain: '.sunshade.icu' }),
             })
           );
         },
@@ -38,7 +39,11 @@ export async function updateSession(request: NextRequest) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = '/dashboard';
-      return NextResponse.redirect(url);
+      const redirectResponse = NextResponse.redirect(url);
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
+      });
+      return redirectResponse;
     }
 
     const { data: profile } = await supabase
@@ -50,7 +55,11 @@ export async function updateSession(request: NextRequest) {
     if (!profile || profile.role !== 'admin') {
       const url = request.nextUrl.clone();
       url.pathname = '/dashboard';
-      return NextResponse.redirect(url);
+      const redirectResponse = NextResponse.redirect(url);
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
+      });
+      return redirectResponse;
     }
   }
 

@@ -5,6 +5,19 @@ import { revalidatePath } from 'next/cache';
 
 export async function upsertTask(formData: FormData) {
   const supabase = await createSSRClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+  
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+    
+  if (!profile || profile.role !== 'admin') {
+    throw new Error('Forbidden: Admin access required');
+  }
   
   const id = formData.get('id') as string | null;
   const title = formData.get('title') as string;
@@ -34,6 +47,20 @@ export async function upsertTask(formData: FormData) {
 
 export async function toggleTaskStatus(id: string, is_active: boolean) {
   const supabase = await createSSRClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+  
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+    
+  if (!profile || profile.role !== 'admin') {
+    throw new Error('Forbidden: Admin access required');
+  }
+
   await supabase.from('global_tasks').update({ is_active }).eq('id', id);
   revalidatePath('/admin/tasks');
 }

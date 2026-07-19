@@ -40,7 +40,7 @@ async function TokenVelocity() {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
 
-  const { data: transactions } = await supabase
+  const { data: transactions, error: txError } = await supabase
     .from('token_ledger')
     .select('amount')
     .gte('created_at', yesterday.toISOString());
@@ -48,7 +48,9 @@ async function TokenVelocity() {
   let minted = 0;
   let spent = 0;
 
-  if (transactions) {
+  if (txError) {
+    console.error('Failed to fetch token ledger:', txError);
+  } else if (transactions) {
     transactions.forEach(t => {
       if (t.amount > 0) minted += t.amount;
       else spent += Math.abs(t.amount);
@@ -85,9 +87,13 @@ async function TokenVelocity() {
 async function EdgeNetworkStatus() {
   const supabase = await createSSRClient();
   
-  const { data: nodes } = await supabase
+  const { data: nodes, error: nodeError } = await supabase
     .from('edge_nodes')
     .select('status, id');
+
+  if (nodeError) {
+    console.error('Failed to fetch edge nodes:', nodeError);
+  }
 
   const online = nodes?.filter(n => n.status === 'online').length || 0;
   const degraded = nodes?.filter(n => n.status === 'degraded').length || 0;
