@@ -20,12 +20,10 @@ import {
   Moon,
 } from 'lucide-react';
 import { GameDetailsDrawer } from './GameDetailsDrawer';
+import { useHubPresence } from '../../hooks/useHubPresence';
 import type {
   DashboardProfile,
   EdgeNode,
-  GameStat,
-  MatchHistoryRow,
-  EcosystemLog,
 } from './types';
 
 const HARDCODED_GAMES = [
@@ -46,17 +44,15 @@ const HARDCODED_UTILITIES = [
 interface DashboardClientProps {
   profile: DashboardProfile | null;
   edgeNodes: EdgeNode[];
-  gameStats: GameStat | null;
-  matchHistory: MatchHistoryRow[];
-  ecosystemLogs: EcosystemLog[];
+  chessWidget: React.ReactNode;
+  ecosystemWidget: React.ReactNode;
 }
 
 export default function DashboardClient({
   profile,
   edgeNodes,
-  gameStats,
-  matchHistory,
-  ecosystemLogs,
+  chessWidget,
+  ecosystemWidget,
 }: DashboardClientProps) {
   const [activeView, setActiveView] = useState('Overview');
   const [chessAchievements, setChessAchievements] = useState<any[]>([]);
@@ -74,6 +70,8 @@ export default function DashboardClient({
   const [inviteCode, setInviteCode] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [submittingInvite, setSubmittingInvite] = useState(false);
+
+  const { onlineCount } = useHubPresence(session?.user?.id);
 
   const handleClaimInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,9 +174,6 @@ export default function DashboardClient({
   const hubTokens = profile?.global_hub_tokens ?? 0;
   const crittverseElo = profile?.critterverse_elo ?? 1200;
   const onlineNodes = edgeNodes.filter((n) => n.status === 'online').length;
-  const chess = gameStats;
-  const recentMatches = matchHistory.slice(0, 3);
-  const logs = ecosystemLogs.slice(0, 5);
 
   return (
     <AuthGate>
@@ -226,8 +221,11 @@ export default function DashboardClient({
               </button>
               <div className="flex items-center gap-3 pl-4 border-l border-zinc-200 dark:border-zinc-800 transition-colors duration-200">
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Global Hub Tokens</p>
-                  <p className="text-xs text-orange-600 dark:text-orange-400 font-mono">{hubTokens.toLocaleString()} HT</p>
+                  <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Active Citizens</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-mono">
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
+                    {onlineCount} Online
+                  </p>
                 </div>
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-orange-400/30">
                   <span className="font-bold text-sm text-white">{(profile?.display_name ?? session?.user?.email ?? 'G').charAt(0).toUpperCase()}</span>
@@ -291,58 +289,14 @@ export default function DashboardClient({
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Chess Widget — live from server props */}
-                    <div className="lg:col-span-2 bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none transition-colors duration-200">
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-zinc-100 dark:bg-zinc-800/80 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors duration-200">
-                            <Swords size={20} className="text-zinc-600 dark:text-zinc-300" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">SunShade Chess</h3>
-                        </div>
-                        <button className="text-sm text-orange-600 dark:text-orange-400 hover:text-orange-500 dark:hover:text-orange-300 font-medium transition-colors duration-200">View Game</button>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                        <StatBox label="Matches Played" value={chess ? String(chess.matches_played) : '—'} />
-                        <StatBox label="Win Rate" value={chess ? `${Math.round(chess.win_rate * 100)}%` : '—'} />
-                        <StatBox label="Local Currency" value={chess ? `${chess.local_currency.toLocaleString()} CP` : '—'} />
-                        <StatBox label="Achievements" value={chess ? `${chess.achievements_unlocked}/${chess.achievements_total}` : '—'} />
-                      </div>
-
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">Recent Matches</h4>
-                        {recentMatches.length === 0 ? (
-                          <p className="text-sm text-zinc-500 dark:text-zinc-400">No matches yet.</p>
-                        ) : (
-                          recentMatches.map((m) => (
-                            <MatchRow key={m.id} result={m.result as 'Victory' | 'Defeat' | 'Draw'} opponent={m.opponent_name} format={m.match_type} moves={m.moves} />
-                          ))
-                        )}
-                      </div>
+                    {/* Chess Widget Streamed */}
+                    <div className="lg:col-span-2">
+                      {chessWidget}
                     </div>
 
-                    {/* Ecosystem Log — live from server props */}
-                    <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none transition-colors duration-200">
-                      <div className="flex items-center gap-2 mb-6">
-                        <History size={18} className="text-zinc-500 dark:text-zinc-400" />
-                        <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Ecosystem Log</h3>
-                      </div>
-                      <div className="space-y-4 relative before:absolute before:inset-0 before:ml-2 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-zinc-200 dark:before:via-zinc-800 before:to-transparent">
-                        {logs.length === 0 ? (
-                          <p className="text-sm text-zinc-500 dark:text-zinc-400 pl-4">No activity yet.</p>
-                        ) : (
-                          logs.map((log) => (
-                            <ActivityItem
-                              key={log.id}
-                              title={log.title}
-                              desc={log.description}
-                              time={new Date(log.created_at).toLocaleDateString()}
-                              color={categoryColor(log.event_category)}
-                            />
-                          ))
-                        )}
-                      </div>
+                    {/* Ecosystem Log Streamed */}
+                    <div>
+                      {ecosystemWidget}
                     </div>
                   </div>
 
@@ -539,43 +493,4 @@ function MetricCard({ title, value, trend, icon }: { title: string; value: strin
   );
 }
 
-function StatBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-lg p-3 border border-zinc-200 dark:border-zinc-800/40 transition-colors duration-200">
-      <p className="text-xs text-zinc-500 mb-1">{label}</p>
-      <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{value}</p>
-    </div>
-  );
-}
 
-function MatchRow({ result, opponent, format, moves }: { result: 'Victory' | 'Defeat' | 'Draw'; opponent: string; format: string; moves: number }) {
-  const isWin = result === 'Victory';
-  return (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors duration-200 shadow-sm dark:shadow-none">
-      <div className="flex items-center gap-3">
-        <div className={`w-2 h-2 rounded-full ${isWin ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`} />
-        <div>
-          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{result} vs {opponent}</p>
-          <p className="text-xs text-zinc-500">{format} • {moves} moves</p>
-        </div>
-      </div>
-      <button className="text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800/50 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">Review</button>
-    </div>
-  );
-}
-
-function ActivityItem({ title, desc, time, color }: { title: string; desc: string; time: string; color: string }) {
-  return (
-    <div className="relative flex items-center gap-4 pl-4 md:pl-0">
-      <div className="hidden md:flex flex-col items-end w-24 shrink-0">
-        <span className="text-xs text-zinc-500">{time}</span>
-      </div>
-      <div className={`w-2 h-2 rounded-full ${color} z-10 shadow-lg ring-4 ring-white dark:ring-[#161616] transition-colors duration-200`} />
-      <div className="flex-1 bg-white dark:bg-zinc-900/40 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/40 shadow-sm dark:shadow-none transition-colors duration-200">
-        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{title}</p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{desc}</p>
-        <span className="text-[10px] text-zinc-500 mt-2 block md:hidden">{time}</span>
-      </div>
-    </div>
-  );
-}

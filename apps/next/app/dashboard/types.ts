@@ -43,7 +43,4 @@ export interface EcosystemLog {
 export interface DashboardData {
   profile: DashboardProfile | null;
   edgeNodes: EdgeNode[];
-  gameStats: GameStat | null;
-  matchHistory: MatchHistoryRow[];
-  ecosystemLogs: EcosystemLog[];
 }

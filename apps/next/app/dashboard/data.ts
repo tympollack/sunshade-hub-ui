@@ -2,9 +2,6 @@ import { createSSRClient } from '../../utils/supabase/server';
 import type {
   DashboardProfile,
   EdgeNode,
-  GameStat,
-  MatchHistoryRow,
-  EcosystemLog,
   DashboardData,
 } from './types';
 
@@ -14,15 +11,12 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return { userId: null, profile: null, edgeNodes: [], gameStats: null, matchHistory: [], ecosystemLogs: [] };
+    return { userId: null, profile: null, edgeNodes: [] };
   }
 
   const [
     { data: profileRow },
     { data: edgeRows },
-    { data: statsRow },
-    { data: matchRows },
-    { data: logRows },
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -34,27 +28,6 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
       .from('edge_nodes')
       .select('id, name, status')
       .eq('user_id', user.id),
-
-    supabase
-      .from('game_stats')
-      .select('game_name, matches_played, wins, win_rate, local_currency, achievements_unlocked, achievements_total')
-      .eq('user_id', user.id)
-      .eq('game_name', 'SunShade Chess')
-      .maybeSingle(),
-
-    supabase
-      .from('match_history')
-      .select('id, game_name, opponent_name, result, match_type, moves, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(5),
-
-    supabase
-      .from('ecosystem_logs')
-      .select('id, event_category, title, description, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(10),
   ]);
 
   const profile: DashboardProfile | null = profileRow
@@ -71,8 +44,5 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
     userId: user.id,
     profile,
     edgeNodes: (edgeRows ?? []) as EdgeNode[],
-    gameStats: (statsRow ?? null) as GameStat | null,
-    matchHistory: (matchRows ?? []) as MatchHistoryRow[],
-    ecosystemLogs: (logRows ?? []) as EcosystemLog[],
   };
 }
