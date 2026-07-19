@@ -7,8 +7,6 @@ export async function ChessWidget({ userId }: { userId: string | null }) {
   if (!userId) return null;
   const supabase = await createSSRClient();
 
-  // Simulate heavy streaming delay for demonstration
-  await new Promise((resolve) => setTimeout(resolve, 1500));
 
   const [
     { data: statsRow },
