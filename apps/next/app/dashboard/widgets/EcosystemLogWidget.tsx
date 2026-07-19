@@ -7,8 +7,7 @@ export async function EcosystemLogWidget({ userId }: { userId: string | null }) 
   if (!userId) return null;
   const supabase = await createSSRClient();
 
-  // Simulate heavy streaming delay for demonstration
-  await new Promise((resolve) => setTimeout(resolve, 800));
+
 
   const { data: logRows } = await supabase
     .from('ecosystem_logs')
