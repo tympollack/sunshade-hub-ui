@@ -45,17 +45,19 @@ function getAppUrl(appId: string): string {
 
 const HARDCODED_GAMES = [
   { id: 'g1', title: 'Second Wind', description: 'A thrilling post-apocalyptic runner.', deep_link_scheme: 'secondwind', web_fallback_url: 'https://sunshade.icu' },
-  { id: 'g2', title: 'Puk Huk', description: 'Fast paced arcade action.', deep_link_scheme: 'pukhuk', web_fallback_url: 'https://sunshade.icu' },
-  { id: 'g3', title: 'Dart Up', description: 'Hit the bullseye in this competitive dart thrower.', deep_link_scheme: 'dartup', web_fallback_url: 'https://sunshade.icu' },
-  { id: 'g4', title: 'SunShade Chess', description: 'Competitive chess matches with ELO ratings.', deep_link_scheme: 'chess', web_fallback_url: 'https://sunshade.icu' },
+  { id: 'g2', title: 'Puk Huk', description: 'Fast paced arcade action.', deep_link_scheme: 'pukhuk', web_fallback_url: 'https://sunshade.icu', image_url: '/apps/puk_huk_icon.jpg', hero_image_url: '/apps/puk_huk_hero.jpg' },
+  { id: 'g3', title: 'Dart Up', description: 'Hit the bullseye in this competitive dart thrower.', deep_link_scheme: 'dartup', web_fallback_url: 'https://sunshade.icu', image_url: '/apps/dartup_icon.jpg', hero_image_url: '/apps/dartup_hero.jpg' },
+  { id: 'g4', title: 'SunShade Chess', description: 'Competitive chess matches with ELO ratings.', deep_link_scheme: 'chess', web_fallback_url: 'https://sunshade.icu', image_url: '/apps/chess_icon.jpg', hero_image_url: '/apps/chess_hero.jpg' },
   { id: 'g5', title: 'Pocket Pitch', description: 'Baseball in your pocket.', deep_link_scheme: 'pocketpitch', web_fallback_url: 'https://sunshade.icu' },
+  { id: 'g6', title: 'Silent Comms', description: 'Algorithmic strategy and networked control.', deep_link_scheme: 'silentcomms', web_fallback_url: 'https://sunshade.icu', image_url: '/apps/silent_comms_icon.jpg' },
 ];
 
 const HARDCODED_UTILITIES = [
-  { id: 'u1', title: 'PatchWork', description: 'System update and deployment utility.', deep_link_scheme: 'patchwork', web_fallback_url: 'https://sunshade.icu' },
+  { id: 'u1', title: 'PatchWork', description: 'System update and deployment utility.', deep_link_scheme: 'patchwork', web_fallback_url: 'https://sunshade.icu', image_url: '/apps/patchwork_icon.jpg', hero_image_url: '/apps/patchwork_hero.jpg' },
   { id: 'u2', title: 'LexShade', description: 'Advanced legal and document parsing.', deep_link_scheme: 'lexshade', web_fallback_url: 'https://sunshade.icu' },
   { id: 'u3', title: 'Speak for the Dead', description: 'Digital archival and communication tool.', deep_link_scheme: 'speak', web_fallback_url: 'https://speak.sunshade.icu' },
-  { id: 'u4', title: 'Project Valerie', description: 'Next generation AI initiative.', deep_link_scheme: 'valerie', web_fallback_url: 'https://sunshade.icu' },
+  { id: 'u4', title: 'Project Valerie', description: 'Next generation AI initiative.', deep_link_scheme: 'valerie', web_fallback_url: 'https://sunshade.icu', image_url: '/apps/valerie_icon.jpg', hero_image_url: '/apps/valerie_hero.jpg' },
+  { id: 'u5', title: 'Cozy', description: 'Warmth and personal space.', deep_link_scheme: 'cozy', web_fallback_url: 'https://sunshade.icu', image_url: '/apps/cozy_icon.jpg', hero_image_url: '/apps/cozy_hero.jpg' },
 ];
 
 interface DashboardClientProps {
@@ -131,9 +133,19 @@ export default function DashboardClient({
       supabase.from('hub_events').select('*').eq('is_active', true),
     ]);
 
+    const processApp = (app: any) => ({
+      ...app,
+      web_fallback_url: getAppUrl(app.deep_link_scheme || app.id)
+    });
+
     if (chessData) setChessAchievements(chessData);
     if (hubData) setHubAchievements(hubData);
-    if (gamesData) setHubGames([...HARDCODED_GAMES, ...gamesData]);
+    if (gamesData) {
+      setHubGames([...HARDCODED_GAMES, ...gamesData].map(processApp));
+    } else {
+      setHubGames(HARDCODED_GAMES.map(processApp));
+    }
+    setHubUtilities(HARDCODED_UTILITIES.map(processApp));
     
     if (eventsData && eventsData.length > 0) {
       setHubEvents(eventsData);
@@ -230,7 +242,7 @@ export default function DashboardClient({
           </div>
           <nav className="flex-1 py-6 px-3 space-y-1 min-w-[256px]">
             <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active={activeView === 'Overview'} onClick={() => setActiveView('Overview')} />
-            <NavItem icon={<Swords size={18} />} label="Game Library" active={activeView === 'Game Library'} onClick={() => setActiveView('Game Library')} />
+            <NavItem icon={<Swords size={18} />} label="Library" active={activeView === 'Game Library'} onClick={() => setActiveView('Game Library')} />
             <NavItem icon={<Activity size={18} />} label="Medical Vault" />
             <NavItem icon={<Server size={18} />} label="Edge Nodes" />
             <div className="pt-6 pb-2 px-3">
@@ -271,8 +283,8 @@ export default function DashboardClient({
             </div>
           </header>
 
-          <div className="flex-1 p-4 sm:p-8 custom-scrollbar relative overflow-y-auto lg:overflow-hidden flex flex-col">
-            <div className={`max-w-7xl w-full mx-auto flex-1 flex flex-col ${activeView === 'Overview' ? 'space-y-6 lg:overflow-y-auto' : ''}`}>
+          <div className="flex-1 p-4 sm:p-8 custom-scrollbar relative overflow-y-auto lg:overflow-hidden flex flex-col min-h-0">
+            <div className={`max-w-7xl w-full mx-auto flex-1 flex flex-col min-h-0 ${activeView === 'Overview' ? 'space-y-6 lg:overflow-y-auto' : ''}`}>
 
               {profile?.status === 'pending_invite' && (
                 <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 mb-2 shrink-0">
@@ -406,12 +418,12 @@ export default function DashboardClient({
               )}
 
               {activeView === 'Game Library' && (
-                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch flex-1 md:overflow-hidden md:h-full pb-4">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch flex-1 md:overflow-hidden md:h-full pb-4 min-h-0">
                   <div className="w-full md:w-64 lg:w-80 shrink-0 md:h-full md:overflow-y-auto custom-scrollbar md:pr-2">
                     <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-4 md:mb-6">Live Events</h2>
                     <EventsCarousel events={hubEvents} width="100%" />
                   </div>
-                  <div className="flex-1 w-full flex flex-col md:h-full md:overflow-hidden">
+                  <div className="flex-1 w-full flex flex-col md:h-full md:overflow-hidden min-h-0">
                     <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-4 md:mb-6 shrink-0 mt-6 md:mt-0">Game Library</h2>
                     <div className="flex-1 md:overflow-y-auto custom-scrollbar md:pr-2">
                       <div className="mb-8">

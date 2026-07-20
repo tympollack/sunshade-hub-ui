@@ -86,8 +86,8 @@ export function GameDetailsDrawer({ game, isOpen, onClose, isGuest = false }: Ga
           
           {/* Hero Section */}
           <div className="relative h-64 bg-zinc-900 w-full shrink-0">
-            {game.image_url ? (
-              <img src={game.image_url} alt={game.title} className="w-full h-full object-cover opacity-80" />
+            {game.hero_image_url || game.image_url ? (
+              <img src={game.hero_image_url || game.image_url} alt={game.title} className="w-full h-full object-cover opacity-80" />
             ) : (
               <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
                 <span className="text-zinc-500">No Image</span>
