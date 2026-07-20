@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, DimensionValue, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, DimensionValue, Animated, Easing, Image } from 'react-native';
 
 export interface HubEvent {
   id: string;
@@ -33,7 +33,7 @@ export function EventsCarousel({ events, width = '100%' }: EventsCarouselProps) 
           toValue: -next * carouselWidth,
           duration: 600,
           easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-          useNativeDriver: false, // Layout animation properties need useNativeDriver: false on Web sometimes, but transform can be true. Actually transform uses native driver perfectly.
+          useNativeDriver: false,
         }).start();
         return next;
       });
@@ -69,17 +69,23 @@ export function EventsCarousel({ events, width = '100%' }: EventsCarouselProps) 
         {events.map((ev, i) => (
           <View key={ev.id} style={[styles.slide, { width: carouselWidth }]}>
             <View style={styles.card}>
-              <Text style={styles.title}>{ev.title}</Text>
-              <Text style={styles.desc}>{ev.description}</Text>
-              {ev.call_to_action_url && (
-                <Pressable style={styles.button} onPress={() => {
-                  if (Platform.OS === 'web') {
-                    window.open(ev.call_to_action_url, '_blank');
-                  }
-                }}>
-                  <Text style={styles.buttonText}>Learn More</Text>
-                </Pressable>
-              )}
+              {ev.image_url ? (
+                <Image source={{ uri: ev.image_url }} style={styles.cardBackground} resizeMode="cover" />
+              ) : null}
+              {ev.image_url && <View style={styles.cardOverlay} />}
+              <View style={styles.cardContent}>
+                <Text style={styles.title}>{ev.title}</Text>
+                <Text style={styles.desc} numberOfLines={2}>{ev.description}</Text>
+                {ev.call_to_action_url && (
+                  <Pressable style={styles.button} onPress={() => {
+                    if (Platform.OS === 'web') {
+                      window.open(ev.call_to_action_url, '_blank');
+                    }
+                  }}>
+                    <Text style={styles.buttonText}>Learn More</Text>
+                  </Pressable>
+                )}
+              </View>
             </View>
           </View>
         ))}
@@ -123,10 +129,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(234, 88, 12, 0.1)', // Orange tint
     borderRadius: 12,
-    padding: 16,
-    justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(234, 88, 12, 0.2)',
+    overflow: 'hidden',
+  },
+  cardBackground: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  cardOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  cardContent: {
+    flex: 1,
+    padding: 16,
+    justifyContent: 'center',
   },
   title: {
     fontSize: 20,

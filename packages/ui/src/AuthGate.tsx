@@ -154,10 +154,12 @@ export const AuthGate = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
       });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (session?.user) {
-        setLoading(true);
+        if (event === 'SIGNED_IN') {
+          setLoading(true);
+        }
         fetchProfile(session.user.id);
       } else {
         setProfile(null);

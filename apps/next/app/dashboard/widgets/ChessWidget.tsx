@@ -30,6 +30,9 @@ export async function ChessWidget({ userId }: { userId: string | null }) {
   const chess = statsRow as GameStat | null;
   const recentMatches = (matchRows ?? []) as MatchHistoryRow[];
 
+  const isStaging = process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview';
+  const gameUrl = isStaging ? 'https://chess-stag.sunshade.icu' : 'https://chess.sunshade.icu';
+
   return (
     <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none transition-colors duration-200">
       <div className="flex items-center justify-between mb-6">
@@ -39,7 +42,7 @@ export async function ChessWidget({ userId }: { userId: string | null }) {
           </div>
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">SunShade Chess</h3>
         </div>
-        <button className="text-sm text-orange-600 dark:text-orange-400 hover:text-orange-500 dark:hover:text-orange-300 font-medium transition-colors duration-200">View Game</button>
+        <a href={gameUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-orange-600 dark:text-orange-400 hover:text-orange-500 dark:hover:text-orange-300 font-medium transition-colors duration-200">View Game</a>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
