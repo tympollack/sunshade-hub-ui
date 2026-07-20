@@ -26,6 +26,23 @@ import type {
   EdgeNode,
 } from './types';
 
+function getAppUrl(appId: string): string {
+  if (typeof window === 'undefined') return '#';
+  const isStaging = window.location.hostname.includes('-stag') || window.location.hostname.includes('staging');
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  
+  if (isLocal) return `http://localhost:3000`;
+  
+  if (isStaging) {
+    if (appId === 'chess') return 'https://chess-stag.sunshade.icu';
+    if (appId === 'pukhuk') return 'https://pukhuk-stag.sunshade.icu';
+    if (appId === 'cozy') return 'https://cozy-stag.sunshade.icu';
+    return `https://${appId}-stag.sunshade.icu`;
+  }
+  
+  return `https://${appId}.sunshade.icu`;
+}
+
 const HARDCODED_GAMES = [
   { id: 'g1', title: 'Second Wind', description: 'A thrilling post-apocalyptic runner.', deep_link_scheme: 'secondwind', web_fallback_url: 'https://sunshade.icu' },
   { id: 'g2', title: 'Puk Huk', description: 'Fast paced arcade action.', deep_link_scheme: 'pukhuk', web_fallback_url: 'https://sunshade.icu' },
@@ -117,7 +134,31 @@ export default function DashboardClient({
     if (chessData) setChessAchievements(chessData);
     if (hubData) setHubAchievements(hubData);
     if (gamesData) setHubGames([...HARDCODED_GAMES, ...gamesData]);
-    if (eventsData) setHubEvents(eventsData);
+    
+    if (eventsData && eventsData.length > 0) {
+      setHubEvents(eventsData);
+    } else {
+      setHubEvents([
+        {
+          id: 'fallback-1',
+          title: 'Puk Huk: Season 2',
+          description: 'The arcade is back and brighter than ever! Compete for the top score in this fast-paced neon shooter.',
+          image_url: '/puk_huk_ad.jpg',
+          call_to_action_url: getAppUrl('pukhuk'),
+          start_time: new Date().toISOString(),
+          end_time: new Date().toISOString(),
+        },
+        {
+          id: 'fallback-2',
+          title: 'Welcome to the Critterverse',
+          description: 'Build your cozy village, farm, and relax with friends in this peaceful world.',
+          image_url: '/critterverse_ad.jpg',
+          call_to_action_url: getAppUrl('cozy'),
+          start_time: new Date().toISOString(),
+          end_time: new Date().toISOString(),
+        }
+      ]);
+    }
 
     const chessUnlocks: Record<string, boolean> = {};
     userChessData?.forEach((row) => { chessUnlocks[row.achievement_id] = true; });
@@ -195,7 +236,8 @@ export default function DashboardClient({
             <div className="pt-6 pb-2 px-3">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Account</p>
             </div>
-            <NavItem icon={<Settings size={18} />} label="Settings" />
+            <NavItem icon={<Settings size={18} />} label="Profile" active={activeView === 'Profile'} onClick={() => setActiveView('Profile')} />
+            <NavItem icon={<Settings size={18} />} label="Settings" active={activeView === 'Settings'} onClick={() => setActiveView('Settings')} />
           </nav>
         </aside>
 
@@ -210,11 +252,6 @@ export default function DashboardClient({
               <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 hidden lg:block">
                 Welcome back, {profile?.email ?? session?.user?.email ?? 'guest'}
               </span>
-              {mounted && (
-                <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="p-2 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-colors">
-                  {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
-              )}
               <button className="p-2 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-colors relative">
                 <Bell size={18} />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full border-2 border-white dark:border-[#161616]"></span>
@@ -227,9 +264,9 @@ export default function DashboardClient({
                     {onlineCount} Online
                   </p>
                 </div>
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-orange-400/30">
+                <button onClick={() => setActiveView('Profile')} className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-orange-400/30 hover:scale-105 transition-transform">
                   <span className="font-bold text-sm text-white">{(profile?.display_name ?? session?.user?.email ?? 'G').charAt(0).toUpperCase()}</span>
-                </div>
+                </button>
               </div>
             </div>
           </header>
@@ -409,6 +446,53 @@ export default function DashboardClient({
                 </div>
               )}
 
+              {activeView === 'Profile' && (
+                <div className="max-w-2xl mx-auto w-full mt-8">
+                  <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-6">Your Profile</h2>
+                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 sm:p-8 shadow-sm dark:shadow-none flex flex-col items-center">
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-xl shadow-orange-500/20 border-2 border-orange-400/30 mb-6">
+                      <span className="font-bold text-4xl text-white">{(profile?.display_name ?? session?.user?.email ?? 'G').charAt(0).toUpperCase()}</span>
+                    </div>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-1">{profile?.display_name || 'Citizen'}</h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 mb-6">{session?.user?.email}</p>
+                    
+                    <div className="w-full grid grid-cols-2 gap-4">
+                      <MetricCard title="Global Hub Tokens" value={hubTokens.toLocaleString()} trend="Hub balance" icon={<Hexagon className="text-orange-500" size={20} />} />
+                      <MetricCard title="Critterverse ELO" value={crittverseElo.toLocaleString()} trend="Cross-game ranking" icon={<TrendingUp className="text-blue-500" size={20} />} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeView === 'Settings' && (
+                <div className="max-w-2xl mx-auto w-full mt-8">
+                  <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-6">Settings</h2>
+                  
+                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl overflow-hidden shadow-sm dark:shadow-none">
+                    <div className="p-6 border-b border-zinc-200 dark:border-zinc-800/60">
+                      <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Appearance</h3>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-zinc-800 dark:text-zinc-200">Theme</p>
+                          <p className="text-sm text-zinc-500 dark:text-zinc-400">Toggle light or dark mode</p>
+                        </div>
+                        {mounted && (
+                          <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium rounded-lg transition-colors flex items-center gap-2">
+                            {theme === 'dark' ? <><Sun size={16} /> Light Mode</> : <><Moon size={16} /> Dark Mode</>}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Account Actions</h3>
+                      <button className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium rounded-lg transition-colors">
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         </main>
@@ -419,7 +503,7 @@ export default function DashboardClient({
           <MobileNavItem icon={<Swords size={22} />} label="Library" active={activeView === 'Game Library'} onClick={() => setActiveView('Game Library')} />
           <MobileNavItem icon={<Activity size={22} />} label="Vault" />
           <MobileNavItem icon={<Server size={22} />} label="Nodes" />
-          <MobileNavItem icon={<Settings size={22} />} label="Settings" />
+          <MobileNavItem icon={<Settings size={22} />} label="Settings" active={activeView === 'Settings'} onClick={() => setActiveView('Settings')} />
         </nav>
 
         <OTAManager />
