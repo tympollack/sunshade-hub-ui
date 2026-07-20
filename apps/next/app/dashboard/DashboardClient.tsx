@@ -485,7 +485,7 @@ export default function DashboardClient({
                     </div>
                     <div className="p-6">
                       <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Account Actions</h3>
-                      <button className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium rounded-lg transition-colors">
+                      <button onClick={() => supabase.auth.signOut()} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium rounded-lg transition-colors">
                         Sign Out
                       </button>
                     </div>
