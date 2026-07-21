@@ -204,6 +204,8 @@ export default function DashboardClient({
     ...g,
     title: g.name, // Map new DB fields back to what the UI expects for now
     description: g.short_desc,
+    image_url: g.img_url_logo,
+    deep_link_scheme: g.slug,
     web_fallback_url: isStaging ? (g.url_staging || g.url_production) : g.url_production
   }));
   
@@ -211,6 +213,8 @@ export default function DashboardClient({
     ...g,
     title: g.name,
     description: g.short_desc,
+    image_url: g.img_url_logo,
+    deep_link_scheme: g.slug,
     web_fallback_url: isStaging ? (g.url_staging || g.url_production) : g.url_production
   }));
 
