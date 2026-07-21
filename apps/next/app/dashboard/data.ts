@@ -11,7 +11,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return { userId: null, profile: null, edgeNodes: [] };
+    return { userId: null, profile: null, edgeNodes: [], gameLibrary: [] };
   }
 
   const [
