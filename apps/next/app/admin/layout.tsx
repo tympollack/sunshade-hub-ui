@@ -34,6 +34,10 @@ export default function AdminLayout({
             <Users size={16} className="text-amber-400 group-hover:text-amber-300" />
             User Lookup
           </Link>
+          <Link href="/admin/library" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-zinc-800/50 hover:text-white transition-colors group text-sm">
+            <LayoutDashboard size={16} className="text-orange-400 group-hover:text-orange-300" />
+            Game Library
+          </Link>
         </nav>
 
         <div className="p-4 border-t border-zinc-800">

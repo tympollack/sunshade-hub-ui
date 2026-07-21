@@ -17,6 +17,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
   const [
     { data: profileRow },
     { data: edgeRows },
+    { data: gameLibraryRows },
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -28,6 +29,12 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
       .from('edge_nodes')
       .select('id, name, status')
       .eq('user_id', user.id),
+
+    supabase
+      .from('game_library')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true }),
   ]);
 
   const profile: DashboardProfile | null = profileRow
@@ -44,5 +51,6 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
     userId: user.id,
     profile,
     edgeNodes: (edgeRows ?? []) as EdgeNode[],
+    gameLibrary: (gameLibraryRows ?? []) as any[],
   };
 }
