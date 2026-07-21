@@ -24,6 +24,7 @@ import { useHubPresence } from '../../hooks/useHubPresence';
 import type {
   DashboardProfile,
   EdgeNode,
+  GameLibraryItem,
 } from './types';
 
 function getAppUrl(appId: string): string {
@@ -43,24 +44,10 @@ function getAppUrl(appId: string): string {
   return `https://${appId}.sunshade.icu`;
 }
 
-const HARDCODED_GAMES = [
-  { id: 'g1', title: 'Second Wind', description: 'A thrilling post-apocalyptic runner.', deep_link_scheme: 'secondwind', web_fallback_url: 'https://sunshade.icu' },
-  { id: 'g2', title: 'Puk Huk', description: 'Fast paced arcade action.', deep_link_scheme: 'pukhuk', web_fallback_url: 'https://sunshade.icu' },
-  { id: 'g3', title: 'Dart Up', description: 'Hit the bullseye in this competitive dart thrower.', deep_link_scheme: 'dartup', web_fallback_url: 'https://sunshade.icu' },
-  { id: 'g4', title: 'SunShade Chess', description: 'Competitive chess matches with ELO ratings.', deep_link_scheme: 'chess', web_fallback_url: 'https://sunshade.icu' },
-  { id: 'g5', title: 'Pocket Pitch', description: 'Baseball in your pocket.', deep_link_scheme: 'pocketpitch', web_fallback_url: 'https://sunshade.icu' },
-];
-
-const HARDCODED_UTILITIES = [
-  { id: 'u1', title: 'PatchWork', description: 'System update and deployment utility.', deep_link_scheme: 'patchwork', web_fallback_url: 'https://sunshade.icu' },
-  { id: 'u2', title: 'LexShade', description: 'Advanced legal and document parsing.', deep_link_scheme: 'lexshade', web_fallback_url: 'https://sunshade.icu' },
-  { id: 'u3', title: 'Speak for the Dead', description: 'Digital archival and communication tool.', deep_link_scheme: 'speak', web_fallback_url: 'https://speak.sunshade.icu' },
-  { id: 'u4', title: 'Project Valerie', description: 'Next generation AI initiative.', deep_link_scheme: 'valerie', web_fallback_url: 'https://sunshade.icu' },
-];
-
 interface DashboardClientProps {
   profile: DashboardProfile | null;
   edgeNodes: EdgeNode[];
+  gameLibrary: GameLibraryItem[];
   chessWidget: React.ReactNode;
   ecosystemWidget: React.ReactNode;
 }
@@ -68,14 +55,13 @@ interface DashboardClientProps {
 export default function DashboardClient({
   profile,
   edgeNodes,
+  gameLibrary,
   chessWidget,
   ecosystemWidget,
 }: DashboardClientProps) {
   const [activeView, setActiveView] = useState('Overview');
   const [chessAchievements, setChessAchievements] = useState<any[]>([]);
   const [hubAchievements, setHubAchievements] = useState<any[]>([]);
-  const [hubGames, setHubGames] = useState<any[]>(HARDCODED_GAMES);
-  const [hubUtilities, setHubUtilities] = useState<any[]>(HARDCODED_UTILITIES);
   const [hubEvents, setHubEvents] = useState<any[]>([]);
   const [selectedGame, setSelectedGame] = useState<any | null>(null);
   const [userChessUnlocks, setUserChessUnlocks] = useState<Record<string, boolean>>({});
@@ -120,20 +106,17 @@ export default function DashboardClient({
       { data: hubData },
       { data: userChessData },
       { data: userHubData },
-      { data: gamesData },
       { data: eventsData },
     ] = await Promise.all([
       supabase.schema('chess').from('achievements').select('*'),
       supabase.from('hub_achievements').select('*'),
       supabase.schema('chess').from('user_achievements').select('achievement_id').eq('user_id', session.user.id),
       supabase.from('user_hub_achievements').select('achievement_id').eq('user_id', session.user.id),
-      supabase.from('hub_games').select('*'),
       supabase.from('hub_events').select('*').eq('is_active', true),
     ]);
 
     if (chessData) setChessAchievements(chessData);
     if (hubData) setHubAchievements(hubData);
-    if (gamesData) setHubGames([...HARDCODED_GAMES, ...gamesData]);
     
     if (eventsData && eventsData.length > 0) {
       setHubEvents(eventsData);
@@ -215,6 +198,25 @@ export default function DashboardClient({
   const hubTokens = profile?.global_hub_tokens ?? 0;
   const crittverseElo = profile?.critterverse_elo ?? 1200;
   const onlineNodes = edgeNodes.filter((n) => n.status === 'online').length;
+
+  const isStaging = typeof window !== 'undefined' && (window.location.hostname.includes('-stag') || window.location.hostname.includes('staging'));
+  const hubGames = gameLibrary.filter(g => g.tags?.includes('game')).map(g => ({
+    ...g,
+    title: g.name, // Map new DB fields back to what the UI expects for now
+    description: g.short_desc,
+    image_url: g.img_url_logo,
+    deep_link_scheme: g.slug,
+    web_fallback_url: isStaging ? (g.url_staging || g.url_production) : g.url_production
+  }));
+  
+  const hubUtilities = gameLibrary.filter(g => g.tags?.includes('utility')).map(g => ({
+    ...g,
+    title: g.name,
+    description: g.short_desc,
+    image_url: g.img_url_logo,
+    deep_link_scheme: g.slug,
+    web_fallback_url: isStaging ? (g.url_staging || g.url_production) : g.url_production
+  }));
 
   return (
     <AuthGate>

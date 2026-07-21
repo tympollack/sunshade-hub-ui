@@ -40,7 +40,23 @@ export interface EcosystemLog {
   created_at: string;
 }
 
+export interface GameLibraryItem {
+  id: string;
+  name: string;
+  slug: string;
+  short_desc: string;
+  long_desc: string | null;
+  img_url_logo: string | null;
+  img_url_hero: string | null;
+  url_production: string | null;
+  url_staging: string | null;
+  is_active: boolean;
+  sort_order: number;
+  tags: string[] | null;
+}
+
 export interface DashboardData {
   profile: DashboardProfile | null;
   edgeNodes: EdgeNode[];
+  gameLibrary: GameLibraryItem[];
 }
