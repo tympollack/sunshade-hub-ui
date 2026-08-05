@@ -20,33 +20,48 @@ import {
   Moon,
 } from 'lucide-react';
 import { GameDetailsDrawer } from './GameDetailsDrawer';
+import { useHubPresence } from '../../hooks/useHubPresence';
 import type {
   DashboardProfile,
   EdgeNode,
-  GameStat,
-  MatchHistoryRow,
-  EcosystemLog,
+  GameLibraryItem,
 } from './types';
+
+function getAppUrl(appId: string): string {
+  if (typeof window === 'undefined') return '#';
+  const isStaging = window.location.hostname.includes('-stag') || window.location.hostname.includes('staging');
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  
+  if (isLocal) return `http://localhost:3000`;
+  
+  if (isStaging) {
+    if (appId === 'chess') return 'https://chess-stag.sunshade.icu';
+    if (appId === 'pukhuk') return 'https://pukhuk-stag.sunshade.icu';
+    if (appId === 'cozy') return 'https://cozy-stag.sunshade.icu';
+    return `https://${appId}-stag.sunshade.icu`;
+  }
+  
+  return `https://${appId}.sunshade.icu`;
+}
 
 interface DashboardClientProps {
   profile: DashboardProfile | null;
   edgeNodes: EdgeNode[];
-  gameStats: GameStat | null;
-  matchHistory: MatchHistoryRow[];
-  ecosystemLogs: EcosystemLog[];
+  gameLibrary: GameLibraryItem[];
+  chessWidget: React.ReactNode;
+  ecosystemWidget: React.ReactNode;
 }
 
 export default function DashboardClient({
   profile,
   edgeNodes,
-  gameStats,
-  matchHistory,
-  ecosystemLogs,
+  gameLibrary,
+  chessWidget,
+  ecosystemWidget,
 }: DashboardClientProps) {
   const [activeView, setActiveView] = useState('Overview');
   const [chessAchievements, setChessAchievements] = useState<any[]>([]);
   const [hubAchievements, setHubAchievements] = useState<any[]>([]);
-  const [hubGames, setHubGames] = useState<any[]>([]);
   const [hubEvents, setHubEvents] = useState<any[]>([]);
   const [selectedGame, setSelectedGame] = useState<any | null>(null);
   const [userChessUnlocks, setUserChessUnlocks] = useState<Record<string, boolean>>({});
@@ -58,6 +73,8 @@ export default function DashboardClient({
   const [inviteCode, setInviteCode] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [submittingInvite, setSubmittingInvite] = useState(false);
+
+  const { onlineCount } = useHubPresence(session?.user?.id);
 
   const handleClaimInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,21 +106,42 @@ export default function DashboardClient({
       { data: hubData },
       { data: userChessData },
       { data: userHubData },
-      { data: gamesData },
       { data: eventsData },
     ] = await Promise.all([
       supabase.schema('chess').from('achievements').select('*'),
       supabase.from('hub_achievements').select('*'),
       supabase.schema('chess').from('user_achievements').select('achievement_id').eq('user_id', session.user.id),
       supabase.from('user_hub_achievements').select('achievement_id').eq('user_id', session.user.id),
-      supabase.from('hub_games').select('*'),
       supabase.from('hub_events').select('*').eq('is_active', true),
     ]);
 
     if (chessData) setChessAchievements(chessData);
     if (hubData) setHubAchievements(hubData);
-    if (gamesData) setHubGames(gamesData);
-    if (eventsData) setHubEvents(eventsData);
+    
+    if (eventsData && eventsData.length > 0) {
+      setHubEvents(eventsData);
+    } else {
+      setHubEvents([
+        {
+          id: 'fallback-1',
+          title: 'Puk Huk: Season 2',
+          description: 'The arcade is back and brighter than ever! Compete for the top score in this fast-paced neon shooter.',
+          image_url: '/puk_huk_ad.jpg',
+          call_to_action_url: getAppUrl('pukhuk'),
+          start_time: new Date().toISOString(),
+          end_time: new Date().toISOString(),
+        },
+        {
+          id: 'fallback-2',
+          title: 'Welcome to the Critterverse',
+          description: 'Build your cozy village, farm, and relax with friends in this peaceful world.',
+          image_url: '/critterverse_ad.jpg',
+          call_to_action_url: getAppUrl('cozy'),
+          start_time: new Date().toISOString(),
+          end_time: new Date().toISOString(),
+        }
+      ]);
+    }
 
     const chessUnlocks: Record<string, boolean> = {};
     userChessData?.forEach((row) => { chessUnlocks[row.achievement_id] = true; });
@@ -160,9 +198,25 @@ export default function DashboardClient({
   const hubTokens = profile?.global_hub_tokens ?? 0;
   const crittverseElo = profile?.critterverse_elo ?? 1200;
   const onlineNodes = edgeNodes.filter((n) => n.status === 'online').length;
-  const chess = gameStats;
-  const recentMatches = matchHistory.slice(0, 3);
-  const logs = ecosystemLogs.slice(0, 5);
+
+  const isStaging = typeof window !== 'undefined' && (window.location.hostname.includes('-stag') || window.location.hostname.includes('staging'));
+  const hubGames = gameLibrary.filter(g => g.tags?.includes('game')).map(g => ({
+    ...g,
+    title: g.name, // Map new DB fields back to what the UI expects for now
+    description: g.short_desc,
+    image_url: g.img_url_logo,
+    deep_link_scheme: g.slug,
+    web_fallback_url: isStaging ? (g.url_staging || g.url_production) : g.url_production
+  }));
+  
+  const hubUtilities = gameLibrary.filter(g => g.tags?.includes('utility')).map(g => ({
+    ...g,
+    title: g.name,
+    description: g.short_desc,
+    image_url: g.img_url_logo,
+    deep_link_scheme: g.slug,
+    web_fallback_url: isStaging ? (g.url_staging || g.url_production) : g.url_production
+  }));
 
   return (
     <AuthGate>
@@ -184,7 +238,8 @@ export default function DashboardClient({
             <div className="pt-6 pb-2 px-3">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Account</p>
             </div>
-            <NavItem icon={<Settings size={18} />} label="Settings" />
+            <NavItem icon={<Settings size={18} />} label="Profile" active={activeView === 'Profile'} onClick={() => setActiveView('Profile')} />
+            <NavItem icon={<Settings size={18} />} label="Settings" active={activeView === 'Settings'} onClick={() => setActiveView('Settings')} />
           </nav>
         </aside>
 
@@ -199,23 +254,21 @@ export default function DashboardClient({
               <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 hidden lg:block">
                 Welcome back, {profile?.email ?? session?.user?.email ?? 'guest'}
               </span>
-              {mounted && (
-                <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="p-2 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-colors">
-                  {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
-              )}
               <button className="p-2 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-colors relative">
                 <Bell size={18} />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full border-2 border-white dark:border-[#161616]"></span>
               </button>
               <div className="flex items-center gap-3 pl-4 border-l border-zinc-200 dark:border-zinc-800 transition-colors duration-200">
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Global Hub Tokens</p>
-                  <p className="text-xs text-orange-600 dark:text-orange-400 font-mono">{hubTokens.toLocaleString()} HT</p>
+                  <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Active Citizens</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-mono">
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
+                    {onlineCount} Online
+                  </p>
                 </div>
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-orange-400/30">
+                <button onClick={() => setActiveView('Profile')} className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-orange-400/30 hover:scale-105 transition-transform">
                   <span className="font-bold text-sm text-white">{(profile?.display_name ?? session?.user?.email ?? 'G').charAt(0).toUpperCase()}</span>
-                </div>
+                </button>
               </div>
             </div>
           </header>
@@ -275,58 +328,14 @@ export default function DashboardClient({
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Chess Widget — live from server props */}
-                    <div className="lg:col-span-2 bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none transition-colors duration-200">
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-zinc-100 dark:bg-zinc-800/80 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors duration-200">
-                            <Swords size={20} className="text-zinc-600 dark:text-zinc-300" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">SunShade Chess</h3>
-                        </div>
-                        <button className="text-sm text-orange-600 dark:text-orange-400 hover:text-orange-500 dark:hover:text-orange-300 font-medium transition-colors duration-200">View Game</button>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                        <StatBox label="Matches Played" value={chess ? String(chess.matches_played) : '—'} />
-                        <StatBox label="Win Rate" value={chess ? `${Math.round(chess.win_rate * 100)}%` : '—'} />
-                        <StatBox label="Local Currency" value={chess ? `${chess.local_currency.toLocaleString()} CP` : '—'} />
-                        <StatBox label="Achievements" value={chess ? `${chess.achievements_unlocked}/${chess.achievements_total}` : '—'} />
-                      </div>
-
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">Recent Matches</h4>
-                        {recentMatches.length === 0 ? (
-                          <p className="text-sm text-zinc-500 dark:text-zinc-400">No matches yet.</p>
-                        ) : (
-                          recentMatches.map((m) => (
-                            <MatchRow key={m.id} result={m.result as 'Victory' | 'Defeat' | 'Draw'} opponent={m.opponent_name} format={m.match_type} moves={m.moves} />
-                          ))
-                        )}
-                      </div>
+                    {/* Chess Widget Streamed */}
+                    <div className="lg:col-span-2">
+                      {chessWidget}
                     </div>
 
-                    {/* Ecosystem Log — live from server props */}
-                    <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none transition-colors duration-200">
-                      <div className="flex items-center gap-2 mb-6">
-                        <History size={18} className="text-zinc-500 dark:text-zinc-400" />
-                        <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Ecosystem Log</h3>
-                      </div>
-                      <div className="space-y-4 relative before:absolute before:inset-0 before:ml-2 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-zinc-200 dark:before:via-zinc-800 before:to-transparent">
-                        {logs.length === 0 ? (
-                          <p className="text-sm text-zinc-500 dark:text-zinc-400 pl-4">No activity yet.</p>
-                        ) : (
-                          logs.map((log) => (
-                            <ActivityItem
-                              key={log.id}
-                              title={log.title}
-                              desc={log.description}
-                              time={new Date(log.created_at).toLocaleDateString()}
-                              color={categoryColor(log.event_category)}
-                            />
-                          ))
-                        )}
-                      </div>
+                    {/* Ecosystem Log Streamed */}
+                    <div>
+                      {ecosystemWidget}
                     </div>
                   </div>
 
@@ -407,19 +416,81 @@ export default function DashboardClient({
                   <div className="flex-1 w-full flex flex-col md:h-full md:overflow-hidden">
                     <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-4 md:mb-6 shrink-0 mt-6 md:mt-0">Game Library</h2>
                     <div className="flex-1 md:overflow-y-auto custom-scrollbar md:pr-2">
-                      {hubGames.length === 0 ? (
-                        <p className="text-zinc-500">No games found.</p>
-                      ) : (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                          {hubGames.map((game) => (
-                            <GameLibraryCard key={game.id} game={game} onSelect={() => setSelectedGame(game)} />
-                          ))}
-                        </div>
-                      )}
+                      <div className="mb-8">
+                        {hubGames.length === 0 ? (
+                          <p className="text-zinc-500">No games found.</p>
+                        ) : (
+                          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {hubGames.map((game) => (
+                              <GameLibraryCard key={game.id} game={game} onSelect={() => setSelectedGame(game)} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-4 md:mb-6 shrink-0">Civic Utilities</h2>
+                      <div className="mb-8">
+                        {hubUtilities.length === 0 ? (
+                          <p className="text-zinc-500">No utilities found.</p>
+                        ) : (
+                          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {hubUtilities.map((utility) => (
+                              <GameLibraryCard key={utility.id} game={utility} onSelect={() => setSelectedGame(utility)} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className={`shrink-0 md:h-full md:overflow-y-auto custom-scrollbar transition-all duration-300 ease-out ${selectedGame ? 'w-full md:w-[320px] lg:w-[360px] xl:w-[400px] opacity-100 mt-6 md:mt-0 ml-0 md:ml-4 lg:ml-6' : 'w-0 h-0 md:h-full opacity-0 m-0 overflow-hidden'}`}>
                     <GameDetailsDrawer game={selectedGame} isOpen={!!selectedGame} onClose={() => setSelectedGame(null)} isGuest={profile?.status === 'pending_invite'} />
+                  </div>
+                </div>
+              )}
+
+              {activeView === 'Profile' && (
+                <div className="max-w-2xl mx-auto w-full mt-8">
+                  <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-6">Your Profile</h2>
+                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 sm:p-8 shadow-sm dark:shadow-none flex flex-col items-center">
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-xl shadow-orange-500/20 border-2 border-orange-400/30 mb-6">
+                      <span className="font-bold text-4xl text-white">{(profile?.display_name ?? session?.user?.email ?? 'G').charAt(0).toUpperCase()}</span>
+                    </div>
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-1">{profile?.display_name || 'Citizen'}</h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 mb-6">{session?.user?.email}</p>
+                    
+                    <div className="w-full grid grid-cols-2 gap-4">
+                      <MetricCard title="Global Hub Tokens" value={hubTokens.toLocaleString()} trend="Hub balance" icon={<Hexagon className="text-orange-500" size={20} />} />
+                      <MetricCard title="Critterverse ELO" value={crittverseElo.toLocaleString()} trend="Cross-game ranking" icon={<TrendingUp className="text-blue-500" size={20} />} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeView === 'Settings' && (
+                <div className="max-w-2xl mx-auto w-full mt-8">
+                  <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-6">Settings</h2>
+                  
+                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl overflow-hidden shadow-sm dark:shadow-none">
+                    <div className="p-6 border-b border-zinc-200 dark:border-zinc-800/60">
+                      <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Appearance</h3>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-zinc-800 dark:text-zinc-200">Theme</p>
+                          <p className="text-sm text-zinc-500 dark:text-zinc-400">Toggle light or dark mode</p>
+                        </div>
+                        {mounted && (
+                          <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium rounded-lg transition-colors flex items-center gap-2">
+                            {theme === 'dark' ? <><Sun size={16} /> Light Mode</> : <><Moon size={16} /> Dark Mode</>}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Account Actions</h3>
+                      <button onClick={() => supabase.auth.signOut()} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium rounded-lg transition-colors">
+                        Sign Out
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -434,7 +505,7 @@ export default function DashboardClient({
           <MobileNavItem icon={<Swords size={22} />} label="Library" active={activeView === 'Game Library'} onClick={() => setActiveView('Game Library')} />
           <MobileNavItem icon={<Activity size={22} />} label="Vault" />
           <MobileNavItem icon={<Server size={22} />} label="Nodes" />
-          <MobileNavItem icon={<Settings size={22} />} label="Settings" />
+          <MobileNavItem icon={<Settings size={22} />} label="Settings" active={activeView === 'Settings'} onClick={() => setActiveView('Settings')} />
         </nav>
 
         <OTAManager />
@@ -508,43 +579,4 @@ function MetricCard({ title, value, trend, icon }: { title: string; value: strin
   );
 }
 
-function StatBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-lg p-3 border border-zinc-200 dark:border-zinc-800/40 transition-colors duration-200">
-      <p className="text-xs text-zinc-500 mb-1">{label}</p>
-      <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{value}</p>
-    </div>
-  );
-}
 
-function MatchRow({ result, opponent, format, moves }: { result: 'Victory' | 'Defeat' | 'Draw'; opponent: string; format: string; moves: number }) {
-  const isWin = result === 'Victory';
-  return (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/40 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors duration-200 shadow-sm dark:shadow-none">
-      <div className="flex items-center gap-3">
-        <div className={`w-2 h-2 rounded-full ${isWin ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`} />
-        <div>
-          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{result} vs {opponent}</p>
-          <p className="text-xs text-zinc-500">{format} • {moves} moves</p>
-        </div>
-      </div>
-      <button className="text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800/50 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">Review</button>
-    </div>
-  );
-}
-
-function ActivityItem({ title, desc, time, color }: { title: string; desc: string; time: string; color: string }) {
-  return (
-    <div className="relative flex items-center gap-4 pl-4 md:pl-0">
-      <div className="hidden md:flex flex-col items-end w-24 shrink-0">
-        <span className="text-xs text-zinc-500">{time}</span>
-      </div>
-      <div className={`w-2 h-2 rounded-full ${color} z-10 shadow-lg ring-4 ring-white dark:ring-[#161616] transition-colors duration-200`} />
-      <div className="flex-1 bg-white dark:bg-zinc-900/40 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/40 shadow-sm dark:shadow-none transition-colors duration-200">
-        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{title}</p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{desc}</p>
-        <span className="text-[10px] text-zinc-500 mt-2 block md:hidden">{time}</span>
-      </div>
-    </div>
-  );
-}

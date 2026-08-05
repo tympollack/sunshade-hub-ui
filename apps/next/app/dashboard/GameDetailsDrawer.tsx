@@ -86,8 +86,8 @@ export function GameDetailsDrawer({ game, isOpen, onClose, isGuest = false }: Ga
           
           {/* Hero Section */}
           <div className="relative h-64 bg-zinc-900 w-full shrink-0">
-            {game.image_url ? (
-              <img src={game.image_url} alt={game.title} className="w-full h-full object-cover opacity-80" />
+            {game.img_url_hero || game.image_url ? (
+              <img src={game.img_url_hero || game.image_url} alt={game.title} className="w-full h-full object-cover opacity-80" />
             ) : (
               <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
                 <span className="text-zinc-500">No Image</span>
@@ -97,7 +97,7 @@ export function GameDetailsDrawer({ game, isOpen, onClose, isGuest = false }: Ga
 
             <div className="absolute bottom-6 left-6 right-6">
               <h2 className="text-3xl font-bold text-white mb-2">{game.title}</h2>
-              <p className="text-zinc-300 text-sm line-clamp-2">{game.description}</p>
+              <p className="text-zinc-300 text-sm line-clamp-2">{game.long_desc || game.description}</p>
             </div>
           </div>
 
