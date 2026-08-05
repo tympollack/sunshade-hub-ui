@@ -7,7 +7,18 @@ export async function POST(req: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized. Please sign in to request a user code.' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Require Admin Status
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('status')
+      .eq('id', user.id)
+      .single();
+
+    if (profile?.status !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden. Only admins can generate auth codes directly.' }, { status: 403 });
     }
 
     const { data, error } = await supabase.rpc('generate_user_auth_code');

@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
 
     const cleanCode = rawCode.trim().toUpperCase();
 
-    // 1. Strict 8-character hex format check
-    if (!/^[A-F0-9]{8}$/.test(cleanCode)) {
+    // 1. Full 8-character alphanumeric check (A-Z, 0-9)
+    if (!/^[A-Z0-9]{8}$/.test(cleanCode)) {
       return NextResponse.json({ error: 'Invalid code format. Must be an 8-character alphanumeric code.' }, { status: 400 });
     }
 
@@ -47,32 +47,27 @@ export async function POST(req: NextRequest) {
       p_code: cleanCode,
     });
 
-    if (claimError || !claimData || !claimData.user_id) {
+    if (claimError || !claimData || (!claimData.user_id && !claimData.email && !claimData.success)) {
       return NextResponse.json({ error: claimError?.message || 'Invalid or expired auth code' }, { status: 400 });
     }
 
-    // 3. Mark code as used immediately to prevent replay attacks
-    const { error: updateError } = await serviceClient
-      .from('user_auth_codes')
-      .update({ used_at: new Date().toISOString(), is_active: false })
-      .eq('code', cleanCode);
+    // 3. Determine user email
+    let targetEmail = claimData.email;
 
-    if (updateError) {
-      console.error('[claim-code] Failed to invalidate code:', updateError);
+    if (!targetEmail && claimData.user_id) {
+      const { data: userData } = await serviceClient.auth.admin.getUserById(claimData.user_id);
+      targetEmail = userData?.user?.email;
     }
 
-    // 4. Fetch email from auth.users
-    const { data: userData, error: userError } = await serviceClient.auth.admin.getUserById(claimData.user_id);
-
-    if (userError || !userData.user || !userData.user.email) {
-      return NextResponse.json({ error: 'User associated with this code was not found.' }, { status: 404 });
+    if (!targetEmail) {
+      return NextResponse.json({ error: 'User email associated with this code was not found.' }, { status: 404 });
     }
 
-    // 5. Generate a magic login link with validated redirect origin
+    // 4. Generate a magic login link with validated redirect origin
     const redirectUrl = getSafeRedirectUrl(req);
     const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
       type: 'magiclink',
-      email: userData.user.email,
+      email: targetEmail,
       options: {
         redirectTo: redirectUrl,
       },
@@ -82,9 +77,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to generate authentication link.' }, { status: 500 });
     }
 
+    // 5. Invalidate code AFTER successful link generation to avoid burning code on link failure
+    const { error: updateError } = await serviceClient
+      .from('user_auth_codes')
+      .update({ used_at: new Date().toISOString(), is_active: false })
+      .eq('code', cleanCode);
+
+    if (updateError) {
+      console.error('[claim-code] Failed to invalidate code:', updateError);
+    }
+
     return NextResponse.json({
       success: true,
-      email: userData.user.email,
+      email: targetEmail,
       redirect_url: linkData.properties.action_link,
     });
   } catch (err: any) {
