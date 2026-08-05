@@ -77,21 +77,24 @@ export default function DashboardClient({
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [submittingInvite, setSubmittingInvite] = useState(false);
 
-  const [generatedUserCode, setGeneratedUserCode] = useState<string | null>(null);
+  const [requestCodeSubmitted, setRequestCodeSubmitted] = useState(false);
   const [isGeneratingUserCode, setIsGeneratingUserCode] = useState(false);
-  const [codeCopied, setCodeCopied] = useState(false);
 
   const handleRequestUserCode = async () => {
     setIsGeneratingUserCode(true);
     try {
-      const res = await fetch('/api/auth/generate-code', { method: 'POST' });
+      const res = await fetch('/api/auth/request-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: session?.user?.email, note: 'Requested from Dashboard Settings' }),
+      });
       const data = await res.json();
       if (!res.ok || data.error) {
-        throw new Error(data.error || 'Failed to generate code');
+        throw new Error(data.error || 'Failed to submit code request');
       }
-      setGeneratedUserCode(data.code);
+      setRequestCodeSubmitted(true);
     } catch (err: any) {
-      alert(err.message || 'Error generating user code');
+      alert(err.message || 'Error submitting code request');
     } finally {
       setIsGeneratingUserCode(false);
     }
@@ -510,25 +513,15 @@ export default function DashboardClient({
                     </div>
                     <div className="p-6 border-b border-zinc-200 dark:border-zinc-800/60">
                       <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">User Auth Code</h3>
-                      <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Generate an 8-character auth code to sign in on another device or invite someone to join the Hub with your code.</p>
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Request an 8-character auth code from admins to sign in on another device or grant Hub access.</p>
                       
-                      {generatedUserCode ? (
-                        <div className="bg-zinc-50 dark:bg-zinc-900/80 border border-orange-500/40 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                      {requestCodeSubmitted ? (
+                        <div className="bg-emerald-500/10 border border-emerald-500/40 rounded-xl p-4 flex items-center gap-3">
+                          <Check className="text-emerald-400 shrink-0" size={20} />
                           <div>
-                            <span className="text-xs font-semibold uppercase tracking-wider text-orange-500 block mb-1">Your 8-Character Auth Code</span>
-                            <span className="text-2xl font-mono font-bold tracking-widest text-zinc-900 dark:text-white">{generatedUserCode}</span>
-                            <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block mt-1">Valid for 24 hours • Single use</span>
+                            <span className="text-sm font-semibold text-emerald-400 block">Request Submitted</span>
+                            <span className="text-xs text-zinc-400 block">An admin will review your request and issue an 8-character auth code.</span>
                           </div>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(generatedUserCode);
-                              setCodeCopied(true);
-                              setTimeout(() => setCodeCopied(false), 2000);
-                            }}
-                            className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-lg transition-colors flex items-center gap-2 text-sm shrink-0"
-                          >
-                            {codeCopied ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Copy Code</>}
-                          </button>
                         </div>
                       ) : (
                         <button
@@ -537,7 +530,7 @@ export default function DashboardClient({
                           className="px-4 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-lg transition-colors flex items-center gap-2 text-sm disabled:opacity-50"
                         >
                           <Key size={16} />
-                          {isGeneratingUserCode ? 'Generating Code...' : 'Request User Code'}
+                          {isGeneratingUserCode ? 'Submitting Request...' : 'Request User Code'}
                         </button>
                       )}
                     </div>

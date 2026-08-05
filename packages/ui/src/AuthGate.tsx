@@ -3,10 +3,13 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '@sunshade/supabase';
 
 const LoginForm = () => {
-  const [authMode, setAuthMode] = useState<'password' | 'code'>('password');
+  const [authMode, setAuthMode] = useState<'password' | 'code' | 'request'>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authCode, setAuthCode] = useState('');
+  const [requestEmail, setRequestEmail] = useState('');
+  const [requestNote, setRequestNote] = useState('');
+  const [requestSubmitted, setRequestSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -46,6 +49,31 @@ const LoginForm = () => {
     }
   };
 
+  const handleRequestCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/auth/request-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: requestEmail, note: requestNote }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to submit code request.');
+      }
+
+      setRequestSubmitted(true);
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit request.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', width: '100%', background: '#111111', color: 'white', fontFamily: 'sans-serif', padding: '20px 0' }}>
       <img src="/logo.png" alt="SunShade Systems" style={{ width: 260, height: 'auto', marginBottom: 24 }} />
@@ -56,7 +84,7 @@ const LoginForm = () => {
           type="button"
           onClick={() => { setAuthMode('password'); setError(null); }}
           style={{
-            padding: '6px 16px',
+            padding: '6px 14px',
             borderRadius: 6,
             border: 'none',
             background: authMode === 'password' ? '#27272a' : 'transparent',
@@ -73,7 +101,7 @@ const LoginForm = () => {
           type="button"
           onClick={() => { setAuthMode('code'); setError(null); }}
           style={{
-            padding: '6px 16px',
+            padding: '6px 14px',
             borderRadius: 6,
             border: 'none',
             background: authMode === 'code' ? '#ea580c' : 'transparent',
@@ -84,11 +112,28 @@ const LoginForm = () => {
             transition: 'all 0.2s',
           }}
         >
-          Join with 8-Char Code
+          Join with Code
+        </button>
+        <button
+          type="button"
+          onClick={() => { setAuthMode('request'); setError(null); setRequestSubmitted(false); }}
+          style={{
+            padding: '6px 14px',
+            borderRadius: 6,
+            border: 'none',
+            background: authMode === 'request' ? '#27272a' : 'transparent',
+            color: authMode === 'request' ? '#ffffff' : '#a1a1aa',
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          Request a Code
         </button>
       </div>
 
-      {authMode === 'password' ? (
+      {authMode === 'password' && (
         <form onSubmit={handleSubmitPassword} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 300 }}>
           <input
             type="email"
@@ -115,14 +160,16 @@ const LoginForm = () => {
             {submitting ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-      ) : (
+      )}
+
+      {authMode === 'code' && (
         <form onSubmit={handleSubmitCode} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 300 }}>
           <div style={{ textAlign: 'center', marginBottom: 4 }}>
             <p style={{ margin: 0, color: '#a1a1aa', fontSize: 13 }}>Enter your 8-character user code to join the Hub.</p>
           </div>
           <input
             type="text"
-            placeholder="8-Character Code (e.g. A3F89B2C)"
+            placeholder="8-Character Code (e.g. ASDF1234)"
             value={authCode}
             onChange={(e) => setAuthCode(e.target.value.toUpperCase().trim())}
             maxLength={16}
@@ -150,6 +197,48 @@ const LoginForm = () => {
             {submitting ? 'Verifying Code...' : 'Join Hub with Code'}
           </button>
         </form>
+      )}
+
+      {authMode === 'request' && (
+        <div style={{ width: 320 }}>
+          {requestSubmitted ? (
+            <div style={{ background: '#161616', border: '1px solid #22c55e', borderRadius: 8, padding: 16, textAlign: 'center' }}>
+              <div style={{ color: '#22c55e', fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Request Submitted!</div>
+              <p style={{ color: '#a1a1aa', fontSize: 13, margin: 0, lineHeight: 1.5 }}>
+                Your request has been logged. An admin will review it and issue your 8-character auth code.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleRequestCode} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ textAlign: 'center', marginBottom: 4 }}>
+                <p style={{ margin: 0, color: '#a1a1aa', fontSize: 13 }}>Request an 8-character auth code from the admins to join the Hub.</p>
+              </div>
+              <input
+                type="email"
+                placeholder="Your Email"
+                value={requestEmail}
+                onChange={(e) => setRequestEmail(e.target.value)}
+                required
+                style={{ padding: '10px 14px', borderRadius: 6, border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: 14, outline: 'none' }}
+              />
+              <textarea
+                placeholder="Reason or Note (Optional)"
+                value={requestNote}
+                onChange={(e) => setRequestNote(e.target.value)}
+                rows={3}
+                style={{ padding: '10px 14px', borderRadius: 6, border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: 13, outline: 'none', resize: 'none' }}
+              />
+              {error && <div style={{ color: '#ef4444', fontSize: 12, textAlign: 'center' }}>{error}</div>}
+              <button
+                type="submit"
+                disabled={submitting}
+                style={{ padding: '11px 0', borderRadius: 6, border: 'none', background: submitting ? '#7c3010' : '#ea580c', color: 'white', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer' }}
+              >
+                {submitting ? 'Submitting Request...' : 'Submit Code Request'}
+              </button>
+            </form>
+          )}
+        </div>
       )}
     </div>
   );

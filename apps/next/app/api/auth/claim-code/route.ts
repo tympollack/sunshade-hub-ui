@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
 
     const cleanCode = rawCode.trim().toUpperCase();
 
-    // 1. Strict 8-character hex format check
-    if (!/^[A-F0-9]{8}$/.test(cleanCode)) {
+    // 1. Full 8-character alphanumeric check (A-Z, 0-9)
+    if (!/^[A-Z0-9]{8}$/.test(cleanCode)) {
       return NextResponse.json({ error: 'Invalid code format. Must be an 8-character alphanumeric code.' }, { status: 400 });
     }
 
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       p_code: cleanCode,
     });
 
-    if (claimError || !claimData || !claimData.user_id) {
+    if (claimError || !claimData || !claimData.success) {
       return NextResponse.json({ error: claimError?.message || 'Invalid or expired auth code' }, { status: 400 });
     }
 
@@ -61,18 +61,23 @@ export async function POST(req: NextRequest) {
       console.error('[claim-code] Failed to invalidate code:', updateError);
     }
 
-    // 4. Fetch email from auth.users
-    const { data: userData, error: userError } = await serviceClient.auth.admin.getUserById(claimData.user_id);
+    // 4. Determine user email
+    let targetEmail = claimData.email;
 
-    if (userError || !userData.user || !userData.user.email) {
-      return NextResponse.json({ error: 'User associated with this code was not found.' }, { status: 404 });
+    if (!targetEmail && claimData.user_id) {
+      const { data: userData } = await serviceClient.auth.admin.getUserById(claimData.user_id);
+      targetEmail = userData?.user?.email;
+    }
+
+    if (!targetEmail) {
+      return NextResponse.json({ error: 'User email associated with this code was not found.' }, { status: 404 });
     }
 
     // 5. Generate a magic login link with validated redirect origin
     const redirectUrl = getSafeRedirectUrl(req);
     const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
       type: 'magiclink',
-      email: userData.user.email,
+      email: targetEmail,
       options: {
         redirectTo: redirectUrl,
       },
@@ -84,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      email: userData.user.email,
+      email: targetEmail,
       redirect_url: linkData.properties.action_link,
     });
   } catch (err: any) {
