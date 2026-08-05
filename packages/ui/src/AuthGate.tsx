@@ -172,7 +172,7 @@ const LoginForm = () => {
             placeholder="8-Character Code (e.g. ASDF1234)"
             value={authCode}
             onChange={(e) => setAuthCode(e.target.value.toUpperCase().trim())}
-            maxLength={16}
+            maxLength={8}
             required
             style={{
               padding: '12px 14px',
@@ -225,6 +225,7 @@ const LoginForm = () => {
                 placeholder="Reason or Note (Optional)"
                 value={requestNote}
                 onChange={(e) => setRequestNote(e.target.value)}
+                maxLength={500}
                 rows={3}
                 style={{ padding: '10px 14px', borderRadius: 6, border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: 13, outline: 'none', resize: 'none' }}
               />

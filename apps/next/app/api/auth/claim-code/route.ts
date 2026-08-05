@@ -47,21 +47,11 @@ export async function POST(req: NextRequest) {
       p_code: cleanCode,
     });
 
-    if (claimError || !claimData || !claimData.success) {
+    if (claimError || !claimData || (!claimData.user_id && !claimData.email && !claimData.success)) {
       return NextResponse.json({ error: claimError?.message || 'Invalid or expired auth code' }, { status: 400 });
     }
 
-    // 3. Mark code as used immediately to prevent replay attacks
-    const { error: updateError } = await serviceClient
-      .from('user_auth_codes')
-      .update({ used_at: new Date().toISOString(), is_active: false })
-      .eq('code', cleanCode);
-
-    if (updateError) {
-      console.error('[claim-code] Failed to invalidate code:', updateError);
-    }
-
-    // 4. Determine user email
+    // 3. Determine user email
     let targetEmail = claimData.email;
 
     if (!targetEmail && claimData.user_id) {
@@ -73,7 +63,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User email associated with this code was not found.' }, { status: 404 });
     }
 
-    // 5. Generate a magic login link with validated redirect origin
+    // 4. Generate a magic login link with validated redirect origin
     const redirectUrl = getSafeRedirectUrl(req);
     const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
       type: 'magiclink',
@@ -85,6 +75,16 @@ export async function POST(req: NextRequest) {
 
     if (linkError || !linkData?.properties?.action_link) {
       return NextResponse.json({ error: 'Failed to generate authentication link.' }, { status: 500 });
+    }
+
+    // 5. Invalidate code AFTER successful link generation to avoid burning code on link failure
+    const { error: updateError } = await serviceClient
+      .from('user_auth_codes')
+      .update({ used_at: new Date().toISOString(), is_active: false })
+      .eq('code', cleanCode);
+
+    if (updateError) {
+      console.error('[claim-code] Failed to invalidate code:', updateError);
     }
 
     return NextResponse.json({

@@ -81,12 +81,18 @@ export default function DashboardClient({
   const [isGeneratingUserCode, setIsGeneratingUserCode] = useState(false);
 
   const handleRequestUserCode = async () => {
+    const userEmail = session?.user?.email;
+    if (!userEmail) {
+      alert('Your account email could not be found. Please sign in again.');
+      return;
+    }
+
     setIsGeneratingUserCode(true);
     try {
       const res = await fetch('/api/auth/request-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: session?.user?.email, note: 'Requested from Dashboard Settings' }),
+        body: JSON.stringify({ email: userEmail, note: 'Requested from Dashboard Settings' }),
       });
       const data = await res.json();
       if (!res.ok || data.error) {
