@@ -17,7 +17,7 @@ export default function EditGameModal({ game, onClose, onSave }: EditGameModalPr
     long_desc: game.long_desc || '',
     url_production: game.url_production || '',
     url_staging: game.url_staging || '',
-    sort_order: game.sort_order || 0,
+    sort_order: String(game.sort_order ?? 0),
     tags: game.tags?.join(', ') || '',
   });
 
@@ -28,7 +28,7 @@ export default function EditGameModal({ game, onClose, onSave }: EditGameModalPr
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: name === 'sort_order' ? parseInt(value) || 0 : value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const uploadFileToR2 = async (file: File, assetType: 'logo' | 'hero'): Promise<string> => {
@@ -85,7 +85,7 @@ export default function EditGameModal({ game, onClose, onSave }: EditGameModalPr
         long_desc: formData.long_desc,
         url_production: formData.url_production || null,
         url_staging: formData.url_staging || null,
-        sort_order: formData.sort_order,
+        sort_order: parseInt(formData.sort_order, 10) || 0,
         tags: tagsArray,
         img_url_logo: finalLogoUrl,
         img_url_hero: finalHeroUrl,

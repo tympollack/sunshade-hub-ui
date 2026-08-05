@@ -12,6 +12,15 @@ const r2 = new S3Client({
   },
 });
 
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/svg+xml',
+  'image/avif',
+]);
+
 export async function POST(req: NextRequest) {
   // 1. Verify Admin Auth
   const supabase = await createSSRClient();
@@ -32,22 +41,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // 2. Parse Request
+  // 2. Parse & Validate Request
   const { filename, contentType, gameSlug, assetType } = await req.json();
 
   if (!filename || !contentType || !gameSlug || !assetType) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  // 3. Generate Unique Key with timestamp to invalidate CDN cache
-  const fileExt = filename.split('.').pop();
-  const fileKey = `apps/${gameSlug}/${assetType}-${Date.now()}.${fileExt}`;
+  // Validate assetType
+  if (assetType !== 'logo' && assetType !== 'hero') {
+    return NextResponse.json({ error: 'Invalid asset type. Must be logo or hero.' }, { status: 400 });
+  }
+
+  // Validate MIME ContentType (prevent stored XSS or non-image uploads)
+  const normalizedMime = contentType.toLowerCase().trim();
+  if (!ALLOWED_MIME_TYPES.has(normalizedMime)) {
+    return NextResponse.json({ error: 'Invalid file type. Only image files (JPEG, PNG, WebP, GIF, SVG, AVIF) are allowed.' }, { status: 400 });
+  }
+
+  // Sanitize gameSlug to prevent path traversal
+  const cleanSlug = gameSlug.replace(/[^a-z0-9-]/gi, '').toLowerCase();
+  if (!cleanSlug) {
+    return NextResponse.json({ error: 'Invalid game slug' }, { status: 400 });
+  }
+
+  // Sanitize file extension
+  const rawExt = (filename.split('.').pop() || 'png').replace(/[^a-z0-9]/gi, '').toLowerCase();
+  const safeExt = rawExt || 'png';
+
+  // 3. Generate Unique Key with timestamp
+  const fileKey = `apps/${cleanSlug}/${assetType}-${Date.now()}.${safeExt}`;
 
   // 4. Create Presigned URL
   const command = new PutObjectCommand({
     Bucket: process.env.R2_BUCKET_NAME,
     Key: fileKey,
-    ContentType: contentType,
+    ContentType: normalizedMime,
   });
 
   try {

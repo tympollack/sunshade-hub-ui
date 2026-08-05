@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@sunshade/supabase';
 import { Edit, Eye, EyeOff } from 'lucide-react';
 import type { GameLibraryItem } from '../../dashboard/types';
 import EditGameModal from './EditGameModal';
 
 export default function LibraryClient({ initialGames }: { initialGames: GameLibraryItem[] }) {
+  const router = useRouter();
   const [games, setGames] = useState<GameLibraryItem[]>(initialGames);
   const [isSaving, setIsSaving] = useState(false);
   const [editingGame, setEditingGame] = useState<GameLibraryItem | null>(null);
@@ -21,6 +23,7 @@ export default function LibraryClient({ initialGames }: { initialGames: GameLibr
         
       if (error) throw error;
       setGames(games.map(g => g.id === id ? { ...g, is_active: !currentStatus } : g));
+      router.refresh();
     } catch (e) {
       console.error(e);
       alert('Failed to update status');
@@ -32,6 +35,7 @@ export default function LibraryClient({ initialGames }: { initialGames: GameLibr
   const handleSave = (updatedGame: GameLibraryItem) => {
     setGames(games.map(g => g.id === updatedGame.id ? updatedGame : g));
     setEditingGame(null);
+    router.refresh();
   };
 
   return (
