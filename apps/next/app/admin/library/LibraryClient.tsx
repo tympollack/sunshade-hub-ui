@@ -4,10 +4,12 @@ import React, { useState } from 'react';
 import { supabase } from '@sunshade/supabase';
 import { Edit, Eye, EyeOff } from 'lucide-react';
 import type { GameLibraryItem } from '../../dashboard/types';
+import EditGameModal from './EditGameModal';
 
 export default function LibraryClient({ initialGames }: { initialGames: GameLibraryItem[] }) {
   const [games, setGames] = useState<GameLibraryItem[]>(initialGames);
   const [isSaving, setIsSaving] = useState(false);
+  const [editingGame, setEditingGame] = useState<GameLibraryItem | null>(null);
 
   const toggleActive = async (id: string, currentStatus: boolean) => {
     setIsSaving(true);
@@ -25,6 +27,11 @@ export default function LibraryClient({ initialGames }: { initialGames: GameLibr
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSave = (updatedGame: GameLibraryItem) => {
+    setGames(games.map(g => g.id === updatedGame.id ? updatedGame : g));
+    setEditingGame(null);
   };
 
   return (
@@ -64,8 +71,9 @@ export default function LibraryClient({ initialGames }: { initialGames: GameLibr
                   </button>
                   <button 
                     disabled={isSaving}
-                    className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-orange-400 transition-colors disabled:opacity-50 inline-flex ml-1 cursor-not-allowed"
-                    title="Edit (Coming Soon)"
+                    onClick={() => setEditingGame(game)}
+                    className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-orange-400 transition-colors disabled:opacity-50 inline-flex ml-1"
+                    title="Edit Metadata & Images"
                   >
                     <Edit size={16} />
                   </button>
@@ -75,6 +83,14 @@ export default function LibraryClient({ initialGames }: { initialGames: GameLibr
           </tbody>
         </table>
       </div>
+
+      {editingGame && (
+        <EditGameModal 
+          game={editingGame} 
+          onClose={() => setEditingGame(null)} 
+          onSave={handleSave} 
+        />
+      )}
     </div>
   );
 }

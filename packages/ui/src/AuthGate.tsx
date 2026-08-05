@@ -3,12 +3,14 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '@sunshade/supabase';
 
 const LoginForm = () => {
+  const [authMode, setAuthMode] = useState<'password' | 'code'>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [authCode, setAuthCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
@@ -17,35 +19,138 @@ const LoginForm = () => {
     setSubmitting(false);
   };
 
+  const handleSubmitCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/auth/claim-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: authCode }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to authenticate with user code.');
+      }
+
+      if (data.redirect_url) {
+        window.location.href = data.redirect_url;
+      }
+    } catch (err: any) {
+      setError(err.message || 'Invalid or expired auth code.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', width: '100%', background: '#111111', color: 'white', fontFamily: 'sans-serif' }}>
-      <img src="/logo.png" alt="SunShade Systems" style={{ width: 260, height: 'auto', marginBottom: 32 }} />
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 300 }}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{ padding: '10px 14px', borderRadius: 6, border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: 14, outline: 'none' }}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={{ padding: '10px 14px', borderRadius: 6, border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: 14, outline: 'none' }}
-        />
-        {error && <div style={{ color: '#ef4444', fontSize: 12 }}>{error}</div>}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', width: '100%', background: '#111111', color: 'white', fontFamily: 'sans-serif', padding: '20px 0' }}>
+      <img src="/logo.png" alt="SunShade Systems" style={{ width: 260, height: 'auto', marginBottom: 24 }} />
+      
+      {/* Mode Selector Tabs */}
+      <div style={{ display: 'flex', background: '#1a1a1a', padding: 4, borderRadius: 8, marginBottom: 24, border: '1px solid #27272a' }}>
         <button
-          type="submit"
-          disabled={submitting}
-          style={{ padding: '11px 0', borderRadius: 6, border: 'none', background: submitting ? '#7c3010' : '#ea580c', color: 'white', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer' }}
+          type="button"
+          onClick={() => { setAuthMode('password'); setError(null); }}
+          style={{
+            padding: '6px 16px',
+            borderRadius: 6,
+            border: 'none',
+            background: authMode === 'password' ? '#27272a' : 'transparent',
+            color: authMode === 'password' ? '#ffffff' : '#a1a1aa',
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
         >
-          {submitting ? 'Signing in...' : 'Sign In'}
+          Password Sign In
         </button>
-      </form>
+        <button
+          type="button"
+          onClick={() => { setAuthMode('code'); setError(null); }}
+          style={{
+            padding: '6px 16px',
+            borderRadius: 6,
+            border: 'none',
+            background: authMode === 'code' ? '#ea580c' : 'transparent',
+            color: '#ffffff',
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          Join with 8-Char Code
+        </button>
+      </div>
+
+      {authMode === 'password' ? (
+        <form onSubmit={handleSubmitPassword} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 300 }}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            style={{ padding: '10px 14px', borderRadius: 6, border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: 14, outline: 'none' }}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            style={{ padding: '10px 14px', borderRadius: 6, border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: 14, outline: 'none' }}
+          />
+          {error && <div style={{ color: '#ef4444', fontSize: 12 }}>{error}</div>}
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{ padding: '11px 0', borderRadius: 6, border: 'none', background: submitting ? '#7c3010' : '#ea580c', color: 'white', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer' }}
+          >
+            {submitting ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={handleSubmitCode} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 300 }}>
+          <div style={{ textAlign: 'center', marginBottom: 4 }}>
+            <p style={{ margin: 0, color: '#a1a1aa', fontSize: 13 }}>Enter your 8-character user code to join the Hub.</p>
+          </div>
+          <input
+            type="text"
+            placeholder="8-Character Code (e.g. A3F89B2C)"
+            value={authCode}
+            onChange={(e) => setAuthCode(e.target.value.toUpperCase().trim())}
+            maxLength={16}
+            required
+            style={{
+              padding: '12px 14px',
+              borderRadius: 6,
+              border: '1px solid #ea580c',
+              background: '#1a1a1a',
+              color: '#ffffff',
+              fontSize: 16,
+              fontWeight: 700,
+              letterSpacing: '2px',
+              textAlign: 'center',
+              outline: 'none',
+              textTransform: 'uppercase',
+            }}
+          />
+          {error && <div style={{ color: '#ef4444', fontSize: 12, textAlign: 'center' }}>{error}</div>}
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{ padding: '11px 0', borderRadius: 6, border: 'none', background: submitting ? '#7c3010' : '#ea580c', color: 'white', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer' }}
+          >
+            {submitting ? 'Verifying Code...' : 'Join Hub with Code'}
+          </button>
+        </form>
+      )}
     </div>
   );
 };

@@ -18,6 +18,9 @@ import {
   History,
   Sun,
   Moon,
+  Key,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { GameDetailsDrawer } from './GameDetailsDrawer';
 import { useHubPresence } from '../../hooks/useHubPresence';
@@ -73,6 +76,26 @@ export default function DashboardClient({
   const [inviteCode, setInviteCode] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [submittingInvite, setSubmittingInvite] = useState(false);
+
+  const [generatedUserCode, setGeneratedUserCode] = useState<string | null>(null);
+  const [isGeneratingUserCode, setIsGeneratingUserCode] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
+
+  const handleRequestUserCode = async () => {
+    setIsGeneratingUserCode(true);
+    try {
+      const res = await fetch('/api/auth/generate-code', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Failed to generate code');
+      }
+      setGeneratedUserCode(data.code);
+    } catch (err: any) {
+      alert(err.message || 'Error generating user code');
+    } finally {
+      setIsGeneratingUserCode(false);
+    }
+  };
 
   const { onlineCount } = useHubPresence(session?.user?.id);
 
@@ -485,6 +508,40 @@ export default function DashboardClient({
                         )}
                       </div>
                     </div>
+                    <div className="p-6 border-b border-zinc-200 dark:border-zinc-800/60">
+                      <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">User Auth Code</h3>
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Generate an 8-character auth code to sign in on another device or invite someone to join the Hub with your code.</p>
+                      
+                      {generatedUserCode ? (
+                        <div className="bg-zinc-50 dark:bg-zinc-900/80 border border-orange-500/40 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                          <div>
+                            <span className="text-xs font-semibold uppercase tracking-wider text-orange-500 block mb-1">Your 8-Character Auth Code</span>
+                            <span className="text-2xl font-mono font-bold tracking-widest text-zinc-900 dark:text-white">{generatedUserCode}</span>
+                            <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block mt-1">Valid for 24 hours • Single use</span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(generatedUserCode);
+                              setCodeCopied(true);
+                              setTimeout(() => setCodeCopied(false), 2000);
+                            }}
+                            className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-lg transition-colors flex items-center gap-2 text-sm shrink-0"
+                          >
+                            {codeCopied ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Copy Code</>}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={handleRequestUserCode}
+                          disabled={isGeneratingUserCode}
+                          className="px-4 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-lg transition-colors flex items-center gap-2 text-sm disabled:opacity-50"
+                        >
+                          <Key size={16} />
+                          {isGeneratingUserCode ? 'Generating Code...' : 'Request User Code'}
+                        </button>
+                      )}
+                    </div>
+
                     <div className="p-6">
                       <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Account Actions</h3>
                       <button onClick={() => supabase.auth.signOut()} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium rounded-lg transition-colors">
