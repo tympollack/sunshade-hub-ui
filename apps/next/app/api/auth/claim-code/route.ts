@@ -2,26 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '../../../../lib/supabase-server';
 
 function getSafeRedirectUrl(req: NextRequest): string {
-  const defaultBase = process.env.NEXT_PUBLIC_SITE_URL || 'https://sunshade.icu';
-  const origin = req.headers.get('origin');
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
+  const proto = req.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
 
-  if (!origin) {
-    return `${defaultBase}/dashboard`;
+  // If host is a real domain (e.g. hub.sunshade.icu), build redirect URL from host
+  if (host && !host.includes('localhost')) {
+    return `${proto}://${host}/dashboard`;
   }
 
-  try {
-    const originUrl = new URL(origin);
-    const host = originUrl.hostname;
-
-    // Allow sunshade.icu subdomains and local development
-    if (host === 'sunshade.icu' || host.endsWith('.sunshade.icu') || host === 'localhost' || host === '127.0.0.1') {
-      return `${originUrl.origin}/dashboard`;
-    }
-  } catch {
-    // Fall back if URL parsing fails
-  }
-
-  return `${defaultBase}/dashboard`;
+  // Fallback to configured NEXT_PUBLIC_SITE_URL or hub.sunshade.icu
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://hub.sunshade.icu';
+  const cleanSiteUrl = siteUrl.replace(/\/$/, '');
+  return `${cleanSiteUrl}/dashboard`;
 }
 
 export async function POST(req: NextRequest) {
@@ -139,6 +131,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to generate authentication link.' }, { status: 500 });
     }
 
+    // Ensure action_link redirect_to param matches redirectUrl rather than fallback localhost:3000
+    let finalActionLink = linkData.properties.action_link;
+    try {
+      const linkUrlObj = new URL(finalActionLink);
+      linkUrlObj.searchParams.set('redirect_to', redirectUrl);
+      finalActionLink = linkUrlObj.toString();
+    } catch (e) {
+      console.warn('[claim-code] Failed to rewrite action_link redirect_to URL:', e);
+    }
+
     // 6. Invalidate code AFTER successful setup
     await serviceClient
       .from('user_auth_codes')
@@ -148,7 +150,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       email: targetEmail,
-      redirect_url: linkData.properties.action_link,
+      redirect_url: finalActionLink,
       message: 'Auth code successfully claimed! Your SunShade account is active.',
     });
   } catch (err: any) {

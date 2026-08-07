@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import {
   Key,
   Mail,
@@ -20,7 +20,6 @@ import {
 
 export default function ClaimClient() {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const queryCode = searchParams.get('code') || '';
   const queryEmail = searchParams.get('email') || '';
@@ -163,7 +162,7 @@ export default function ClaimClient() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 selection:bg-indigo-500 selection:text-white relative overflow-hidden"
+      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-indigo-500 selection:text-white relative overflow-hidden my-auto"
       style={{
         background: 'radial-gradient(ellipse at top, #1E1B4B 0%, #0F172A 50%, #090D16 100%)',
       }}
@@ -178,7 +177,7 @@ export default function ClaimClient() {
         style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.35) 0%, transparent 70%)' }}
       />
 
-      <div className="relative z-10 w-full max-w-lg p-6 sm:p-8 rounded-3xl bg-slate-900/90 backdrop-blur-xl border border-indigo-500/30 shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-300">
+      <div className="relative z-10 w-full max-w-lg p-6 sm:p-8 rounded-3xl bg-slate-900/90 backdrop-blur-xl border border-indigo-500/30 shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-300 mx-auto">
         
         {/* Header Branding & Badge */}
         <div className="text-center space-y-3">
@@ -271,9 +270,9 @@ export default function ClaimClient() {
           /* STEP 1 FORM: Auth Code & Email */
           <form onSubmit={handleNextStep} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Key className="w-3.5 h-3.5 text-indigo-400" />
-                8-Character Auth Code
+              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5 h-6">
+                <Key className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <span>8-Character Auth Code</span>
               </label>
               <input
                 type="text"
@@ -282,7 +281,7 @@ export default function ClaimClient() {
                 placeholder="e.g. AB12CD34"
                 maxLength={8}
                 required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-base font-mono font-extrabold tracking-widest text-emerald-400 uppercase placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                className="w-full h-12 bg-slate-950 border border-slate-800 rounded-xl px-4 text-base font-mono font-extrabold tracking-widest text-emerald-400 uppercase placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               />
               <span className="text-[10px] text-slate-500 block">
                 Issued in your admin approval email notification.
@@ -290,9 +289,9 @@ export default function ClaimClient() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-indigo-400" />
-                Email Address
+              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5 h-6">
+                <Mail className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <span>Email Address</span>
               </label>
               <input
                 type="email"
@@ -300,7 +299,7 @@ export default function ClaimClient() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your.email@domain.com"
                 required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+                className="w-full h-11 bg-slate-950 border border-slate-800 rounded-xl px-4 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -319,40 +318,40 @@ export default function ClaimClient() {
         ) : (
           /* STEP 2 FORM: Profile Info & Security */
           <form onSubmit={handleFinalSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-indigo-400" />
-                  Full Name / Display Name
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="space-y-1.5 flex flex-col">
+                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5 h-6">
+                  <User className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <span>Full Name</span>
                 </label>
                 <input
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="e.g. Alex Mercer"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+                  className="w-full h-11 bg-slate-950 border border-slate-800 rounded-xl px-3.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <AtSign className="w-3.5 h-3.5 text-indigo-400" />
-                  Username / Handle
+              <div className="space-y-1.5 flex flex-col">
+                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5 h-6">
+                  <AtSign className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <span>Username</span>
                 </label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="e.g. alex_m"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+                  className="w-full h-11 bg-slate-950 border border-slate-800 rounded-xl px-3.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-indigo-400" />
-                Choose Account Password
+              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5 h-6">
+                <Lock className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <span>Choose Account Password</span>
               </label>
               <div className="relative">
                 <input
@@ -362,7 +361,7 @@ export default function ClaimClient() {
                   placeholder="At least 8 characters"
                   required
                   minLength={8}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-3.5 pr-10 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 font-mono"
+                  className="w-full h-11 bg-slate-950 border border-slate-800 rounded-xl pl-3.5 pr-10 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 font-mono"
                 />
                 <button
                   type="button"
@@ -390,9 +389,9 @@ export default function ClaimClient() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-indigo-400" />
-                Confirm Password
+              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5 h-6">
+                <Lock className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <span>Confirm Password</span>
               </label>
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -400,7 +399,7 @@ export default function ClaimClient() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Re-enter password"
                 required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 font-mono"
+                className="w-full h-11 bg-slate-950 border border-slate-800 rounded-xl px-3.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 font-mono"
               />
             </div>
 
