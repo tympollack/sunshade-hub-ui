@@ -10,6 +10,7 @@ const LoginForm = () => {
   const [requestEmail, setRequestEmail] = useState('');
   const [requestNote, setRequestNote] = useState('');
   const [requestSubmitted, setRequestSubmitted] = useState(false);
+  const [requestResponseMessage, setRequestResponseMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -66,6 +67,7 @@ const LoginForm = () => {
         throw new Error(data.error || 'Failed to submit code request.');
       }
 
+      setRequestResponseMessage(data.message || 'Your request has been logged. An admin will review it and issue your 8-character auth code.');
       setRequestSubmitted(true);
     } catch (err: any) {
       setError(err.message || 'Failed to submit request.');
@@ -202,10 +204,12 @@ const LoginForm = () => {
       {authMode === 'request' && (
         <div style={{ width: 320 }}>
           {requestSubmitted ? (
-            <div style={{ background: '#161616', border: '1px solid #22c55e', borderRadius: 8, padding: 16, textAlign: 'center' }}>
-              <div style={{ color: '#22c55e', fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Request Submitted!</div>
+            <div style={{ background: '#161616', border: `1px solid ${requestResponseMessage?.toLowerCase().includes('already') ? '#f59e0b' : '#22c55e'}`, borderRadius: 8, padding: 16, textAlign: 'center' }}>
+              <div style={{ color: requestResponseMessage?.toLowerCase().includes('already') ? '#f59e0b' : '#22c55e', fontWeight: 700, fontSize: 16, marginBottom: 8 }}>
+                {requestResponseMessage?.toLowerCase().includes('already') ? 'Request Already Logged!' : 'Request Submitted!'}
+              </div>
               <p style={{ color: '#a1a1aa', fontSize: 13, margin: 0, lineHeight: 1.5 }}>
-                Your request has been logged. An admin will review it and issue your 8-character auth code.
+                {requestResponseMessage || 'Your request has been logged. An admin will review it and issue your 8-character auth code.'}
               </p>
             </div>
           ) : (
