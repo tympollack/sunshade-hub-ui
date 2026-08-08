@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '../../../../lib/supabase-server';
+import { getHubBaseUrl } from '../../../../lib/env';
 
 function getSafeRedirectUrl(req: NextRequest): string {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
   const proto = req.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
 
-  // If host is a real domain (e.g. hub.sunshade.icu), build redirect URL from host
+  // If host is a real domain (e.g. hub-stag.sunshade.icu or hub.sunshade.icu), build redirect URL from host
   if (host && !host.includes('localhost')) {
     return `${proto}://${host}/dashboard`;
   }
 
-  // Fallback to configured NEXT_PUBLIC_SITE_URL or hub.sunshade.icu
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://hub.sunshade.icu';
-  const cleanSiteUrl = siteUrl.replace(/\/$/, '');
-  return `${cleanSiteUrl}/dashboard`;
+  // Fallback using environment detection (hub-stag.sunshade.icu for staging, hub.sunshade.icu for prod)
+  const baseUrl = getHubBaseUrl(host);
+  return `${baseUrl}/dashboard`;
 }
 
 export async function POST(req: NextRequest) {
