@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@sunshade/supabase';
 
-const LoginForm = () => {
+export const LoginForm = () => {
   const [authMode, setAuthMode] = useState<'password' | 'code' | 'request'>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -398,3 +398,5 @@ export const AuthGate = ({ children }: { children: React.ReactNode }) => {
     </>
   );
 };
+
+export default AuthGate;
