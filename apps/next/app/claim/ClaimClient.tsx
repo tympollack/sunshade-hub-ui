@@ -113,6 +113,13 @@ export default function ClaimClient() {
     setIsSubmitting(true);
 
     try {
+      const rawRedirect =
+        searchParams.get('redirect_to') ||
+        searchParams.get('redirect') ||
+        searchParams.get('returnTo') ||
+        searchParams.get('return_to') ||
+        searchParams.get('next');
+
       const res = await fetch('/api/auth/claim-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,6 +129,7 @@ export default function ClaimClient() {
           fullName: fullName.trim(),
           username: username.trim(),
           password,
+          redirect_to: rawRedirect,
         }),
       });
 

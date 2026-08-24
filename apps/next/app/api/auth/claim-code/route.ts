@@ -2,11 +2,39 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '../../../../lib/supabase-server';
 import { getHubBaseUrl } from '../../../../lib/env';
 
-function getSafeRedirectUrl(req: NextRequest): string {
+function getSafeRedirectUrl(req: NextRequest, customRedirectUrl?: string): string {
+  if (customRedirectUrl) {
+    const cleanUrl = customRedirectUrl.trim();
+    if (cleanUrl.startsWith('/')) {
+      const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
+      const proto = req.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
+      const baseUrl = host && !host.includes('localhost') ? `${proto}://${host}` : getHubBaseUrl(host);
+      return `${baseUrl}${cleanUrl}`;
+    }
+
+    try {
+      const parsed = new URL(cleanUrl);
+      const host = parsed.hostname.toLowerCase();
+
+      // Whitelist sunshade.icu subdomains, vercel.app preview domains, and localhost
+      if (
+        host === 'sunshade.icu' ||
+        host.endsWith('.sunshade.icu') ||
+        host.endsWith('.vercel.app') ||
+        host === 'localhost' ||
+        host === '127.0.0.1'
+      ) {
+        return parsed.toString();
+      }
+    } catch {
+      // Ignore URL parse error
+    }
+  }
+
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
   const proto = req.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
 
-  // If host is a real domain (e.g. hub-stag.sunshade.icu or hub.sunshade.icu), build redirect URL from host
+  // Default fallback if host is real domain
   if (host && !host.includes('localhost')) {
     return `${proto}://${host}/dashboard`;
   }
@@ -24,6 +52,12 @@ export async function POST(req: NextRequest) {
     const fullName = body?.fullName?.trim() || '';
     const username = body?.username?.trim() || '';
     const password = body?.password || '';
+    const rawRedirect =
+      body?.redirect_to ||
+      body?.redirectTo ||
+      body?.redirect ||
+      req.nextUrl.searchParams.get('redirect_to') ||
+      req.nextUrl.searchParams.get('redirect');
 
     if (!rawCode || typeof rawCode !== 'string') {
       return NextResponse.json({ error: 'An 8-character auth code is required.' }, { status: 400 });
@@ -118,7 +152,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Generate magic login link with validated redirect origin
-    const redirectUrl = getSafeRedirectUrl(req);
+    const redirectUrl = getSafeRedirectUrl(req, rawRedirect);
     const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
       type: 'magiclink',
       email: targetEmail,
@@ -131,7 +165,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to generate authentication link.' }, { status: 500 });
     }
 
-    // Ensure action_link redirect_to param matches redirectUrl rather than fallback localhost:3000
+    // Ensure action_link redirect_to param matches redirectUrl
     let finalActionLink = linkData.properties.action_link;
     try {
       const linkUrlObj = new URL(finalActionLink);
