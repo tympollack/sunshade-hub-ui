@@ -6,35 +6,7 @@ import { supabase } from '@sunshade/supabase';
 import { LoginForm } from 'ui';
 import { Sparkles, Compass, Key, ExternalLink, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-
-function getValidatedHandshakeUrl(rawUrl: string | null): string {
-  if (!rawUrl) return '/dashboard';
-
-  const cleanUrl = rawUrl.trim();
-  if (cleanUrl.startsWith('/')) {
-    return cleanUrl;
-  }
-
-  try {
-    const parsed = new URL(cleanUrl);
-    const host = parsed.hostname.toLowerCase();
-
-    // Allow sunshade.icu subdomains, vercel.app domains (e.g. cozy-*.vercel.app), and local development
-    if (
-      host === 'sunshade.icu' ||
-      host.endsWith('.sunshade.icu') ||
-      host.endsWith('.vercel.app') ||
-      host === 'localhost' ||
-      host === '127.0.0.1'
-    ) {
-      return parsed.toString();
-    }
-  } catch {
-    // If URL parsing fails, default to /dashboard
-  }
-
-  return '/dashboard';
-}
+import { getValidatedRedirectUrl } from '../../lib/env';
 
 function getAppNameFromUrl(url: string): string | null {
   try {
@@ -54,7 +26,7 @@ function getAppNameFromUrl(url: string): string | null {
       if (prefix && prefix !== 'sunshade') {
         return prefix.charAt(0).toUpperCase() + prefix.slice(1);
       }
-      return 'Vercel App';
+      return 'SunShade App';
     }
   } catch {
     // Ignore error
@@ -78,7 +50,7 @@ export default function LoginClient() {
     searchParams.get('app_url') ||
     searchParams.get('url');
 
-  const handshakeTargetUrl = useMemo(() => getValidatedHandshakeUrl(rawTargetUrl), [rawTargetUrl]);
+  const handshakeTargetUrl = useMemo(() => getValidatedRedirectUrl(rawTargetUrl, '/dashboard'), [rawTargetUrl]);
   const targetAppName = useMemo(() => getAppNameFromUrl(handshakeTargetUrl), [handshakeTargetUrl]);
 
   const [checkingAuth, setCheckingAuth] = useState(true);

@@ -2,6 +2,40 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@sunshade/supabase';
 
+function isTrustedRedirectHost(rawHost: string): boolean {
+  if (!rawHost || typeof rawHost !== 'string') return false;
+  const host = rawHost.toLowerCase().trim();
+
+  // 1. SunShade root domain and all subdomains
+  if (host === 'sunshade.icu' || host.endsWith('.sunshade.icu')) {
+    return true;
+  }
+
+  // 2. Local development
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return true;
+  }
+
+  // 3. SunShade Vercel Organization preview deployments
+  if (
+    host.endsWith('-sunshade-systems.vercel.app') ||
+    host.endsWith('.sunshade-systems.vercel.app') ||
+    host === 'sunshade-systems.vercel.app'
+  ) {
+    return true;
+  }
+
+  // 4. Known SunShade ecosystem app Vercel preview deployment patterns
+  if (
+    /^(cozy|chess|pukhuk|critterverse|sunshade)-[a-z0-9-]+\.vercel\.app$/.test(host) ||
+    /^(cozy|chess|pukhuk|critterverse|sunshade)\.vercel\.app$/.test(host)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function getSafeRedirectUrlFromSearch(): string | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -14,19 +48,16 @@ function getSafeRedirectUrlFromSearch(): string | null {
       searchParams.get('next') ||
       searchParams.get('callbackUrl');
 
-    if (!rawRedirect) return null;
+    if (!rawRedirect || typeof rawRedirect !== 'string') return null;
     const clean = rawRedirect.trim();
     if (clean.startsWith('/')) return clean;
 
     const parsed = new URL(clean);
-    const host = parsed.hostname.toLowerCase();
-    if (
-      host === 'sunshade.icu' ||
-      host.endsWith('.sunshade.icu') ||
-      host.endsWith('.vercel.app') ||
-      host === 'localhost' ||
-      host === '127.0.0.1'
-    ) {
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+
+    if (isTrustedRedirectHost(parsed.hostname)) {
       return parsed.toString();
     }
   } catch {
