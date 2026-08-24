@@ -28,11 +28,19 @@ export const LoginForm = () => {
     setSubmitting(true);
     setError(null);
 
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirectTo =
+      searchParams.get('redirect_to') ||
+      searchParams.get('redirect') ||
+      searchParams.get('returnTo') ||
+      searchParams.get('return_to') ||
+      searchParams.get('next');
+
     try {
       const res = await fetch('/api/auth/claim-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: authCode }),
+        body: JSON.stringify({ code: authCode, redirect_to: redirectTo }),
       });
 
       const data = await res.json();
