@@ -19,10 +19,11 @@ function getValidatedHandshakeUrl(rawUrl: string | null): string {
     const parsed = new URL(cleanUrl);
     const host = parsed.hostname.toLowerCase();
 
-    // Allow sunshade.icu subdomains (e.g., cozy.sunshade.icu, cozy-stag.sunshade.icu) and local development
+    // Allow sunshade.icu subdomains, vercel.app domains (e.g. cozy-*.vercel.app), and local development
     if (
       host === 'sunshade.icu' ||
       host.endsWith('.sunshade.icu') ||
+      host.endsWith('.vercel.app') ||
       host === 'localhost' ||
       host === '127.0.0.1'
     ) {
@@ -40,10 +41,20 @@ function getAppNameFromUrl(url: string): string | null {
     if (url.startsWith('/')) return null;
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase();
-    const parts = host.split('.');
-    if (parts.length >= 3 && host.endsWith('.sunshade.icu')) {
+
+    if (host.endsWith('.sunshade.icu')) {
+      const parts = host.split('.');
       const appSubdomain = parts[0].replace('-stag', '');
       return appSubdomain.charAt(0).toUpperCase() + appSubdomain.slice(1);
+    }
+
+    if (host.endsWith('.vercel.app')) {
+      // e.g. cozy-git-feature-graphics-remodel-sunshade-systems.vercel.app -> Cozy
+      const prefix = host.split('-')[0];
+      if (prefix && prefix !== 'sunshade') {
+        return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+      }
+      return 'Vercel App';
     }
   } catch {
     // Ignore error
