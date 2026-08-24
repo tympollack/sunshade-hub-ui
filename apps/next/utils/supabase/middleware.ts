@@ -15,15 +15,21 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value));
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({
             request,
           });
-          const isLocal = request.nextUrl.hostname === 'localhost' || request.nextUrl.hostname === '127.0.0.1';
+
+          const host = request.nextUrl.hostname;
+          const isSunShadeDomain = host === 'sunshade.icu' || host.endsWith('.sunshade.icu');
+
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, {
               ...options,
-              ...(!isLocal && { domain: '.sunshade.icu' }),
+              path: '/',
+              sameSite: 'lax',
+              secure: true,
+              ...(isSunShadeDomain && { domain: '.sunshade.icu' }),
             })
           );
         },
