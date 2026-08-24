@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '../../../../lib/supabase-server';
-import { getHubBaseUrl } from '../../../../lib/env';
+import { getHubBaseUrl, isTrustedRedirectHost } from '../../../../lib/env';
 
-function getSafeRedirectUrl(req: NextRequest, customRedirectUrl?: string): string {
-  if (customRedirectUrl) {
+function getSafeRedirectUrl(req: NextRequest, customRedirectUrl?: unknown): string {
+  if (typeof customRedirectUrl === 'string') {
     const cleanUrl = customRedirectUrl.trim();
     if (cleanUrl.startsWith('/')) {
       const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
@@ -14,20 +14,13 @@ function getSafeRedirectUrl(req: NextRequest, customRedirectUrl?: string): strin
 
     try {
       const parsed = new URL(cleanUrl);
-      const host = parsed.hostname.toLowerCase();
-
-      // Whitelist sunshade.icu subdomains, vercel.app preview domains, and localhost
-      if (
-        host === 'sunshade.icu' ||
-        host.endsWith('.sunshade.icu') ||
-        host.endsWith('.vercel.app') ||
-        host === 'localhost' ||
-        host === '127.0.0.1'
-      ) {
-        return parsed.toString();
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        if (isTrustedRedirectHost(parsed.hostname)) {
+          return parsed.toString();
+        }
       }
     } catch {
-      // Ignore URL parse error
+      // Ignore URL parse error and fall back to default
     }
   }
 
@@ -49,15 +42,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const rawCode = body?.code;
     const rawEmail = body?.email;
-    const fullName = body?.fullName?.trim() || '';
-    const username = body?.username?.trim() || '';
-    const password = body?.password || '';
+    const fullName = typeof body?.fullName === 'string' ? body.fullName.trim() : '';
+    const username = typeof body?.username === 'string' ? body.username.trim() : '';
+    const password = typeof body?.password === 'string' ? body.password : '';
     const rawRedirect =
-      body?.redirect_to ||
-      body?.redirectTo ||
-      body?.redirect ||
-      req.nextUrl.searchParams.get('redirect_to') ||
-      req.nextUrl.searchParams.get('redirect');
+      typeof body?.redirect_to === 'string'
+        ? body.redirect_to
+        : typeof body?.redirectTo === 'string'
+        ? body.redirectTo
+        : typeof body?.redirect === 'string'
+        ? body.redirect
+        : req.nextUrl.searchParams.get('redirect_to') || req.nextUrl.searchParams.get('redirect');
 
     if (!rawCode || typeof rawCode !== 'string') {
       return NextResponse.json({ error: 'An 8-character auth code is required.' }, { status: 400 });
