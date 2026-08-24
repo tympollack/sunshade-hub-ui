@@ -56,13 +56,41 @@ export default function LoginClient() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [redirecting, setRedirecting] = useState(false);
 
-  const performHandshakeRedirect = (target: string) => {
+  const performHandshakeRedirect = (target: string, session?: any) => {
     setRedirecting(true);
     if (target.startsWith('/')) {
       router.replace(target);
-    } else {
-      window.location.href = target;
+      return;
     }
+
+    try {
+      const parsed = new URL(target);
+      const host = parsed.hostname.toLowerCase();
+
+      // If on sunshade.icu, shared cookie works natively
+      if (host === 'sunshade.icu' || host.endsWith('.sunshade.icu')) {
+        window.location.href = parsed.toString();
+        return;
+      }
+
+      // For cross-domain preview environments (e.g. *.vercel.app, localhost),
+      // pass tokens to the target app's /auth/callback to establish cookies on that origin!
+      if (session?.access_token && session?.refresh_token) {
+        const callbackUrl = new URL('/auth/callback', parsed.origin);
+        callbackUrl.searchParams.set('access_token', session.access_token);
+        callbackUrl.searchParams.set('refresh_token', session.refresh_token);
+        const nextPath = parsed.pathname + parsed.search;
+        if (nextPath && nextPath !== '/') {
+          callbackUrl.searchParams.set('next', nextPath);
+        }
+        window.location.href = callbackUrl.toString();
+        return;
+      }
+    } catch {
+      // ignore
+    }
+
+    window.location.href = target;
   };
 
   useEffect(() => {
@@ -71,7 +99,7 @@ export default function LoginClient() {
     const checkExistingSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session && isMounted) {
-        performHandshakeRedirect(handshakeTargetUrl);
+        performHandshakeRedirect(handshakeTargetUrl, session);
       } else if (isMounted) {
         setCheckingAuth(false);
       }
@@ -82,7 +110,7 @@ export default function LoginClient() {
     // Listen for auth state changes (e.g. password login, magic link, code claim)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session && isMounted) {
-        performHandshakeRedirect(handshakeTargetUrl);
+        performHandshakeRedirect(handshakeTargetUrl, session);
       }
     });
 
