@@ -2,6 +2,39 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@sunshade/supabase';
 
+function getSafeRedirectUrlFromSearch(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const searchParams = new URLSearchParams(window.location.search);
+    const rawRedirect =
+      searchParams.get('redirect_to') ||
+      searchParams.get('redirect') ||
+      searchParams.get('returnTo') ||
+      searchParams.get('return_to') ||
+      searchParams.get('next') ||
+      searchParams.get('callbackUrl');
+
+    if (!rawRedirect) return null;
+    const clean = rawRedirect.trim();
+    if (clean.startsWith('/')) return clean;
+
+    const parsed = new URL(clean);
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === 'sunshade.icu' ||
+      host.endsWith('.sunshade.icu') ||
+      host.endsWith('.vercel.app') ||
+      host === 'localhost' ||
+      host === '127.0.0.1'
+    ) {
+      return parsed.toString();
+    }
+  } catch {
+    // Ignore error
+  }
+  return null;
+}
+
 export const LoginForm = () => {
   const [authMode, setAuthMode] = useState<'password' | 'code' | 'request'>('password');
   const [email, setEmail] = useState('');
@@ -19,7 +52,18 @@ export const LoginForm = () => {
     setSubmitting(true);
     setError(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
+    if (error) {
+      setError(error.message);
+      setSubmitting(false);
+      return;
+    }
+
+    const targetRedirect = getSafeRedirectUrlFromSearch();
+    if (targetRedirect) {
+      window.location.href = targetRedirect;
+      return;
+    }
+
     setSubmitting(false);
   };
 
@@ -28,19 +72,13 @@ export const LoginForm = () => {
     setSubmitting(true);
     setError(null);
 
-    const searchParams = new URLSearchParams(window.location.search);
-    const redirectTo =
-      searchParams.get('redirect_to') ||
-      searchParams.get('redirect') ||
-      searchParams.get('returnTo') ||
-      searchParams.get('return_to') ||
-      searchParams.get('next');
+    const targetRedirect = getSafeRedirectUrlFromSearch();
 
     try {
       const res = await fetch('/api/auth/claim-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: authCode, redirect_to: redirectTo }),
+        body: JSON.stringify({ code: authCode, redirect_to: targetRedirect }),
       });
 
       const data = await res.json();
@@ -85,11 +123,11 @@ export const LoginForm = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', width: '100%', background: '#111111', color: 'white', fontFamily: 'sans-serif', padding: '20px 0' }}>
-      <img src="/logo.png" alt="SunShade Systems" style={{ width: 260, height: 'auto', marginBottom: 24 }} />
-      
-      {/* Mode Selector Tabs */}
-      <div style={{ display: 'flex', background: '#1a1a1a', padding: 4, borderRadius: 8, marginBottom: 24, border: '1px solid #27272a' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', width: '100%', background: '#111111', color: 'white', fontFamily: 'sans-serif' }}>
+      <img src="/logo.png" alt="SunShade Systems" style={{ width: 300, height: 'auto', marginBottom: 20 }} />
+
+      {/* Mode Switcher Tabs */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20, background: '#1c1c1c', padding: 4, borderRadius: 8, border: '1px solid #333' }}>
         <button
           type="button"
           onClick={() => { setAuthMode('password'); setError(null); }}
@@ -97,7 +135,7 @@ export const LoginForm = () => {
             padding: '6px 14px',
             borderRadius: 6,
             border: 'none',
-            background: authMode === 'password' ? '#27272a' : 'transparent',
+            background: authMode === 'password' ? '#ea580c' : 'transparent',
             color: authMode === 'password' ? '#ffffff' : '#a1a1aa',
             fontSize: 13,
             fontWeight: 600,
@@ -115,7 +153,7 @@ export const LoginForm = () => {
             borderRadius: 6,
             border: 'none',
             background: authMode === 'code' ? '#ea580c' : 'transparent',
-            color: '#ffffff',
+            color: authMode === 'code' ? '#ffffff' : '#a1a1aa',
             fontSize: 13,
             fontWeight: 600,
             cursor: 'pointer',
@@ -241,72 +279,23 @@ export const LoginForm = () => {
                 rows={3}
                 style={{ padding: '10px 14px', borderRadius: 6, border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: 13, outline: 'none', resize: 'none' }}
               />
-              {error && <div style={{ color: '#ef4444', fontSize: 12, textAlign: 'center' }}>{error}</div>}
+              {error && <div style={{ color: '#ef4444', fontSize: 12 }}>{error}</div>}
               <button
                 type="submit"
                 disabled={submitting}
-                style={{ padding: '11px 0', borderRadius: 6, border: 'none', background: submitting ? '#7c3010' : '#ea580c', color: 'white', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer' }}
+                style={{ padding: '11px 0', borderRadius: 6, border: 'none', background: submitting ? '#3f3f46' : '#27272a', color: 'white', fontSize: 14, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer' }}
               >
-                {submitting ? 'Submitting Request...' : 'Submit Code Request'}
+                {submitting ? 'Submitting Request...' : 'Submit Request'}
               </button>
             </form>
           )}
         </div>
       )}
-    </div>
-  );
-};
-
-const InviteForm = ({ onClaimed }: { onClaimed: () => void }) => {
-  const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    
-    try {
-      const { data, error } = await supabase.rpc('claim_invite', { invite_code: code });
       
-      if (error) {
-        throw error;
-      }
-      
-      onClaimed();
-    } catch (err: any) {
-      setError(err.message || 'Failed to claim invite code');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', width: '100%', background: '#111111', color: 'white', fontFamily: 'sans-serif' }}>
-      <img src="/logo.png" alt="SunShade Systems" style={{ width: 260, height: 'auto', marginBottom: 24 }} />
-      <div style={{ marginBottom: 32, textAlign: 'center', maxWidth: 320 }}>
-        <h2 style={{ margin: '0 0 8px 0', fontSize: 20 }}>Invite Required</h2>
-        <p style={{ margin: 0, color: '#a1a1aa', fontSize: 14 }}>Enter your invitation code to access the SunShade Hub.</p>
+      {/* Brand Footer */}
+      <div style={{ marginTop: 24, fontSize: 11, color: '#52525b', fontFamily: 'monospace' }}>
+        SunShade Systems • Central SSO Gateway
       </div>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 300 }}>
-        <input
-          type="text"
-          placeholder="Invite Code (e.g., SUN-...)"
-          value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
-          required
-          style={{ padding: '10px 14px', borderRadius: 6, border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: 14, outline: 'none', textTransform: 'uppercase' }}
-        />
-        {error && <div style={{ color: '#ef4444', fontSize: 12 }}>{error}</div>}
-        <button
-          type="submit"
-          disabled={submitting}
-          style={{ padding: '11px 0', borderRadius: 6, border: 'none', background: submitting ? '#7c3010' : '#ea580c', color: 'white', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer' }}
-        >
-          {submitting ? 'Verifying...' : 'Redeem Code'}
-        </button>
-      </form>
     </div>
   );
 };
@@ -349,6 +338,11 @@ export const AuthGate = ({ children }: { children: React.ReactNode }) => {
         clearTimeout(timeout);
         setSession(session);
         if (session?.user) {
+          const targetUrl = getSafeRedirectUrlFromSearch();
+          if (targetUrl) {
+            window.location.href = targetUrl;
+            return;
+          }
           fetchProfile(session.user.id);
         } else {
           setLoading(false);
@@ -364,6 +358,11 @@ export const AuthGate = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (session?.user) {
+        const targetUrl = getSafeRedirectUrlFromSearch();
+        if (targetUrl) {
+          window.location.href = targetUrl;
+          return;
+        }
         if (event === 'SIGNED_IN') {
           setLoading(true);
         }
