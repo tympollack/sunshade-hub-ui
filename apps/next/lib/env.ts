@@ -6,26 +6,51 @@
 export const BUILD_ENVIRONMENT = (
   process.env.NEXT_PUBLIC_ENVIRONMENT ||
   process.env.NEXT_PUBLIC_VERCEL_ENV ||
+  process.env.VERCEL_ENV ||
   process.env.NODE_ENV ||
   'production'
 ).toLowerCase();
 
 export function isStagingEnvironment(host?: string): boolean {
-  if (BUILD_ENVIRONMENT === 'staging' || BUILD_ENVIRONMENT === 'preview') return true;
+  const env = (
+    process.env.NEXT_PUBLIC_ENVIRONMENT ||
+    process.env.NEXT_PUBLIC_VERCEL_ENV ||
+    process.env.VERCEL_ENV ||
+    ''
+  ).toLowerCase();
 
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    return hostname.includes('-stag') || hostname.includes('staging');
+  if (env === 'staging' || env === 'preview' || env === 'development') {
+    return true;
   }
 
-  if (host) {
-    return host.includes('-stag') || host.includes('staging');
+  const targetHost = (
+    host ||
+    (typeof window !== 'undefined' ? window.location.hostname : '')
+  ).toLowerCase();
+
+  if (
+    targetHost.includes('-stag') ||
+    targetHost.includes('staging') ||
+    targetHost.endsWith('.vercel.app') ||
+    targetHost.includes('localhost') ||
+    targetHost.includes('127.0.0.1')
+  ) {
+    return true;
   }
 
   return false;
 }
 
 export function getHubBaseUrl(host?: string): string {
+  const isStag = isStagingEnvironment(host);
+
+  if (isStag) {
+    if (process.env.NEXT_PUBLIC_STAGING_HUB_URL) {
+      return process.env.NEXT_PUBLIC_STAGING_HUB_URL.replace(/\/$/, '');
+    }
+    return 'https://hub-stag.sunshade.icu';
+  }
+
   if (process.env.NEXT_PUBLIC_HUB_URL) {
     return process.env.NEXT_PUBLIC_HUB_URL.replace(/\/$/, '');
   }
@@ -34,8 +59,7 @@ export function getHubBaseUrl(host?: string): string {
     return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
   }
 
-  const isStag = isStagingEnvironment(host);
-  return isStag ? 'https://hub-stag.sunshade.icu' : 'https://hub.sunshade.icu';
+  return 'https://hub.sunshade.icu';
 }
 
 /**

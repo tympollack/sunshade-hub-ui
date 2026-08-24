@@ -32,8 +32,9 @@ import type {
 
 function getAppUrl(appId: string): string {
   if (typeof window === 'undefined') return '#';
-  const isStaging = window.location.hostname.includes('-stag') || window.location.hostname.includes('staging');
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const hostname = window.location.hostname.toLowerCase();
+  const isStaging = hostname.includes('-stag') || hostname.includes('staging') || hostname.endsWith('.vercel.app');
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
   
   if (isLocal) return `http://localhost:3000`;
   
@@ -231,7 +232,11 @@ export default function DashboardClient({
   const crittverseElo = profile?.critterverse_elo ?? 1200;
   const onlineNodes = edgeNodes.filter((n) => n.status === 'online').length;
 
-  const isStaging = typeof window !== 'undefined' && (window.location.hostname.includes('-stag') || window.location.hostname.includes('staging'));
+  const isStaging = typeof window !== 'undefined' && (
+    window.location.hostname.includes('-stag') ||
+    window.location.hostname.includes('staging') ||
+    window.location.hostname.endsWith('.vercel.app')
+  );
   const hubGames = gameLibrary.filter(g => g.tags?.includes('game')).map(g => ({
     ...g,
     title: g.name, // Map new DB fields back to what the UI expects for now

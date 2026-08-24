@@ -7,6 +7,12 @@ const SSO_DOMAIN = '.sunshade.icu';
 
 const isBrowser = () => typeof window !== 'undefined' && typeof document !== 'undefined';
 
+const isSunShadeDomain = () => {
+  if (!isBrowser()) return false;
+  const host = window.location.hostname.toLowerCase();
+  return host === 'sunshade.icu' || host.endsWith('.sunshade.icu');
+};
+
 function getCookie(name: string): string | null | undefined {
   if (!isBrowser()) return null;
 
@@ -35,7 +41,11 @@ function setCookie(name: string, value: string, options: CookieOptions = {}) {
   if (typeof options.maxAge === 'number') parts.push(`Max-Age=${options.maxAge}`);
   if (options.expires) parts.push(`Expires=${new Date(options.expires).toUTCString()}`);
 
-  parts.push(`domain=${SSO_DOMAIN}`, 'SameSite=Lax', 'Secure');
+  if (isSunShadeDomain()) {
+    parts.push(`domain=${SSO_DOMAIN}`);
+  }
+
+  parts.push('SameSite=Lax', 'Secure');
 
   document.cookie = parts.join('; ');
 }
@@ -47,7 +57,12 @@ function removeCookie(name: string, options: CookieOptions = {}) {
 
   if (options.path) parts.push(`Path=${options.path}`);
   parts.push('Max-Age=0', `Expires=${new Date(0).toUTCString()}`);
-  parts.push(`domain=${SSO_DOMAIN}`, 'SameSite=Lax', 'Secure');
+
+  if (isSunShadeDomain()) {
+    parts.push(`domain=${SSO_DOMAIN}`);
+  }
+
+  parts.push('SameSite=Lax', 'Secure');
 
   document.cookie = parts.join('; ');
 }
@@ -71,7 +86,7 @@ export const supabase = createBrowserClient(
   {
     cookieOptions: {
       path: '/',
-      domain: SSO_DOMAIN,
+      ...(isSunShadeDomain() ? { domain: SSO_DOMAIN } : {}),
       sameSite: 'lax',
       secure: true,
     },
