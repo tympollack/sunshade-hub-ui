@@ -36,7 +36,7 @@ function isTrustedRedirectHost(rawHost: string): boolean {
   return false;
 }
 
-function getSafeRedirectUrlFromSearch(): string | null {
+function getSafeRedirectUrlFromSearch(session?: any): string | null {
   if (typeof window === 'undefined') return null;
   try {
     const searchParams = new URLSearchParams(window.location.search);
@@ -58,6 +58,24 @@ function getSafeRedirectUrlFromSearch(): string | null {
     }
 
     if (isTrustedRedirectHost(parsed.hostname)) {
+      const host = parsed.hostname.toLowerCase();
+      // If on sunshade.icu, shared cookie works natively
+      if (host === 'sunshade.icu' || host.endsWith('.sunshade.icu')) {
+        return parsed.toString();
+      }
+
+      // For cross-domain environments, transfer session tokens to /auth/callback
+      if (session?.access_token && session?.refresh_token) {
+        const callbackUrl = new URL('/auth/callback', parsed.origin);
+        callbackUrl.searchParams.set('access_token', session.access_token);
+        callbackUrl.searchParams.set('refresh_token', session.refresh_token);
+        const nextPath = parsed.pathname + parsed.search;
+        if (nextPath && nextPath !== '/') {
+          callbackUrl.searchParams.set('next', nextPath);
+        }
+        return callbackUrl.toString();
+      }
+
       return parsed.toString();
     }
   } catch {
@@ -82,14 +100,14 @@ export const LoginForm = () => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setError(error.message);
       setSubmitting(false);
       return;
     }
 
-    const targetRedirect = getSafeRedirectUrlFromSearch();
+    const targetRedirect = getSafeRedirectUrlFromSearch(authData?.session);
     if (targetRedirect) {
       window.location.href = targetRedirect;
       return;
@@ -369,7 +387,7 @@ export const AuthGate = ({ children }: { children: React.ReactNode }) => {
         clearTimeout(timeout);
         setSession(session);
         if (session?.user) {
-          const targetUrl = getSafeRedirectUrlFromSearch();
+          const targetUrl = getSafeRedirectUrlFromSearch(session);
           if (targetUrl) {
             window.location.href = targetUrl;
             return;
@@ -389,7 +407,7 @@ export const AuthGate = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (session?.user) {
-        const targetUrl = getSafeRedirectUrlFromSearch();
+        const targetUrl = getSafeRedirectUrlFromSearch(session);
         if (targetUrl) {
           window.location.href = targetUrl;
           return;
