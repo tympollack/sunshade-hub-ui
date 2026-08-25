@@ -195,15 +195,27 @@ export default function LoginClient() {
           <LoginForm />
         </div>
 
-        {/* Claim Code CTA Link */}
-        <div className="pt-2 text-center border-t border-zinc-800/80 space-y-2">
-          <Link
-            href={`/claim${handshakeTargetUrl !== '/dashboard' ? `?redirect_to=${encodeURIComponent(handshakeTargetUrl)}` : ''}`}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors"
-          >
-            <Key className="w-3.5 h-3.5" />
-            <span>Have an 8-character activation code? Claim code here →</span>
-          </Link>
+        {/* Helper Links: Forgot Password & Claim Code CTA */}
+        <div className="pt-2 text-center border-t border-zinc-800/80 space-y-2.5">
+          <div className="flex items-center justify-center gap-1.5">
+            <Link
+              href={`/forgot-password${handshakeTargetUrl !== '/dashboard' ? `?redirect_to=${encodeURIComponent(handshakeTargetUrl)}` : ''}`}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-orange-400 transition-colors"
+            >
+              <Key className="w-3.5 h-3.5 text-orange-500" />
+              <span>Forgot your password? Reset it here →</span>
+            </Link>
+          </div>
+
+          <div>
+            <Link
+              href={`/claim${handshakeTargetUrl !== '/dashboard' ? `?redirect_to=${encodeURIComponent(handshakeTargetUrl)}` : ''}`}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+            >
+              <Key className="w-3.5 h-3.5" />
+              <span>Have an 8-character activation code? Claim code here →</span>
+            </Link>
+          </div>
 
           <div className="flex items-center justify-center gap-1.5 text-[11px] font-mono text-zinc-500 pt-1">
             <Compass className="w-3.5 h-3.5 text-zinc-500" />
