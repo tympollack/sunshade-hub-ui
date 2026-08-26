@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 export interface UpdateProfileParams {
   displayName?: string;
   walletAddress?: string;
+  avatarUrl?: string | null;
 }
 
 export interface UpdateProfileResult {
@@ -15,6 +16,7 @@ export interface UpdateProfileResult {
   data?: {
     display_name?: string;
     wallet_address?: string | null;
+    avatar_url?: string | null;
   };
 }
 
@@ -52,20 +54,24 @@ export async function updateCitizenProfile(params: UpdateProfileParams): Promise
       }
     }
 
-    if (Object.keys(updates).length === 0) {
-      return { success: true, message: 'No changes submitted.' };
+    if (params.avatarUrl !== undefined) {
+      await supabase.auth.updateUser({
+        data: { avatar_url: params.avatarUrl },
+      });
     }
 
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', user.id);
+    if (Object.keys(updates).length > 0) {
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id);
 
-    if (updateError) {
-      if (updateError.code === '23505') {
-        return { success: false, error: 'This wallet address is already linked to another citizen account.' };
+      if (updateError) {
+        if (updateError.code === '23505') {
+          return { success: false, error: 'This wallet address is already linked to another citizen account.' };
+        }
+        return { success: false, error: updateError.message || 'Failed to update profile.' };
       }
-      return { success: false, error: updateError.message || 'Failed to update profile.' };
     }
 
     revalidatePath('/dashboard');
@@ -76,6 +82,7 @@ export async function updateCitizenProfile(params: UpdateProfileParams): Promise
       data: {
         display_name: updates.display_name,
         wallet_address: updates.wallet_address,
+        avatar_url: params.avatarUrl,
       },
     };
   } catch (err: any) {

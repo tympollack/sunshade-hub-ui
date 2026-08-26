@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Hexagon,
@@ -18,6 +18,10 @@ import {
   ChevronRight,
   UserCheck,
   Flame,
+  Camera,
+  Upload,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import type { DashboardProfile, PointsLedgerItem, AchievementBadge } from '../types';
 import { updateCitizenProfile } from '../actions/profile-actions';
@@ -46,10 +50,15 @@ export function ProfileView({
   onProfileUpdate,
 }: ProfileViewProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [walletAddress, setWalletAddress] = useState(profile?.wallet_address || '');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url || null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [copiedId, setCopiedId] = useState(false);
   const [copiedWallet, setCopiedWallet] = useState(false);
@@ -77,6 +86,82 @@ export function ProfileView({
     }
   };
 
+  const handleAvatarFileSelected = async (file: File) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setSaveMessage({ type: 'error', text: 'Please select a valid image file (PNG, JPEG, WebP, GIF).' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setSaveMessage({ type: 'error', text: 'Image file size must be less than 5MB.' });
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    setSaveMessage(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/upload/avatar', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Failed to upload profile image.');
+      }
+
+      const newAvatarUrl = data.avatarUrl;
+      setAvatarUrl(newAvatarUrl);
+      setSaveMessage({ type: 'success', text: 'Profile image updated successfully!' });
+
+      onProfileUpdate?.({
+        avatar_url: newAvatarUrl,
+      });
+      router.refresh();
+      setTimeout(() => setSaveMessage(null), 4000);
+    } catch (err: any) {
+      setSaveMessage({ type: 'error', text: err.message || 'Failed to upload image.' });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setIsUploadingAvatar(true);
+    setSaveMessage(null);
+
+    try {
+      const res = await updateCitizenProfile({
+        displayName: displayName,
+        walletAddress: walletAddress,
+        avatarUrl: null,
+      });
+
+      if (!res.success) {
+        throw new Error(res.error || 'Failed to remove avatar.');
+      }
+
+      setAvatarUrl(null);
+      setSaveMessage({ type: 'success', text: 'Profile avatar removed.' });
+
+      onProfileUpdate?.({
+        avatar_url: null,
+      });
+      router.refresh();
+      setTimeout(() => setSaveMessage(null), 4000);
+    } catch (err: any) {
+      setSaveMessage({ type: 'error', text: err.message || 'Error removing avatar.' });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -86,6 +171,7 @@ export function ProfileView({
       const res = await updateCitizenProfile({
         displayName: displayName,
         walletAddress: walletAddress,
+        avatarUrl: avatarUrl,
       });
 
       if (!res.success) {
@@ -96,6 +182,7 @@ export function ProfileView({
         onProfileUpdate?.({
           display_name: displayName.trim(),
           wallet_address: walletAddress.trim() || null,
+          avatar_url: avatarUrl,
         });
         router.refresh();
         setTimeout(() => setSaveMessage(null), 4000);
@@ -219,12 +306,51 @@ export function ProfileView({
         <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-orange-500/10 via-amber-500/5 to-transparent rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
 
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 relative z-10">
+          {/* Avatar with image upload trigger */}
           <div className="relative group shrink-0">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-xl shadow-orange-500/25 border-2 border-orange-400/40 transform transition-transform group-hover:scale-105">
-              <span className="font-extrabold text-4xl sm:text-5xl text-white tracking-tight drop-shadow-md">
-                {initialLetter}
-              </span>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleAvatarFileSelected(file);
+              }}
+            />
+
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-gradient-to-br from-orange-500 via-orange-600 to-amber-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-xl shadow-orange-500/25 border-2 border-orange-400/40 relative">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName || 'Citizen Avatar'}
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              ) : (
+                <span className="font-extrabold text-4xl sm:text-5xl text-white tracking-tight drop-shadow-md">
+                  {initialLetter}
+                </span>
+              )}
+
+              {/* Hover upload button overlay */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingAvatar}
+                className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer"
+                title="Upload Profile Image"
+              >
+                {isUploadingAvatar ? (
+                  <Loader2 size={24} className="animate-spin text-orange-400" />
+                ) : (
+                  <>
+                    <Camera size={22} className="mb-1" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Change</span>
+                  </>
+                )}
+              </button>
             </div>
+
             <div
               className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-1.5 rounded-full border-2 border-white dark:border-[#161616] shadow-md"
               title="Verified Citizen"
@@ -245,13 +371,24 @@ export function ProfileView({
                 </span>
               </div>
 
-              <button
-                onClick={() => setIsEditing(!isEditing)}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition-colors self-center sm:self-auto"
-              >
-                <Edit3 size={14} />
-                {isEditing ? 'Cancel Edit' : 'Edit Citizen Alias'}
-              </button>
+              <div className="flex items-center gap-2 self-center sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/20 transition-colors"
+                >
+                  <Camera size={14} />
+                  {isUploadingAvatar ? 'Uploading...' : 'Upload Image'}
+                </button>
+                <button
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition-colors"
+                >
+                  <Edit3 size={14} />
+                  {isEditing ? 'Cancel Edit' : 'Edit Profile'}
+                </button>
+              </div>
             </div>
 
             <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">{email}</p>
@@ -309,37 +446,89 @@ export function ProfileView({
         {isEditing && (
           <form
             onSubmit={handleSaveProfile}
-            className="mt-6 pt-6 border-t border-zinc-200 dark:border-zinc-800/80 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in duration-200"
+            className="mt-6 pt-6 border-t border-zinc-200 dark:border-zinc-800/80 space-y-4 animate-in fade-in duration-200"
           >
-            <div>
-              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                Citizen Display Alias
-              </label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="e.g. NeoCow, CipherKnight"
-                maxLength={32}
-                required
-                className="w-full px-3.5 py-2 text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg outline-none focus:border-orange-500 dark:focus:border-orange-500 text-zinc-900 dark:text-zinc-100 transition-colors"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  Citizen Display Alias
+                </label>
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="e.g. NeoCow, CipherKnight"
+                  maxLength={32}
+                  required
+                  className="w-full px-3.5 py-2 text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg outline-none focus:border-orange-500 dark:focus:border-orange-500 text-zinc-900 dark:text-zinc-100 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  Linked Web3 / Identity Wallet
+                </label>
+                <input
+                  type="text"
+                  value={walletAddress}
+                  onChange={(e) => setWalletAddress(e.target.value)}
+                  placeholder="0x... (Ethereum) or Solana address"
+                  className="w-full px-3.5 py-2 text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg outline-none focus:border-orange-500 dark:focus:border-orange-500 text-zinc-900 dark:text-zinc-100 font-mono transition-colors"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                Linked Web3 / Identity Wallet
+            {/* Profile Avatar Upload Control in Edit Form */}
+            <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-800">
+              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
+                Profile Avatar Picture
               </label>
-              <input
-                type="text"
-                value={walletAddress}
-                onChange={(e) => setWalletAddress(e.target.value)}
-                placeholder="0x... (Ethereum) or Solana address"
-                className="w-full px-3.5 py-2 text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg outline-none focus:border-orange-500 dark:focus:border-orange-500 text-zinc-900 dark:text-zinc-100 font-mono transition-colors"
-              />
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div className="w-16 h-16 rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0 border border-zinc-300 dark:border-zinc-700">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="font-bold text-xl text-zinc-500">{initialLetter}</span>
+                  )}
+                </div>
+
+                <div className="flex-1 flex flex-wrap items-center gap-3">
+                  <input
+                    type="file"
+                    ref={editFileInputRef}
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleAvatarFileSelected(file);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => editFileInputRef.current?.click()}
+                    disabled={isUploadingAvatar}
+                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-500 text-white transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isUploadingAvatar ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                    {isUploadingAvatar ? 'Uploading Image...' : 'Upload Image (PNG, JPG, WebP)'}
+                  </button>
+
+                  {avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      disabled={isUploadingAvatar}
+                      className="px-3 py-2 text-xs font-medium rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-colors flex items-center gap-1.5"
+                    >
+                      <Trash2 size={13} />
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div className="sm:col-span-2 flex justify-end gap-3 pt-2">
+            <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
@@ -349,9 +538,10 @@ export function ProfileView({
               </button>
               <button
                 type="submit"
-                disabled={isSaving}
-                className="px-5 py-2 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white shadow-md shadow-orange-600/20 transition-colors"
+                disabled={isSaving || isUploadingAvatar}
+                className="px-5 py-2 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white shadow-md shadow-orange-600/20 transition-colors flex items-center gap-1.5"
               >
+                {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                 {isSaving ? 'Saving Updates...' : 'Save Profile'}
               </button>
             </div>
