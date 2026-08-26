@@ -67,6 +67,22 @@ function getAppNameFromUrl(url?: string | null): string | null {
   return null;
 }
 
+/**
+ * Rewrites Supabase default action link to use links.sunshade.icu custom domain
+ * and ensures the redirect_to query param matches the callback destination.
+ */
+function formatRecoveryActionLink(rawActionLink: string, callbackRedirectUrl: string): string {
+  try {
+    const url = new URL(rawActionLink);
+    url.protocol = 'https:';
+    url.host = 'links.sunshade.icu';
+    url.searchParams.set('redirect_to', callbackRedirectUrl);
+    return url.toString();
+  } catch {
+    return rawActionLink;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -120,13 +136,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const actionLink = linkData?.properties?.action_link;
+    const rawActionLink = linkData?.properties?.action_link;
 
-    if (actionLink) {
+    if (rawActionLink) {
+      // Rewrite to links.sunshade.icu custom domain
+      const finalActionLink = formatRecoveryActionLink(rawActionLink, callbackRedirectUrl);
+
       // Dispatch branded email via Resend SDK
       const emailResult = await sendPasswordResetEmail({
         to: cleanEmail,
-        resetUrl: actionLink,
+        resetUrl: finalActionLink,
         targetAppName,
       });
 

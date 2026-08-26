@@ -125,10 +125,13 @@ SunShade Ecosystem • Central SSO Gateway`;
   </html>`;
 
   if (!resendClient) {
-    console.log(
-      `[RESEND DEV FALLBACK] (RESEND_API_KEY not set) Generated password reset for ${to}: ${resetUrl}`
+    console.warn(
+      `[RESEND WARNING] RESEND_API_KEY is not configured in environment variables. Email to ${to} was not dispatched to Resend. Generated Link: ${resetUrl}`
     );
-    return { success: true };
+    return {
+      success: false,
+      error: 'RESEND_API_KEY is not configured in environment variables.',
+    };
   }
 
   try {
