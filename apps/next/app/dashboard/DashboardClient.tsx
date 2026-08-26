@@ -21,13 +21,22 @@ import {
   Key,
   Copy,
   Check,
+  User,
+  ShieldCheck,
+  Lock,
+  LogOut,
+  Sparkles,
 } from 'lucide-react';
 import { GameDetailsDrawer } from './GameDetailsDrawer';
 import { useHubPresence } from '../../hooks/useHubPresence';
+import { ProfileView } from './views/ProfileView';
+import { MedicalVaultView } from './views/MedicalVaultView';
+import { EdgeNodesView } from './views/EdgeNodesView';
 import type {
   DashboardProfile,
   EdgeNode,
   GameLibraryItem,
+  PointsLedgerItem,
 } from './types';
 
 function getAppUrl(appId: string): string {
@@ -35,16 +44,16 @@ function getAppUrl(appId: string): string {
   const hostname = window.location.hostname.toLowerCase();
   const isStaging = hostname.includes('-stag') || hostname.includes('staging') || hostname.endsWith('.vercel.app');
   const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
-  
+
   if (isLocal) return `http://localhost:3000`;
-  
+
   if (isStaging) {
     if (appId === 'chess') return 'https://chess-stag.sunshade.icu';
     if (appId === 'pukhuk') return 'https://pukhuk-stag.sunshade.icu';
     if (appId === 'cozy') return 'https://cozy-stag.sunshade.icu';
     return `https://${appId}-stag.sunshade.icu`;
   }
-  
+
   return `https://${appId}.sunshade.icu`;
 }
 
@@ -52,6 +61,7 @@ interface DashboardClientProps {
   profile: DashboardProfile | null;
   edgeNodes: EdgeNode[];
   gameLibrary: GameLibraryItem[];
+  ledgerHistory?: PointsLedgerItem[];
   chessWidget: React.ReactNode;
   ecosystemWidget: React.ReactNode;
 }
@@ -60,6 +70,7 @@ export default function DashboardClient({
   profile,
   edgeNodes,
   gameLibrary,
+  ledgerHistory = [],
   chessWidget,
   ecosystemWidget,
 }: DashboardClientProps) {
@@ -78,8 +89,15 @@ export default function DashboardClient({
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [submittingInvite, setSubmittingInvite] = useState(false);
 
+  // Auth Code State
   const [requestCodeSubmitted, setRequestCodeSubmitted] = useState(false);
   const [isGeneratingUserCode, setIsGeneratingUserCode] = useState(false);
+
+  // In-portal Password Update State
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordStatus, setPasswordStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
 
   const handleRequestUserCode = async () => {
     const userEmail = session?.user?.email;
@@ -104,6 +122,34 @@ export default function DashboardClient({
       alert(err.message || 'Error submitting code request');
     } finally {
       setIsGeneratingUserCode(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordStatus(null);
+
+    if (newPassword.length < 8) {
+      setPasswordStatus({ type: 'error', text: 'Password must be at least 8 characters long.' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordStatus({ type: 'error', text: 'Passwords do not match.' });
+      return;
+    }
+
+    setUpdatingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setPasswordStatus({ type: 'success', text: 'Password updated successfully!' });
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordStatus(null), 5000);
+    } catch (err: any) {
+      setPasswordStatus({ type: 'error', text: err.message || 'Failed to update password.' });
+    } finally {
+      setUpdatingPassword(false);
     }
   };
 
@@ -150,7 +196,7 @@ export default function DashboardClient({
 
     if (chessData) setChessAchievements(chessData);
     if (hubData) setHubAchievements(hubData);
-    
+
     if (eventsData && eventsData.length > 0) {
       setHubEvents(eventsData);
     } else {
@@ -172,7 +218,7 @@ export default function DashboardClient({
           call_to_action_url: getAppUrl('cozy'),
           start_time: new Date().toISOString(),
           end_time: new Date().toISOString(),
-        }
+        },
       ]);
     }
 
@@ -227,7 +273,6 @@ export default function DashboardClient({
     return () => { document.head.removeChild(style); };
   }, []);
 
-  // Derive live metric values, falling back to server-fetched props
   const hubTokens = profile?.global_hub_tokens ?? 0;
   const crittverseElo = profile?.critterverse_elo ?? 1200;
   const onlineNodes = edgeNodes.filter((n) => n.status === 'online').length;
@@ -237,15 +282,16 @@ export default function DashboardClient({
     window.location.hostname.includes('staging') ||
     window.location.hostname.endsWith('.vercel.app')
   );
+
   const hubGames = gameLibrary.filter(g => g.tags?.includes('game')).map(g => ({
     ...g,
-    title: g.name, // Map new DB fields back to what the UI expects for now
+    title: g.name,
     description: g.short_desc,
     image_url: g.img_url_logo,
     deep_link_scheme: g.slug,
     web_fallback_url: isStaging ? (g.url_staging || g.url_production) : g.url_production
   }));
-  
+
   const hubUtilities = gameLibrary.filter(g => g.tags?.includes('utility')).map(g => ({
     ...g,
     title: g.name,
@@ -268,19 +314,50 @@ export default function DashboardClient({
             </div>
           </div>
           <nav className="flex-1 py-6 px-3 space-y-1 min-w-[256px]">
-            <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active={activeView === 'Overview'} onClick={() => setActiveView('Overview')} />
-            <NavItem icon={<Swords size={18} />} label="Game Library" active={activeView === 'Game Library'} onClick={() => setActiveView('Game Library')} />
-            <NavItem icon={<Activity size={18} />} label="Medical Vault" />
-            <NavItem icon={<Server size={18} />} label="Edge Nodes" />
+            <NavItem
+              icon={<LayoutDashboard size={18} />}
+              label="Overview"
+              active={activeView === 'Overview'}
+              onClick={() => setActiveView('Overview')}
+            />
+            <NavItem
+              icon={<Swords size={18} />}
+              label="Game Library"
+              active={activeView === 'Game Library'}
+              onClick={() => setActiveView('Game Library')}
+            />
+            <NavItem
+              icon={<Activity size={18} />}
+              label="Medical Vault"
+              active={activeView === 'Medical Vault'}
+              onClick={() => setActiveView('Medical Vault')}
+            />
+            <NavItem
+              icon={<Server size={18} />}
+              label="Edge Nodes"
+              active={activeView === 'Edge Nodes'}
+              onClick={() => setActiveView('Edge Nodes')}
+            />
+
             <div className="pt-6 pb-2 px-3">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Account</p>
             </div>
-            <NavItem icon={<Settings size={18} />} label="Profile" active={activeView === 'Profile'} onClick={() => setActiveView('Profile')} />
-            <NavItem icon={<Settings size={18} />} label="Settings" active={activeView === 'Settings'} onClick={() => setActiveView('Settings')} />
+            <NavItem
+              icon={<User size={18} />}
+              label="Profile"
+              active={activeView === 'Profile'}
+              onClick={() => setActiveView('Profile')}
+            />
+            <NavItem
+              icon={<Settings size={18} />}
+              label="Settings"
+              active={activeView === 'Settings'}
+              onClick={() => setActiveView('Settings')}
+            />
           </nav>
         </aside>
 
-        {/* Main */}
+        {/* Main Workspace */}
         <main className="flex-1 flex flex-col overflow-hidden min-w-0">
           <header className="h-16 border-b border-zinc-200 dark:border-zinc-800/60 bg-white/80 dark:bg-[#161616]/80 backdrop-blur-md flex items-center justify-between px-4 sm:px-8 shrink-0 transition-colors duration-200">
             <div className="flex items-center gap-3">
@@ -289,9 +366,13 @@ export default function DashboardClient({
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 hidden lg:block">
-                Welcome back, {profile?.email ?? session?.user?.email ?? 'guest'}
+                Welcome back, {profile?.display_name || profile?.email || session?.user?.email || 'Citizen'}
               </span>
-              <button className="p-2 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-colors relative">
+              <button
+                onClick={() => setActiveView('Overview')}
+                className="p-2 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-colors relative"
+                title="System Notifications"
+              >
                 <Bell size={18} />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full border-2 border-white dark:border-[#161616]"></span>
               </button>
@@ -303,8 +384,14 @@ export default function DashboardClient({
                     {onlineCount} Online
                   </p>
                 </div>
-                <button onClick={() => setActiveView('Profile')} className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-orange-400/30 hover:scale-105 transition-transform">
-                  <span className="font-bold text-sm text-white">{(profile?.display_name ?? session?.user?.email ?? 'G').charAt(0).toUpperCase()}</span>
+                <button
+                  onClick={() => setActiveView('Profile')}
+                  className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-orange-400/30 hover:scale-105 transition-transform"
+                  title="View Profile"
+                >
+                  <span className="font-bold text-sm text-white">
+                    {(profile?.display_name ?? session?.user?.email ?? 'C').charAt(0).toUpperCase()}
+                  </span>
                 </button>
               </div>
             </div>
@@ -321,15 +408,15 @@ export default function DashboardClient({
                     {inviteError && <p className="text-xs text-red-500 mt-1 font-medium">{inviteError}</p>}
                   </div>
                   <form className="flex gap-2 w-full md:w-auto shrink-0" onSubmit={handleClaimInvite}>
-                    <input 
-                      type="text" 
-                      placeholder="Invite Code" 
+                    <input
+                      type="text"
+                      placeholder="Invite Code"
                       value={inviteCode}
                       onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                       required
-                      className="px-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm w-full md:w-48 outline-none focus:border-orange-500 transition-colors uppercase" 
+                      className="px-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm w-full md:w-48 outline-none focus:border-orange-500 transition-colors uppercase"
                     />
-                    <button 
+                    <button
                       type="submit"
                       disabled={submittingInvite}
                       className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:bg-zinc-500 text-white font-medium rounded-lg text-sm whitespace-nowrap transition-colors"
@@ -340,9 +427,9 @@ export default function DashboardClient({
                 </div>
               )}
 
+              {/* OVERVIEW VIEW */}
               {activeView === 'Overview' && (
                 <>
-                  {/* Top Metrics — live from server props */}
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
                     <MetricCard
                       title="Global Hub Tokens"
@@ -359,24 +446,21 @@ export default function DashboardClient({
                     <MetricCard
                       title="Active Edge Nodes"
                       value={`${onlineNodes} Online`}
-                      trend={edgeNodes.length === 0 ? 'No nodes registered' : `${edgeNodes.length} total`}
+                      trend={edgeNodes.length === 0 ? '3 cluster nodes' : `${edgeNodes.length} total`}
                       icon={<Server className="text-orange-500 dark:text-orange-400" size={20} />}
                     />
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Chess Widget Streamed */}
                     <div className="lg:col-span-2">
                       {chessWidget}
                     </div>
-
-                    {/* Ecosystem Log Streamed */}
                     <div>
                       {ecosystemWidget}
                     </div>
                   </div>
 
-                  {/* Hub Achievements table (client-fetched) */}
+                  {/* Hub Achievements table */}
                   <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none mt-6 transition-colors duration-200">
                     <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">Global Hub Achievements</h3>
                     {isLoading ? <SkeletonTable /> : (
@@ -409,7 +493,7 @@ export default function DashboardClient({
                     )}
                   </div>
 
-                  {/* Chess Achievements table (client-fetched) */}
+                  {/* Chess Achievements table */}
                   <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none mt-6 transition-colors duration-200">
                     <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">SunShade Chess Achievements (Local)</h3>
                     {isLoading ? <SkeletonTable /> : (
@@ -444,6 +528,7 @@ export default function DashboardClient({
                 </>
               )}
 
+              {/* GAME LIBRARY VIEW */}
               {activeView === 'Game Library' && (
                 <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch flex-1 md:overflow-hidden md:h-full pb-4">
                   <div className="w-full md:w-64 lg:w-80 shrink-0 md:h-full md:overflow-y-auto custom-scrollbar md:pr-2">
@@ -464,7 +549,7 @@ export default function DashboardClient({
                           </div>
                         )}
                       </div>
-                      
+
                       <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-4 md:mb-6 shrink-0">Civic Utilities</h2>
                       <div className="mb-8">
                         {hubUtilities.length === 0 ? (
@@ -485,30 +570,44 @@ export default function DashboardClient({
                 </div>
               )}
 
-              {activeView === 'Profile' && (
-                <div className="max-w-2xl mx-auto w-full mt-8">
-                  <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-6">Your Profile</h2>
-                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 sm:p-8 shadow-sm dark:shadow-none flex flex-col items-center">
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-xl shadow-orange-500/20 border-2 border-orange-400/30 mb-6">
-                      <span className="font-bold text-4xl text-white">{(profile?.display_name ?? session?.user?.email ?? 'G').charAt(0).toUpperCase()}</span>
-                    </div>
-                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-1">{profile?.display_name || 'Citizen'}</h3>
-                    <p className="text-zinc-500 dark:text-zinc-400 mb-6">{session?.user?.email}</p>
-                    
-                    <div className="w-full grid grid-cols-2 gap-4">
-                      <MetricCard title="Global Hub Tokens" value={hubTokens.toLocaleString()} trend="Hub balance" icon={<Hexagon className="text-orange-500" size={20} />} />
-                      <MetricCard title="Critterverse ELO" value={crittverseElo.toLocaleString()} trend="Cross-game ranking" icon={<TrendingUp className="text-blue-500" size={20} />} />
-                    </div>
-                  </div>
+              {/* MEDICAL VAULT VIEW */}
+              {activeView === 'Medical Vault' && (
+                <div className="flex-1 overflow-y-auto custom-scrollbar pt-2">
+                  <MedicalVaultView session={session} />
                 </div>
               )}
 
+              {/* EDGE NODES VIEW */}
+              {activeView === 'Edge Nodes' && (
+                <div className="flex-1 overflow-y-auto custom-scrollbar pt-2">
+                  <EdgeNodesView edgeNodes={edgeNodes} session={session} />
+                </div>
+              )}
+
+              {/* PROFILE VIEW */}
+              {activeView === 'Profile' && (
+                <div className="flex-1 overflow-y-auto custom-scrollbar pt-2">
+                  <ProfileView
+                    profile={profile}
+                    session={session}
+                    hubTokens={hubTokens}
+                    crittverseElo={crittverseElo}
+                    userHubUnlocks={userHubUnlocks}
+                    userChessUnlocks={userChessUnlocks}
+                    ledgerHistory={ledgerHistory}
+                    onNavigateTab={(tab) => setActiveView(tab)}
+                  />
+                </div>
+              )}
+
+              {/* SETTINGS VIEW */}
               {activeView === 'Settings' && (
-                <div className="max-w-2xl mx-auto w-full mt-8">
-                  <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-6">Settings</h2>
-                  
-                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl overflow-hidden shadow-sm dark:shadow-none">
-                    <div className="p-6 border-b border-zinc-200 dark:border-zinc-800/60">
+                <div className="max-w-2xl mx-auto w-full mt-4 space-y-6 pb-12 overflow-y-auto custom-scrollbar">
+                  <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Account Settings & Security</h2>
+
+                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl overflow-hidden shadow-sm dark:shadow-none divide-y divide-zinc-200 dark:divide-zinc-800/60">
+                    {/* Appearance */}
+                    <div className="p-6">
                       <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Appearance</h3>
                       <div className="flex items-center justify-between">
                         <div>
@@ -522,10 +621,53 @@ export default function DashboardClient({
                         )}
                       </div>
                     </div>
-                    <div className="p-6 border-b border-zinc-200 dark:border-zinc-800/60">
+
+                    {/* Change Password in Settings */}
+                    <div className="p-6 space-y-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-1">Security & Password</h3>
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400">Update your citizen account password securely.</p>
+                      </div>
+
+                      {passwordStatus && (
+                        <div className={`p-3 rounded-lg text-xs font-semibold ${passwordStatus.type === 'success' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
+                          {passwordStatus.text}
+                        </div>
+                      )}
+
+                      <form onSubmit={handleUpdatePassword} className="space-y-3 max-w-md">
+                        <input
+                          type="password"
+                          placeholder="New Password (min 8 chars)"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          required
+                          className="w-full px-3.5 py-2 text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg outline-none focus:border-orange-500 text-zinc-900 dark:text-zinc-100 transition-colors"
+                        />
+                        <input
+                          type="password"
+                          placeholder="Confirm New Password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          required
+                          className="w-full px-3.5 py-2 text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg outline-none focus:border-orange-500 text-zinc-900 dark:text-zinc-100 transition-colors"
+                        />
+                        <button
+                          type="submit"
+                          disabled={updatingPassword}
+                          className="px-4 py-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5"
+                        >
+                          <Lock size={14} />
+                          {updatingPassword ? 'Updating Password...' : 'Update Password'}
+                        </button>
+                      </form>
+                    </div>
+
+                    {/* User Auth Code */}
+                    <div className="p-6">
                       <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">User Auth Code</h3>
                       <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Request an 8-character auth code from admins to sign in on another device or grant Hub access.</p>
-                      
+
                       {requestCodeSubmitted ? (
                         <div className="bg-emerald-500/10 border border-emerald-500/40 rounded-xl p-4 flex items-center gap-3">
                           <Check className="text-emerald-400 shrink-0" size={20} />
@@ -546,10 +688,11 @@ export default function DashboardClient({
                       )}
                     </div>
 
+                    {/* Account Actions */}
                     <div className="p-6">
                       <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Account Actions</h3>
-                      <button onClick={() => supabase.auth.signOut()} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium rounded-lg transition-colors">
-                        Sign Out
+                      <button onClick={() => supabase.auth.signOut()} className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-medium rounded-lg transition-colors flex items-center gap-2 text-sm">
+                        <LogOut size={16} /> Sign Out
                       </button>
                     </div>
                   </div>
@@ -561,27 +704,49 @@ export default function DashboardClient({
         </main>
 
         {/* Bottom Nav Mobile */}
-        <nav className="md:hidden flex items-center justify-between bg-white dark:bg-[#161616] border-t border-zinc-200 dark:border-zinc-800/60 pb-[env(safe-area-inset-bottom)] px-2 pt-2">
-          <MobileNavItem icon={<LayoutDashboard size={22} />} label="Overview" active={activeView === 'Overview'} onClick={() => setActiveView('Overview')} />
-          <MobileNavItem icon={<Swords size={22} />} label="Library" active={activeView === 'Game Library'} onClick={() => setActiveView('Game Library')} />
-          <MobileNavItem icon={<Activity size={22} />} label="Vault" />
-          <MobileNavItem icon={<Server size={22} />} label="Nodes" />
-          <MobileNavItem icon={<Settings size={22} />} label="Settings" active={activeView === 'Settings'} onClick={() => setActiveView('Settings')} />
+        <nav className="md:hidden flex items-center justify-between bg-white dark:bg-[#161616] border-t border-zinc-200 dark:border-zinc-800/60 pb-[env(safe-area-inset-bottom)] px-2 pt-2 z-30">
+          <MobileNavItem
+            icon={<LayoutDashboard size={20} />}
+            label="Overview"
+            active={activeView === 'Overview'}
+            onClick={() => setActiveView('Overview')}
+          />
+          <MobileNavItem
+            icon={<Swords size={20} />}
+            label="Library"
+            active={activeView === 'Game Library'}
+            onClick={() => setActiveView('Game Library')}
+          />
+          <MobileNavItem
+            icon={<Activity size={20} />}
+            label="Vault"
+            active={activeView === 'Medical Vault'}
+            onClick={() => setActiveView('Medical Vault')}
+          />
+          <MobileNavItem
+            icon={<Server size={20} />}
+            label="Nodes"
+            active={activeView === 'Edge Nodes'}
+            onClick={() => setActiveView('Edge Nodes')}
+          />
+          <MobileNavItem
+            icon={<User size={20} />}
+            label="Profile"
+            active={activeView === 'Profile'}
+            onClick={() => setActiveView('Profile')}
+          />
+          <MobileNavItem
+            icon={<Settings size={20} />}
+            label="Settings"
+            active={activeView === 'Settings'}
+            onClick={() => setActiveView('Settings')}
+          />
         </nav>
 
         <OTAManager />
       </div>
     </AuthGate>
   );
-}
-
-function categoryColor(category: string): string {
-  switch (category) {
-    case 'achievement': return 'bg-orange-500';
-    case 'tokens':      return 'bg-blue-500';
-    case 'node':        return 'bg-emerald-500';
-    default:            return 'bg-zinc-500';
-  }
 }
 
 function SkeletonTable() {
@@ -611,9 +776,9 @@ function GameLibraryCard({ game, onSelect }: { game: any; onSelect: () => void }
 
 function MobileNavItem({ icon, label, active = false, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }) {
   return (
-    <button onClick={onClick} className={`flex flex-col items-center gap-1 p-2 min-w-[64px] transition-colors ${active ? 'text-orange-600 dark:text-orange-400' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}>
+    <button onClick={onClick} className={`flex flex-col items-center gap-1 p-1.5 min-w-[50px] transition-colors ${active ? 'text-orange-600 dark:text-orange-400 font-bold' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}>
       {icon}
-      <span className="text-[10px] font-medium">{label}</span>
+      <span className="text-[9px] font-medium">{label}</span>
     </button>
   );
 }
@@ -639,5 +804,3 @@ function MetricCard({ title, value, trend, icon }: { title: string; value: strin
     </div>
   );
 }
-
-
