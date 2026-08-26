@@ -75,13 +75,16 @@ export default function ForgotPasswordClient() {
     setIsSubmitting(true);
 
     try {
+      const redirectParam =
+        handshakeTargetUrl !== '/dashboard' ? handshakeTargetUrl : undefined;
+
       // 1. Try custom transactional recovery email via Resend API route
       const res = await fetch('/api/auth/reset-password-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: cleanEmail,
-          redirect_to: rawTargetUrl || undefined,
+          redirect_to: redirectParam,
         }),
       });
 
@@ -90,7 +93,7 @@ export default function ForgotPasswordClient() {
       if (!res.ok || !data.success) {
         // 2. Client-side fallback to Supabase Auth resetPasswordForEmail
         const resetPath = `/reset-password${
-          rawTargetUrl ? `?redirect_to=${encodeURIComponent(rawTargetUrl)}` : ''
+          redirectParam ? `?redirect_to=${encodeURIComponent(redirectParam)}` : ''
         }`;
         const origin = typeof window !== 'undefined' ? window.location.origin : '';
         const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(resetPath)}`;
@@ -114,7 +117,9 @@ export default function ForgotPasswordClient() {
   };
 
   const loginLink = `/login${
-    rawTargetUrl ? `?redirect_to=${encodeURIComponent(rawTargetUrl)}` : ''
+    handshakeTargetUrl !== '/dashboard'
+      ? `?redirect_to=${encodeURIComponent(handshakeTargetUrl)}`
+      : ''
   }`;
 
   return (

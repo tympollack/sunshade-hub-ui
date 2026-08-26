@@ -40,7 +40,8 @@ function getSafeRedirectUrl(req: NextRequest, customRedirectUrl?: unknown): stri
   return `${baseUrl}/dashboard`;
 }
 
-function getAppNameFromUrl(url: string): string | null {
+function getAppNameFromUrl(url?: string | null): string | null {
+  if (!url || typeof url !== 'string') return null;
   try {
     if (url.startsWith('/')) return null;
     const parsed = new URL(url);
@@ -49,15 +50,16 @@ function getAppNameFromUrl(url: string): string | null {
     if (host.endsWith('.sunshade.icu')) {
       const parts = host.split('.');
       const appSubdomain = parts[0].replace('-stag', '');
+      if (appSubdomain === 'hub') return null;
       return appSubdomain.charAt(0).toUpperCase() + appSubdomain.slice(1);
     }
 
     if (host.endsWith('.vercel.app')) {
       const prefix = host.split('-')[0];
-      if (prefix && prefix !== 'sunshade') {
+      if (prefix && prefix !== 'sunshade' && prefix !== 'hub') {
         return prefix.charAt(0).toUpperCase() + prefix.slice(1);
       }
-      return 'SunShade App';
+      return null;
     }
   } catch {
     // Ignore error
@@ -88,8 +90,8 @@ export async function POST(req: NextRequest) {
       req.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
     const origin = host ? `${proto}://${host}` : getHubBaseUrl(host);
 
-    const safeTargetRedirect = getSafeRedirectUrl(req, rawRedirect);
-    const targetAppName = getAppNameFromUrl(safeTargetRedirect);
+    // Only determine target app name if a real external redirect target was supplied
+    const targetAppName = rawRedirect ? getAppNameFromUrl(rawRedirect) : null;
 
     const resetPageDestination = `/reset-password${
       rawRedirect ? `?redirect_to=${encodeURIComponent(rawRedirect)}` : ''
@@ -130,6 +132,13 @@ export async function POST(req: NextRequest) {
 
       if (!emailResult.success) {
         console.error('[reset-password-request] Resend dispatch failed:', emailResult.error);
+        return NextResponse.json(
+          {
+            success: false,
+            error: emailResult.error || 'Failed to dispatch email via Resend.',
+          },
+          { status: 500 }
+        );
       }
     }
 
