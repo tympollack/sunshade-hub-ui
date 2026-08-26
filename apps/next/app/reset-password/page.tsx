@@ -1,4 +1,4 @@
-﻿import { Metadata } from 'next';
+import { Metadata } from 'next';
 import React, { Suspense } from 'react';
 import ResetPasswordClient from './ResetPasswordClient';
 

@@ -1,6 +1,7 @@
-﻿'use server';
+'use server';
 
 import { createSSRClient } from '../../../utils/supabase/server';
+import { revalidatePath } from 'next/cache';
 
 export interface UpdateProfileParams {
   displayName?: string;
@@ -11,6 +12,10 @@ export interface UpdateProfileResult {
   success: boolean;
   message?: string;
   error?: string;
+  data?: {
+    display_name?: string;
+    wallet_address?: string | null;
+  };
 }
 
 export async function updateCitizenProfile(params: UpdateProfileParams): Promise<UpdateProfileResult> {
@@ -63,8 +68,18 @@ export async function updateCitizenProfile(params: UpdateProfileParams): Promise
       return { success: false, error: updateError.message || 'Failed to update profile.' };
     }
 
-    return { success: true, message: 'Profile updated successfully.' };
+    revalidatePath('/dashboard');
+
+    return {
+      success: true,
+      message: 'Profile updated successfully.',
+      data: {
+        display_name: updates.display_name,
+        wallet_address: updates.wallet_address,
+      },
+    };
   } catch (err: any) {
     return { success: false, error: err.message || 'An unexpected error occurred.' };
   }
 }
+

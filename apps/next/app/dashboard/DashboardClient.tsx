@@ -74,6 +74,7 @@ export default function DashboardClient({
   chessWidget,
   ecosystemWidget,
 }: DashboardClientProps) {
+  const [currentProfile, setCurrentProfile] = useState<DashboardProfile | null>(profile);
   const [activeView, setActiveView] = useState('Overview');
   const [chessAchievements, setChessAchievements] = useState<any[]>([]);
   const [hubAchievements, setHubAchievements] = useState<any[]>([]);
@@ -98,6 +99,10 @@ export default function DashboardClient({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordStatus, setPasswordStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [updatingPassword, setUpdatingPassword] = useState(false);
+
+  useEffect(() => {
+    setCurrentProfile(profile);
+  }, [profile]);
 
   const handleRequestUserCode = async () => {
     const userEmail = session?.user?.email;
@@ -273,8 +278,8 @@ export default function DashboardClient({
     return () => { document.head.removeChild(style); };
   }, []);
 
-  const hubTokens = profile?.global_hub_tokens ?? 0;
-  const crittverseElo = profile?.critterverse_elo ?? 1200;
+  const hubTokens = currentProfile?.global_hub_tokens ?? 0;
+  const crittverseElo = currentProfile?.critterverse_elo ?? 1200;
   const onlineNodes = edgeNodes.filter((n) => n.status === 'online').length;
 
   const isStaging = typeof window !== 'undefined' && (
@@ -366,7 +371,7 @@ export default function DashboardClient({
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 hidden lg:block">
-                Welcome back, {profile?.display_name || profile?.email || session?.user?.email || 'Citizen'}
+                Welcome back, {currentProfile?.display_name || currentProfile?.email || session?.user?.email || 'Citizen'}
               </span>
               <button
                 onClick={() => setActiveView('Overview')}
@@ -390,7 +395,7 @@ export default function DashboardClient({
                   title="View Profile"
                 >
                   <span className="font-bold text-sm text-white">
-                    {(profile?.display_name ?? session?.user?.email ?? 'C').charAt(0).toUpperCase()}
+                    {(currentProfile?.display_name ?? session?.user?.email ?? 'C').charAt(0).toUpperCase()}
                   </span>
                 </button>
               </div>
@@ -400,7 +405,7 @@ export default function DashboardClient({
           <div className="flex-1 p-4 sm:p-8 custom-scrollbar relative overflow-y-auto lg:overflow-hidden flex flex-col">
             <div className={`max-w-7xl w-full mx-auto flex-1 flex flex-col ${activeView === 'Overview' ? 'space-y-6 lg:overflow-y-auto' : ''}`}>
 
-              {profile?.status === 'pending_invite' && (
+              {currentProfile?.status === 'pending_invite' && (
                 <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 mb-2 shrink-0">
                   <div className="w-full md:w-auto">
                     <h3 className="font-bold text-orange-600 dark:text-orange-400 text-lg">Guest Mode Active</h3>
@@ -565,7 +570,7 @@ export default function DashboardClient({
                     </div>
                   </div>
                   <div className={`shrink-0 md:h-full md:overflow-y-auto custom-scrollbar transition-all duration-300 ease-out ${selectedGame ? 'w-full md:w-[320px] lg:w-[360px] xl:w-[400px] opacity-100 mt-6 md:mt-0 ml-0 md:ml-4 lg:ml-6' : 'w-0 h-0 md:h-full opacity-0 m-0 overflow-hidden'}`}>
-                    <GameDetailsDrawer game={selectedGame} isOpen={!!selectedGame} onClose={() => setSelectedGame(null)} isGuest={profile?.status === 'pending_invite'} />
+                    <GameDetailsDrawer game={selectedGame} isOpen={!!selectedGame} onClose={() => setSelectedGame(null)} isGuest={currentProfile?.status === 'pending_invite'} />
                   </div>
                 </div>
               )}
@@ -588,7 +593,7 @@ export default function DashboardClient({
               {activeView === 'Profile' && (
                 <div className="flex-1 overflow-y-auto custom-scrollbar pt-2">
                   <ProfileView
-                    profile={profile}
+                    profile={currentProfile}
                     session={session}
                     hubTokens={hubTokens}
                     crittverseElo={crittverseElo}
@@ -596,6 +601,9 @@ export default function DashboardClient({
                     userChessUnlocks={userChessUnlocks}
                     ledgerHistory={ledgerHistory}
                     onNavigateTab={(tab) => setActiveView(tab)}
+                    onProfileUpdate={(updated) => {
+                      setCurrentProfile((prev) => (prev ? { ...prev, ...updated } : null));
+                    }}
                   />
                 </div>
               )}

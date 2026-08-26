@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '../../../../lib/supabase-server';
 import { sendPasswordResetEmail } from '../../../../lib/email-service';
 import { getHubBaseUrl, isTrustedRedirectHost } from '../../../../lib/env';

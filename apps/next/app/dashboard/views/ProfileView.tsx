@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Hexagon,
   TrendingUp,
@@ -30,6 +31,7 @@ interface ProfileViewProps {
   userChessUnlocks?: Record<string, boolean>;
   ledgerHistory?: PointsLedgerItem[];
   onNavigateTab?: (tab: string) => void;
+  onProfileUpdate?: (updated: Partial<DashboardProfile>) => void;
 }
 
 export function ProfileView({
@@ -41,7 +43,9 @@ export function ProfileView({
   userChessUnlocks = {},
   ledgerHistory = [],
   onNavigateTab,
+  onProfileUpdate,
 }: ProfileViewProps) {
+  const router = useRouter();
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [walletAddress, setWalletAddress] = useState(profile?.wallet_address || '');
   const [isEditing, setIsEditing] = useState(false);
@@ -89,6 +93,11 @@ export function ProfileView({
       } else {
         setSaveMessage({ type: 'success', text: 'Citizen identity updated successfully!' });
         setIsEditing(false);
+        onProfileUpdate?.({
+          display_name: displayName.trim(),
+          wallet_address: walletAddress.trim() || null,
+        });
+        router.refresh();
         setTimeout(() => setSaveMessage(null), 4000);
       }
     } catch (err: any) {
