@@ -67,6 +67,25 @@ function getAppNameFromUrl(url?: string | null): string | null {
   return null;
 }
 
+/**
+ * Rewrites Supabase default action link to use links.sunshade.icu custom domain
+ * and ensures the redirect_to query param matches the callback destination.
+ */
+function formatRecoveryActionLink(rawActionLink: string, callbackRedirectUrl: string): string {
+  try {
+    const url = new URL(rawActionLink);
+    const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+    if (!isLocal) {
+      url.protocol = 'https:';
+      url.host = 'links.sunshade.icu';
+    }
+    url.searchParams.set('redirect_to', callbackRedirectUrl);
+    return url.toString();
+  } catch {
+    return rawActionLink;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -120,13 +139,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const actionLink = linkData?.properties?.action_link;
+    const rawActionLink = linkData?.properties?.action_link;
 
-    if (actionLink) {
+    if (rawActionLink) {
+      // Rewrite to links.sunshade.icu custom domain
+      const finalActionLink = formatRecoveryActionLink(rawActionLink, callbackRedirectUrl);
+
       // Dispatch branded email via Resend SDK
       const emailResult = await sendPasswordResetEmail({
         to: cleanEmail,
-        resetUrl: actionLink,
+        resetUrl: finalActionLink,
         targetAppName,
       });
 
@@ -135,7 +157,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: emailResult.error || 'Failed to dispatch email via Resend.',
+            error: 'Failed to dispatch recovery email.',
           },
           { status: 500 }
         );
@@ -149,7 +171,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('[reset-password-request] Internal error:', err);
     return NextResponse.json(
-      { error: err.message || 'Failed to process password reset request.' },
+      { error: 'Failed to process password reset request.' },
       { status: 500 }
     );
   }
