@@ -164,8 +164,11 @@ export async function POST(req: NextRequest) {
     let finalActionLink = linkData.properties.action_link;
     try {
       const linkUrlObj = new URL(finalActionLink);
-      linkUrlObj.protocol = 'https:';
-      linkUrlObj.host = 'links.sunshade.icu';
+      const isLocal = linkUrlObj.hostname === 'localhost' || linkUrlObj.hostname === '127.0.0.1';
+      if (!isLocal) {
+        linkUrlObj.protocol = 'https:';
+        linkUrlObj.host = 'links.sunshade.icu';
+      }
       linkUrlObj.searchParams.set('redirect_to', redirectUrl);
       finalActionLink = linkUrlObj.toString();
     } catch (e) {

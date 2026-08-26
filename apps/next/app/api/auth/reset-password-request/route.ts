@@ -74,8 +74,11 @@ function getAppNameFromUrl(url?: string | null): string | null {
 function formatRecoveryActionLink(rawActionLink: string, callbackRedirectUrl: string): string {
   try {
     const url = new URL(rawActionLink);
-    url.protocol = 'https:';
-    url.host = 'links.sunshade.icu';
+    const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+    if (!isLocal) {
+      url.protocol = 'https:';
+      url.host = 'links.sunshade.icu';
+    }
     url.searchParams.set('redirect_to', callbackRedirectUrl);
     return url.toString();
   } catch {
@@ -154,7 +157,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: emailResult.error || 'Failed to dispatch email via Resend.',
+            error: 'Failed to dispatch recovery email.',
           },
           { status: 500 }
         );
@@ -168,7 +171,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('[reset-password-request] Internal error:', err);
     return NextResponse.json(
-      { error: err.message || 'Failed to process password reset request.' },
+      { error: 'Failed to process password reset request.' },
       { status: 500 }
     );
   }

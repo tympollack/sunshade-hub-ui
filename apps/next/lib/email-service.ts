@@ -13,6 +13,32 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
+/**
+ * Redacts sensitive tokens from URLs to prevent credential leakage in logs
+ */
+function maskSensitiveUrl(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl);
+    if (url.searchParams.has('token')) {
+      const token = url.searchParams.get('token') || '';
+      url.searchParams.set(
+        'token',
+        token.length > 8 ? `${token.slice(0, 4)}****${token.slice(-4)}` : '****'
+      );
+    }
+    if (url.searchParams.has('token_hash')) {
+      const tokenHash = url.searchParams.get('token_hash') || '';
+      url.searchParams.set(
+        'token_hash',
+        tokenHash.length > 8 ? `${tokenHash.slice(0, 4)}****${tokenHash.slice(-4)}` : '****'
+      );
+    }
+    return url.toString();
+  } catch {
+    return '[REDACTED_URL]';
+  }
+}
+
 export interface SendPasswordResetEmailParams {
   to: string;
   resetUrl: string;
@@ -125,12 +151,22 @@ SunShade Ecosystem • Central SSO Gateway`;
   </html>`;
 
   if (!resendClient) {
+    const isDev = process.env.NODE_ENV !== 'production';
+    if (isDev) {
+      console.log(
+        `[RESEND DEV FALLBACK] (RESEND_API_KEY absent) Formatted reset email for ${to} | Target: ${maskSensitiveUrl(
+          resetUrl
+        )}`
+      );
+      return { success: true };
+    }
+
     console.warn(
-      `[RESEND WARNING] RESEND_API_KEY is not configured in environment variables. Email to ${to} was not dispatched to Resend. Generated Link: ${resetUrl}`
+      `[RESEND WARNING] RESEND_API_KEY is not configured in environment variables. Email to ${to} was not dispatched.`
     );
     return {
       success: false,
-      error: 'RESEND_API_KEY is not configured in environment variables.',
+      error: 'Email delivery service is currently unavailable.',
     };
   }
 
@@ -150,12 +186,12 @@ SunShade Ecosystem • Central SSO Gateway`;
 
     if (res.error) {
       console.error(`[RESEND ERROR] Failed to send password reset:`, res.error);
-      return { success: false, error: res.error.message };
+      return { success: false, error: 'Failed to send recovery email.' };
     }
 
     return { success: true };
   } catch (err: any) {
     console.error(`[RESEND EXCEPTION] Error dispatching password reset:`, err);
-    return { success: false, error: err.message || 'Failed to dispatch email' };
+    return { success: false, error: 'Failed to dispatch recovery email.' };
   }
 }
