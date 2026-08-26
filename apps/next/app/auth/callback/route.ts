@@ -1,10 +1,13 @@
 ﻿import { createServerClient } from '@supabase/ssr';
+import { type EmailOtpType } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getValidatedRedirectUrl } from '../../../lib/env';
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
+  const tokenHash = requestUrl.searchParams.get('token_hash');
+  const type = requestUrl.searchParams.get('type') as EmailOtpType | null;
   const next = requestUrl.searchParams.get('next') || '/reset-password';
   const errorDescription =
     requestUrl.searchParams.get('error_description') || requestUrl.searchParams.get('error');
@@ -15,9 +18,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(errorUrl);
   }
 
-  if (code) {
+  if (code || tokenHash) {
     const host = requestUrl.hostname.toLowerCase();
     const isSunShadeDomain = host === 'sunshade.icu' || host.endsWith('.sunshade.icu');
+    const isHttps = requestUrl.protocol === 'https:';
 
     const responseCookies: { name: string; value: string; options?: any }[] = [];
 
@@ -39,7 +43,7 @@ export async function GET(request: NextRequest) {
                   ...options,
                   path: '/',
                   sameSite: 'lax' as const,
-                  secure: true,
+                  secure: isHttps,
                   ...(isSunShadeDomain && { domain: '.sunshade.icu' }),
                 },
               });
@@ -49,9 +53,20 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    let authError = null;
 
-    if (!error) {
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      authError = error;
+    } else if (tokenHash) {
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: type || 'recovery',
+      });
+      authError = error;
+    }
+
+    if (!authError) {
       const validatedTarget = getValidatedRedirectUrl(next, '/reset-password');
       const redirectUrl = validatedTarget.startsWith('/')
         ? new URL(validatedTarget, requestUrl.origin)
@@ -64,12 +79,17 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
-    console.error('[Auth Callback] Code exchange error:', error.message);
+    console.error('[Auth Callback] Verification error:', authError.message);
     const errorUrl = new URL('/forgot-password', requestUrl.origin);
-    errorUrl.searchParams.set('error', error.message || 'Invalid or expired recovery link.');
+    errorUrl.searchParams.set('error', authError.message || 'Invalid or expired recovery link.');
     return NextResponse.redirect(errorUrl);
   }
 
-  // Fallback if no code present
-  return NextResponse.redirect(new URL(next, requestUrl.origin));
+  // Fallback if no code/tokenHash present - validate next URL to prevent open redirects
+  const validatedFallback = getValidatedRedirectUrl(next, '/dashboard');
+  const fallbackUrl = validatedFallback.startsWith('/')
+    ? new URL(validatedFallback, requestUrl.origin)
+    : new URL(validatedFallback);
+
+  return NextResponse.redirect(fallbackUrl);
 }

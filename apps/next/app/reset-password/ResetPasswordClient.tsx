@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@sunshade/supabase';
 import {
@@ -27,15 +27,16 @@ function getAppNameFromUrl(url: string): string | null {
     if (host.endsWith('.sunshade.icu')) {
       const parts = host.split('.');
       const appSubdomain = parts[0].replace('-stag', '');
+      if (appSubdomain === 'hub') return null;
       return appSubdomain.charAt(0).toUpperCase() + appSubdomain.slice(1);
     }
 
     if (host.endsWith('.vercel.app')) {
       const prefix = host.split('-')[0];
-      if (prefix && prefix !== 'sunshade') {
+      if (prefix && prefix !== 'sunshade' && prefix !== 'hub') {
         return prefix.charAt(0).toUpperCase() + prefix.slice(1);
       }
-      return 'SunShade App';
+      return null;
     }
   } catch {
     // Ignore error
@@ -79,6 +80,13 @@ export default function ResetPasswordClient() {
   const [sessionData, setSessionData] = useState<any>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const [redirectCount, setRedirectCount] = useState(3);
+
+  // Keep refs for countdown timer to avoid restarting on session update events
+  const sessionDataRef = useRef<any>(null);
+  sessionDataRef.current = sessionData;
+
+  const handshakeTargetUrlRef = useRef<string>(handshakeTargetUrl);
+  handshakeTargetUrlRef.current = handshakeTargetUrl;
 
   // Check auth recovery session on mount
   useEffect(() => {
@@ -136,15 +144,18 @@ export default function ResetPasswordClient() {
         return;
       }
 
-      // For cross-domain environments, pass tokens to the target app's /auth/callback
+      // For cross-domain preview environments, pass tokens via URL hash fragment
+      // to keep tokens out of server request URLs, access logs, and referer headers
       if (session?.access_token && session?.refresh_token) {
         const callbackUrl = new URL('/auth/callback', parsed.origin);
-        callbackUrl.searchParams.set('access_token', session.access_token);
-        callbackUrl.searchParams.set('refresh_token', session.refresh_token);
+        const hashParams = new URLSearchParams();
+        hashParams.set('access_token', session.access_token);
+        hashParams.set('refresh_token', session.refresh_token);
         const nextPath = parsed.pathname + parsed.search;
         if (nextPath && nextPath !== '/') {
-          callbackUrl.searchParams.set('next', nextPath);
+          hashParams.set('next', nextPath);
         }
+        callbackUrl.hash = hashParams.toString();
         window.location.href = callbackUrl.toString();
         return;
       }
@@ -163,7 +174,7 @@ export default function ResetPasswordClient() {
       setRedirectCount((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          performRedirect(handshakeTargetUrl, sessionData);
+          performRedirect(handshakeTargetUrlRef.current, sessionDataRef.current);
           return 0;
         }
         return prev - 1;
@@ -171,7 +182,7 @@ export default function ResetPasswordClient() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isSuccess, handshakeTargetUrl, sessionData]);
+  }, [isSuccess]);
 
   // Password strength calculation
   const getPasswordStrength = (pwd: string) => {
@@ -226,7 +237,9 @@ export default function ResetPasswordClient() {
   };
 
   const forgotPasswordLink = `/forgot-password${
-    rawTargetUrl ? `?redirect_to=${encodeURIComponent(rawTargetUrl)}` : ''
+    handshakeTargetUrl !== '/dashboard'
+      ? `?redirect_to=${encodeURIComponent(handshakeTargetUrl)}`
+      : ''
   }`;
 
   // Initial loading state while checking session
