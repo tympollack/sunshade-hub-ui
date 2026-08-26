@@ -160,15 +160,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to generate authentication link.' }, { status: 500 });
     }
 
-    // Ensure action_link uses links.sunshade.icu and redirect_to matches redirectUrl
+    // Ensure action_link redirect_to param matches redirectUrl
     let finalActionLink = linkData.properties.action_link;
     try {
       const linkUrlObj = new URL(finalActionLink);
-      const isLocal = linkUrlObj.hostname === 'localhost' || linkUrlObj.hostname === '127.0.0.1';
-      if (!isLocal) {
-        linkUrlObj.protocol = 'https:';
-        linkUrlObj.host = 'links.sunshade.icu';
-      }
       linkUrlObj.searchParams.set('redirect_to', redirectUrl);
       finalActionLink = linkUrlObj.toString();
     } catch (e) {
