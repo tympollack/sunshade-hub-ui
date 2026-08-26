@@ -68,17 +68,12 @@ function getAppNameFromUrl(url?: string | null): string | null {
 }
 
 /**
- * Rewrites Supabase default action link to use links.sunshade.icu custom domain
- * and ensures the redirect_to query param matches the callback destination.
+ * Ensures the Supabase action link redirect_to query param matches the callback destination.
+ * Note: Resend's link tracking (links.sunshade.icu) wraps this URL automatically during email dispatch.
  */
 function formatRecoveryActionLink(rawActionLink: string, callbackRedirectUrl: string): string {
   try {
     const url = new URL(rawActionLink);
-    const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
-    if (!isLocal) {
-      url.protocol = 'https:';
-      url.host = 'links.sunshade.icu';
-    }
     url.searchParams.set('redirect_to', callbackRedirectUrl);
     return url.toString();
   } catch {
@@ -142,7 +137,6 @@ export async function POST(req: NextRequest) {
     const rawActionLink = linkData?.properties?.action_link;
 
     if (rawActionLink) {
-      // Rewrite to links.sunshade.icu custom domain
       const finalActionLink = formatRecoveryActionLink(rawActionLink, callbackRedirectUrl);
 
       // Dispatch branded email via Resend SDK
