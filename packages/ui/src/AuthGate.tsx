@@ -248,6 +248,14 @@ export const LoginForm = () => {
             required
             style={{ padding: '10px 14px', borderRadius: 6, border: '1px solid #333', background: '#1a1a1a', color: 'white', fontSize: 14, outline: 'none' }}
           />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6, marginBottom: -2 }}>
+            <a
+              href={typeof window !== 'undefined' ? `/forgot-password${window.location.search}` : '/forgot-password'}
+              style={{ color: '#ea580c', fontSize: 12, textDecoration: 'none', fontWeight: 500 }}
+            >
+              Forgot password?
+            </a>
+          </div>
           {error && <div style={{ color: '#ef4444', fontSize: 12 }}>{error}</div>}
           <button
             type="submit"
