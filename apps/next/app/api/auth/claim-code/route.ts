@@ -96,21 +96,54 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Password must be at least 8 characters long.' }, { status: 400 });
       }
 
-      // Check if Auth user exists
-      const { data: existingUsers } = await serviceClient.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find((u) => u.email?.toLowerCase() === targetEmail.toLowerCase());
+      // Check if Auth user exists by ID first, then by profile lookup
+      let existingAuthUser = null;
+      if (authUserId) {
+        try {
+          const { data: userById } = await serviceClient.auth.admin.getUserById(authUserId);
+          if (userById?.user) {
+            existingAuthUser = userById.user;
+          }
+        } catch {
+          // User might not exist in Auth yet
+        }
+      }
 
-      if (existingUser) {
-        authUserId = existingUser.id;
+      if (!existingAuthUser) {
+        const { data: existingProfile } = await serviceClient
+          .from('profiles')
+          .select('id, email')
+          .eq('email', targetEmail)
+          .maybeSingle();
+
+        if (existingProfile?.id) {
+          try {
+            const { data: userById } = await serviceClient.auth.admin.getUserById(existingProfile.id);
+            if (userById?.user) {
+              existingAuthUser = userById.user;
+              authUserId = existingProfile.id;
+            }
+          } catch {
+            // Profile exists without matching Auth user
+          }
+        }
+      }
+
+      if (existingAuthUser && authUserId) {
         const { error: updateAuthErr } = await serviceClient.auth.admin.updateUserById(authUserId, {
           password,
+          email_confirm: true,
           user_metadata: {
-            full_name: fullName || existingUser.user_metadata?.full_name || '',
-            username: username || existingUser.user_metadata?.username || '',
+            full_name: fullName || existingAuthUser.user_metadata?.full_name || '',
+            username: username || existingAuthUser.user_metadata?.username || '',
           },
         });
         if (updateAuthErr) {
           console.error('[claim-code] Failed to update Auth user password:', updateAuthErr);
+          return NextResponse.json(
+            { error: `Failed to update password: ${updateAuthErr.message}` },
+            { status: 400 }
+          );
         }
       } else {
         const { data: newAuthData, error: createAuthErr } = await serviceClient.auth.admin.createUser({
@@ -124,13 +157,41 @@ export async function POST(req: NextRequest) {
         });
 
         if (createAuthErr || !newAuthData.user) {
-          return NextResponse.json(
-            { error: `Account creation failed: ${createAuthErr?.message || 'Failed to create user credential.'}` },
-            { status: 400 }
-          );
-        }
+          // If user already exists in auth.users, fetch by email from database and update password
+          if (createAuthErr?.message?.toLowerCase().includes('already') || (createAuthErr as any)?.status === 422) {
+            const { data: profileRow } = await serviceClient
+              .from('profiles')
+              .select('id')
+              .eq('email', targetEmail)
+              .maybeSingle();
 
-        authUserId = newAuthData.user.id;
+            if (profileRow?.id) {
+              authUserId = profileRow.id;
+              const { error: fallbackUpdateErr } = await serviceClient.auth.admin.updateUserById(authUserId, {
+                password,
+                email_confirm: true,
+              });
+              if (fallbackUpdateErr) {
+                return NextResponse.json(
+                  { error: `Account setup failed: ${fallbackUpdateErr.message}` },
+                  { status: 400 }
+                );
+              }
+            } else {
+              return NextResponse.json(
+                { error: `An account with ${targetEmail} is already registered. Please sign in or use password reset.` },
+                { status: 400 }
+              );
+            }
+          } else {
+            return NextResponse.json(
+              { error: `Account creation failed: ${createAuthErr?.message || 'Failed to create user credential.'}` },
+              { status: 400 }
+            );
+          }
+        } else {
+          authUserId = newAuthData.user.id;
+        }
       }
     }
 

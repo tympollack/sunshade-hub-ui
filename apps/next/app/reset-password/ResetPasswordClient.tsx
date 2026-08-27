@@ -88,26 +88,111 @@ export default function ResetPasswordClient() {
   const handshakeTargetUrlRef = useRef<string>(handshakeTargetUrl);
   handshakeTargetUrlRef.current = handshakeTargetUrl;
 
-  // Check auth recovery session on mount
+  // Check auth recovery session on mount (supports hash tokens, auth code params, and existing sessions)
   useEffect(() => {
     let isMounted = true;
 
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    const initAuthRecovery = async () => {
+      try {
+        // 1. Inspect URL search params for errors or codes
+        const queryError =
+          searchParams.get('error_description') || searchParams.get('error');
+        if (queryError && isMounted) {
+          setError(decodeURIComponent(queryError.replace(/\+/g, ' ')));
+        }
 
-      if (isMounted) {
-        if (session) {
-          setHasSession(true);
-          setSessionData(session);
-        } else {
+        // 2. Inspect URL hash fragment (common in Supabase recovery redirects)
+        if (typeof window !== 'undefined' && window.location.hash) {
+          const hashString = window.location.hash.startsWith('#')
+            ? window.location.hash.slice(1)
+            : window.location.hash;
+          const hashParams = new URLSearchParams(hashString);
+
+          const hashError =
+            hashParams.get('error_description') ||
+            hashParams.get('error');
+          if (hashError && isMounted) {
+            setError(decodeURIComponent(hashError.replace(/\+/g, ' ')));
+          }
+
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+
+          if (accessToken && refreshToken) {
+            const { data: sessionRes, error: setSessionError } =
+              await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+
+            if (!setSessionError && sessionRes?.session && isMounted) {
+              setHasSession(true);
+              setSessionData(sessionRes.session);
+
+              // Clean hash from address bar to prevent leaking tokens in referrers
+              try {
+                window.history.replaceState(
+                  null,
+                  '',
+                  window.location.pathname + window.location.search
+                );
+              } catch {
+                // Ignore history rewrite errors in sandboxed environments
+              }
+              return;
+            }
+          }
+        }
+
+        // 3. Fallback: inspect search params for code or token_hash
+        const codeParam = searchParams.get('code');
+        if (codeParam) {
+          const { data: exchangeData, error: exchangeError } =
+            await supabase.auth.exchangeCodeForSession(codeParam);
+          if (!exchangeError && exchangeData?.session && isMounted) {
+            setHasSession(true);
+            setSessionData(exchangeData.session);
+            return;
+          }
+        }
+
+        const tokenHash = searchParams.get('token_hash');
+        if (tokenHash) {
+          const type = (searchParams.get('type') as any) || 'recovery';
+          const { data: otpData, error: otpError } =
+            await supabase.auth.verifyOtp({
+              token_hash: tokenHash,
+              type,
+            });
+          if (!otpError && otpData?.session && isMounted) {
+            setHasSession(true);
+            setSessionData(otpData.session);
+            return;
+          }
+        }
+
+        // 4. Check active browser/cookie session
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (isMounted) {
+          if (session) {
+            setHasSession(true);
+            setSessionData(session);
+          } else {
+            setHasSession(false);
+          }
+        }
+      } catch (err: any) {
+        console.warn('[ResetPassword] Session init notice:', err);
+        if (isMounted) {
           setHasSession(false);
         }
       }
     };
 
-    checkSession();
+    initAuthRecovery();
 
     const {
       data: { subscription },
@@ -126,7 +211,7 @@ export default function ResetPasswordClient() {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [searchParams]);
 
   const performRedirect = (target: string, session?: any) => {
     if (target.startsWith('/')) {
