@@ -17,6 +17,8 @@ import {
   ShieldCheck,
   Compass,
 } from 'lucide-react';
+import { supabase } from '@sunshade/supabase';
+import { getValidatedRedirectUrl } from '../../lib/env';
 
 export default function ClaimClient() {
   const searchParams = useSearchParams();
@@ -35,8 +37,45 @@ export default function ClaimClient() {
   const [step, setStep] = useState<1 | 2>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successData, setSuccessData] = useState<{ email: string; redirectUrl: string } | null>(null);
+  const [successData, setSuccessData] = useState<{ email: string; redirectUrl: string; session?: any } | null>(null);
   const [redirectCount, setRedirectCount] = useState(3);
+
+  const performRedirect = (target: string, session?: any) => {
+    if (target.startsWith('/')) {
+      window.location.href = target;
+      return;
+    }
+
+    try {
+      const parsed = new URL(target);
+      const host = parsed.hostname.toLowerCase();
+
+      // If on sunshade.icu, shared cookie works natively
+      if (host === 'sunshade.icu' || host.endsWith('.sunshade.icu')) {
+        window.location.href = parsed.toString();
+        return;
+      }
+
+      // For cross-domain environments, transfer session tokens to /auth/callback via hash
+      if (session?.access_token && session?.refresh_token) {
+        const callbackUrl = new URL('/auth/callback', parsed.origin);
+        const hashParams = new URLSearchParams();
+        hashParams.set('access_token', session.access_token);
+        hashParams.set('refresh_token', session.refresh_token);
+        const nextPath = parsed.pathname + parsed.search;
+        if (nextPath && nextPath !== '/') {
+          hashParams.set('next', nextPath);
+        }
+        callbackUrl.hash = hashParams.toString();
+        window.location.href = callbackUrl.toString();
+        return;
+      }
+    } catch {
+      // ignore
+    }
+
+    window.location.href = target;
+  };
 
   useEffect(() => {
     if (queryCode) setAuthCode(queryCode.toUpperCase().trim());
@@ -51,7 +90,7 @@ export default function ClaimClient() {
       setRedirectCount((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          window.location.href = successData.redirectUrl;
+          performRedirect(successData.redirectUrl, successData.session);
           return 0;
         }
         return prev - 1;
@@ -139,9 +178,28 @@ export default function ClaimClient() {
         throw new Error(data.error || 'Failed to claim auth code.');
       }
 
+      // Automatically sign in the user on the client with the password they just set
+      let activeSession = null;
+      if (password) {
+        try {
+          const { data: authData } = await supabase.auth.signInWithPassword({
+            email: email.trim().toLowerCase(),
+            password,
+          });
+          if (authData?.session) {
+            activeSession = authData.session;
+          }
+        } catch (e) {
+          console.warn('[ClaimClient] Direct signIn error:', e);
+        }
+      }
+
+      const safeTarget = getValidatedRedirectUrl(rawRedirect, '/dashboard');
+
       setSuccessData({
         email: data.email || email,
-        redirectUrl: data.redirect_url || '/dashboard',
+        redirectUrl: safeTarget,
+        session: activeSession,
       });
     } catch (err: any) {
       setError(err.message || 'Failed to activate account.');
@@ -168,62 +226,63 @@ export default function ClaimClient() {
       />
 
       <div className="relative z-10 w-full max-w-lg p-6 sm:p-8 rounded-3xl bg-zinc-900/90 backdrop-blur-xl border border-orange-500/30 shadow-2xl shadow-orange-950/20 space-y-6 animate-in fade-in zoom-in-95 duration-300 mx-auto">
-        
-        {/* Header Branding & Badge */}
-        <div className="text-center space-y-3">
-          <div
-            className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center border border-orange-500/30 shadow-xl"
-            style={{
-              background: 'linear-gradient(135deg, rgba(234,88,12,0.25) 0%, rgba(249,115,22,0.15) 100%)',
-            }}
-          >
-            <ShieldCheck className="w-8 h-8 text-orange-500" />
+        {/* Header */}
+        <div className="flex flex-col items-center text-center space-y-2">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500/20 to-amber-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400 shadow-inner">
+            <ShieldCheck className="w-6 h-6" />
           </div>
-
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold font-mono tracking-wider text-orange-400 bg-orange-950/40 border border-orange-500/30 uppercase">
-              <Sparkles className="w-3 h-3 text-orange-400" />
-              <span>Account Onboarding</span>
-            </div>
-            <h1 className="text-2xl font-extrabold text-zinc-100 tracking-tight mt-1.5">
-              Claim Your Access Code
-            </h1>
-            <p className="text-xs text-zinc-400 max-w-xs mx-auto mt-1 leading-relaxed">
-              Enter your issued 8-character code and set up your SunShade Ecosystem profile to gain instant access.
-            </p>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-orange-500/10 border border-orange-500/30 text-orange-400">
+            <Sparkles className="w-3 h-3" />
+            <span>Account Onboarding</span>
           </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-100">
+            Claim Your Access Code
+          </h1>
+          <p className="text-xs text-zinc-300 max-w-sm">
+            Enter your issued 8-character code and set up your SunShade Ecosystem profile to gain instant access.
+          </p>
         </div>
 
-        {/* Step Indicator Progress Bar */}
+        {/* Step Indicator */}
         {!successData && (
-          <div className="flex items-center justify-between gap-2 bg-zinc-950/80 p-2 rounded-xl border border-zinc-800">
-            <div
-              className={`flex-1 text-center py-1.5 rounded-lg text-xs font-semibold font-mono transition-colors ${
-                step === 1 ? 'bg-orange-600 text-white shadow-md' : 'text-zinc-500 hover:text-zinc-300'
+          <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-zinc-950 border border-zinc-800 text-[11px] font-mono">
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className={`py-1.5 rounded-lg text-center font-bold transition-all ${
+                step === 1
+                  ? 'bg-orange-600 text-white shadow'
+                  : 'text-zinc-300 hover:text-zinc-100'
               }`}
             >
               1. Code & Email
-            </div>
-            <div
-              className={`flex-1 text-center py-1.5 rounded-lg text-xs font-semibold font-mono transition-colors ${
-                step === 2 ? 'bg-orange-600 text-white shadow-md' : 'text-zinc-500 hover:text-zinc-300'
+            </button>
+            <button
+              type="button"
+              onClick={() => authCode && email && setStep(2)}
+              disabled={!authCode || !email}
+              className={`py-1.5 rounded-lg text-center font-bold transition-all ${
+                step === 2
+                  ? 'bg-orange-600 text-white shadow'
+                  : 'text-zinc-300 hover:text-zinc-100 disabled:opacity-40'
               }`}
             >
               2. Account Setup
-            </div>
+            </button>
           </div>
         )}
 
-        {/* Error Alert Box */}
+        {/* Error Notification */}
         {error && (
-          <div className="p-3.5 rounded-xl bg-rose-950/90 border border-rose-700 text-rose-200 text-xs font-medium flex items-center justify-between gap-3 shadow-lg">
+          <div className="p-3.5 rounded-xl bg-rose-950/50 border border-rose-800/80 text-rose-300 text-xs flex items-center justify-between gap-2 animate-in fade-in duration-200">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{error}</span>
             </div>
             <button
+              type="button"
               onClick={() => setError(null)}
-              className="text-rose-400 hover:text-white font-bold text-xs"
+              className="text-rose-400 hover:text-rose-200 text-xs"
             >
               ✕
             </button>
@@ -250,7 +309,7 @@ export default function ClaimClient() {
             </div>
 
             <button
-              onClick={() => (window.location.href = successData.redirectUrl)}
+              onClick={() => performRedirect(successData.redirectUrl, successData.session)}
               className="w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 transition-colors shadow-lg shadow-orange-950/30"
             >
               <span>Go to Dashboard Now</span>
