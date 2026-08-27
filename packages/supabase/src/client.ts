@@ -13,58 +13,49 @@ const isSunShadeDomain = () => {
   return host === 'sunshade.icu' || host.endsWith('.sunshade.icu');
 };
 
-function getCookie(name: string): string | null | undefined {
-  if (!isBrowser()) return null;
+function parseCookies(): { name: string; value: string }[] {
+  if (!isBrowser()) return [];
 
-  const prefix = `${name}=`;
-  for (const chunk of document.cookie.split('; ')) {
-    if (chunk.startsWith(prefix)) {
-      const value = chunk.slice(prefix.length);
-      try {
-        return decodeURIComponent(value);
-      } catch {
-        return value;
-      }
+  const raw = document.cookie;
+  if (!raw) return [];
+
+  return raw.split('; ').map((chunk) => {
+    const eqIdx = chunk.indexOf('=');
+    if (eqIdx === -1) return { name: chunk, value: '' };
+    const name = chunk.slice(0, eqIdx);
+    const value = chunk.slice(eqIdx + 1);
+    try {
+      return { name, value: decodeURIComponent(value) };
+    } catch {
+      return { name, value };
     }
-  }
-
-  return null;
+  });
 }
 
-function setCookie(name: string, value: string, options: CookieOptions = {}) {
+function setAllCookies(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
   if (!isBrowser()) return;
 
-  const encoded = encodeURIComponent(value);
-  const parts = [`${name}=${encoded}`];
+  const isHttps = window.location.protocol === 'https:';
 
-  if (options.path) parts.push(`Path=${options.path}`);
-  if (typeof options.maxAge === 'number') parts.push(`Max-Age=${options.maxAge}`);
-  if (options.expires) parts.push(`Expires=${new Date(options.expires).toUTCString()}`);
+  cookiesToSet.forEach(({ name, value, options = {} }) => {
+    const encoded = encodeURIComponent(value);
+    const parts = [`${name}=${encoded}`];
 
-  if (isSunShadeDomain()) {
-    parts.push(`domain=${SSO_DOMAIN}`);
-  }
+    parts.push(`Path=${options.path || '/'}`);
+    if (typeof options.maxAge === 'number') parts.push(`Max-Age=${options.maxAge}`);
+    if (options.expires) parts.push(`Expires=${new Date(options.expires).toUTCString()}`);
 
-  parts.push('SameSite=Lax', 'Secure');
+    if (isSunShadeDomain()) {
+      parts.push(`domain=${SSO_DOMAIN}`);
+    }
 
-  document.cookie = parts.join('; ');
-}
+    parts.push('SameSite=Lax');
+    if (isHttps) {
+      parts.push('Secure');
+    }
 
-function removeCookie(name: string, options: CookieOptions = {}) {
-  if (!isBrowser()) return;
-
-  const parts = [`${name}=`];
-
-  if (options.path) parts.push(`Path=${options.path}`);
-  parts.push('Max-Age=0', `Expires=${new Date(0).toUTCString()}`);
-
-  if (isSunShadeDomain()) {
-    parts.push(`domain=${SSO_DOMAIN}`);
-  }
-
-  parts.push('SameSite=Lax', 'Secure');
-
-  document.cookie = parts.join('; ');
+    document.cookie = parts.join('; ');
+  });
 }
 
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -88,12 +79,11 @@ export const supabase = createBrowserClient(
       path: '/',
       ...(isSunShadeDomain() ? { domain: SSO_DOMAIN } : {}),
       sameSite: 'lax',
-      secure: true,
+      secure: isBrowser() && window.location.protocol === 'https:',
     },
     cookies: {
-      get: getCookie,
-      set: setCookie,
-      remove: removeCookie,
+      getAll: parseCookies,
+      setAll: setAllCookies,
     },
   }
 );
