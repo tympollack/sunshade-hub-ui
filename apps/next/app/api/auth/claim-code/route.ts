@@ -240,7 +240,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       email: targetEmail,
-      redirect_url: finalActionLink,
+      redirect_url: redirectUrl,
+      action_link: finalActionLink,
       message: 'Auth code successfully claimed! Your SunShade account is active.',
     });
   } catch (err: any) {
