@@ -18,6 +18,7 @@ export default async function DashboardPage() {
         profile={data.profile}
         edgeNodes={data.edgeNodes}
         gameLibrary={data.gameLibrary}
+        ledgerHistory={data.ledgerHistory}
         chessWidget={
           <WidgetErrorBoundary gameName="SunShade Chess">
             <Suspense fallback={<WidgetSkeleton />}>
