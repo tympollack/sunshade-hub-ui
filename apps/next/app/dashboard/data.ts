@@ -57,7 +57,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
         reputation_score: profileRow.reputation_score ?? 100,
         created_at: profileRow.created_at ?? new Date().toISOString(),
         citizen_tier: (profileRow.global_hub_tokens ?? 0) >= 5000 ? 'Founder Citizen' : (profileRow.global_hub_tokens ?? 0) >= 1000 ? 'Core Citizen' : 'Active Citizen',
-        avatar_url: user.user_metadata?.avatar_url || (profileRow as any)?.avatar_url || null,
+        avatar_url: user.user_metadata?.avatar_url ?? null,
       }
     : null;
 
@@ -69,4 +69,3 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
     ledgerHistory: (ledgerRows ?? []) as any[],
   };
 }
-

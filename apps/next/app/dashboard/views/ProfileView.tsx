@@ -138,8 +138,6 @@ export function ProfileView({
 
     try {
       const res = await updateCitizenProfile({
-        displayName: displayName,
-        walletAddress: walletAddress,
         avatarUrl: null,
       });
 
@@ -316,6 +314,7 @@ export function ProfileView({
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) handleAvatarFileSelected(file);
+                e.target.value = '';
               }}
             />
 
@@ -501,6 +500,7 @@ export function ProfileView({
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) handleAvatarFileSelected(file);
+                      e.target.value = '';
                     }}
                   />
                   <button

@@ -20,6 +20,28 @@ export interface UpdateProfileResult {
   };
 }
 
+function isValidAvatarUrl(urlStr: string): boolean {
+  if (typeof urlStr !== 'string' || !urlStr.trim()) return false;
+  if (/^data:image\/(jpeg|png|webp|gif|avif);base64,[A-Za-z0-9+/=]+$/.test(urlStr)) {
+    return true;
+  }
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'https:') return false;
+    const hostname = parsed.hostname.toLowerCase();
+    if (
+      hostname === 'assets.sunshade.icu' ||
+      hostname.endsWith('.sunshade.icu') ||
+      hostname.endsWith('.supabase.co')
+    ) {
+      return true;
+    }
+  } catch (_) {
+    return false;
+  }
+  return false;
+}
+
 export async function updateCitizenProfile(params: UpdateProfileParams): Promise<UpdateProfileResult> {
   try {
     const supabase = await createSSRClient();
@@ -31,7 +53,7 @@ export async function updateCitizenProfile(params: UpdateProfileParams): Promise
 
     const updates: Record<string, any> = {};
 
-    if (params.displayName !== undefined) {
+    if (params.displayName !== undefined && params.displayName !== '') {
       const trimmed = params.displayName.trim();
       if (trimmed.length < 2) {
         return { success: false, error: 'Display name must be at least 2 characters.' };
@@ -55,6 +77,10 @@ export async function updateCitizenProfile(params: UpdateProfileParams): Promise
     }
 
     if (params.avatarUrl !== undefined) {
+      if (params.avatarUrl !== null && !isValidAvatarUrl(params.avatarUrl)) {
+        return { success: false, error: 'Invalid avatar URL format or origin.' };
+      }
+
       await supabase.auth.updateUser({
         data: { avatar_url: params.avatarUrl },
       });
@@ -89,4 +115,3 @@ export async function updateCitizenProfile(params: UpdateProfileParams): Promise
     return { success: false, error: err.message || 'An unexpected error occurred.' };
   }
 }
-

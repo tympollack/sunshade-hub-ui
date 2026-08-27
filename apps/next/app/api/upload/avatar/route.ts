@@ -13,6 +13,28 @@ const ALLOWED_MIME_TYPES = new Set([
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
+function isValidAvatarUrl(urlStr: string): boolean {
+  if (typeof urlStr !== 'string' || !urlStr.trim()) return false;
+  if (/^data:image\/(jpeg|png|webp|gif|avif);base64,[A-Za-z0-9+/=]+$/.test(urlStr)) {
+    return true;
+  }
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'https:') return false;
+    const hostname = parsed.hostname.toLowerCase();
+    if (
+      hostname === 'assets.sunshade.icu' ||
+      hostname.endsWith('.sunshade.icu') ||
+      hostname.endsWith('.supabase.co')
+    ) {
+      return true;
+    }
+  } catch (_) {
+    return false;
+  }
+  return false;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createSSRClient();
@@ -122,6 +144,12 @@ export async function POST(req: NextRequest) {
     const { avatarUrl, filename, contentType } = body;
 
     if (avatarUrl) {
+      if (!isValidAvatarUrl(avatarUrl)) {
+        return NextResponse.json({
+          error: 'Invalid avatar URL. Must be an approved SunShade asset URL or valid image data URI.',
+        }, { status: 400 });
+      }
+
       await supabase.auth.updateUser({
         data: { avatar_url: avatarUrl },
       });
