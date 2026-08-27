@@ -391,19 +391,24 @@ export default function DashboardClient({
                 </div>
                 <button
                   onClick={() => setActiveView('Profile')}
-                  className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-orange-400/30 hover:scale-105 transition-transform"
+                  className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-orange-400/30 hover:scale-105 transition-transform"
                   title="View Profile"
                 >
-                  <span className="font-bold text-sm text-white">
-                    {(currentProfile?.display_name ?? session?.user?.email ?? 'C').charAt(0).toUpperCase()}
-                  </span>
+                  {currentProfile?.avatar_url ? (
+                    <img src={currentProfile.avatar_url} alt="Profile Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="font-bold text-sm text-white">
+                      {(currentProfile?.display_name ?? session?.user?.email ?? 'C').charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </button>
               </div>
             </div>
           </header>
 
-          <div className="flex-1 p-4 sm:p-8 custom-scrollbar relative overflow-y-auto lg:overflow-hidden flex flex-col">
-            <div className={`max-w-7xl w-full mx-auto flex-1 flex flex-col ${activeView === 'Overview' ? 'space-y-6 lg:overflow-y-auto' : ''}`}>
+          {/* Unified Smooth Scrolling Container for All Screens */}
+          <div className="flex-1 p-4 sm:p-8 custom-scrollbar relative overflow-y-auto min-h-0">
+            <div className="max-w-7xl w-full mx-auto space-y-6">
 
               {currentProfile?.status === 'pending_invite' && (
                 <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 mb-2 shrink-0">
@@ -466,7 +471,7 @@ export default function DashboardClient({
                   </div>
 
                   {/* Hub Achievements table */}
-                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none mt-6 transition-colors duration-200">
+                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none transition-colors duration-200">
                     <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">Global Hub Achievements</h3>
                     {isLoading ? <SkeletonTable /> : (
                       <div className="overflow-x-auto">
@@ -499,7 +504,7 @@ export default function DashboardClient({
                   </div>
 
                   {/* Chess Achievements table */}
-                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none mt-6 transition-colors duration-200">
+                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none transition-colors duration-200">
                     <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">SunShade Chess Achievements (Local)</h3>
                     {isLoading ? <SkeletonTable /> : (
                       <div className="overflow-x-auto">
@@ -535,82 +540,86 @@ export default function DashboardClient({
 
               {/* GAME LIBRARY VIEW */}
               {activeView === 'Game Library' && (
-                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch flex-1 md:overflow-hidden md:h-full pb-4">
-                  <div className="w-full md:w-64 lg:w-80 shrink-0 md:h-full md:overflow-y-auto custom-scrollbar md:pr-2">
-                    <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-4 md:mb-6">Live Events</h2>
+                <div className="flex flex-col lg:flex-row gap-6 items-start pb-6">
+                  {/* Left Column: Events */}
+                  <div className="w-full lg:w-80 shrink-0">
+                    <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">Live Events</h2>
                     <EventsCarousel events={hubEvents} width="100%" />
                   </div>
-                  <div className="flex-1 w-full flex flex-col md:h-full md:overflow-hidden">
-                    <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-4 md:mb-6 shrink-0 mt-6 md:mt-0">Game Library</h2>
-                    <div className="flex-1 md:overflow-y-auto custom-scrollbar md:pr-2">
-                      <div className="mb-8">
-                        {hubGames.length === 0 ? (
-                          <p className="text-zinc-500">No games found.</p>
-                        ) : (
-                          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {hubGames.map((game) => (
-                              <GameLibraryCard key={game.id} game={game} onSelect={() => setSelectedGame(game)} />
-                            ))}
-                          </div>
-                        )}
-                      </div>
 
-                      <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-4 md:mb-6 shrink-0">Civic Utilities</h2>
-                      <div className="mb-8">
-                        {hubUtilities.length === 0 ? (
-                          <p className="text-zinc-500">No utilities found.</p>
-                        ) : (
-                          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {hubUtilities.map((utility) => (
-                              <GameLibraryCard key={utility.id} game={utility} onSelect={() => setSelectedGame(utility)} />
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                  {/* Middle Column: Games & Utilities Grid */}
+                  <div className="flex-1 w-full space-y-6">
+                    <div>
+                      <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-4">Game Library</h2>
+                      {hubGames.length === 0 ? (
+                        <p className="text-zinc-500">No games found.</p>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {hubGames.map((game) => (
+                            <GameLibraryCard key={game.id} game={game} onSelect={() => setSelectedGame(game)} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-4">Civic Utilities</h2>
+                      {hubUtilities.length === 0 ? (
+                        <p className="text-zinc-500">No utilities found.</p>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {hubUtilities.map((utility) => (
+                            <GameLibraryCard key={utility.id} game={utility} onSelect={() => setSelectedGame(utility)} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className={`shrink-0 md:h-full md:overflow-y-auto custom-scrollbar transition-all duration-300 ease-out ${selectedGame ? 'w-full md:w-[320px] lg:w-[360px] xl:w-[400px] opacity-100 mt-6 md:mt-0 ml-0 md:ml-4 lg:ml-6' : 'w-0 h-0 md:h-full opacity-0 m-0 overflow-hidden'}`}>
-                    <GameDetailsDrawer game={selectedGame} isOpen={!!selectedGame} onClose={() => setSelectedGame(null)} isGuest={currentProfile?.status === 'pending_invite'} />
-                  </div>
+
+                  {/* Right Column: Game Details Drawer */}
+                  {selectedGame && (
+                    <div className="w-full lg:w-96 shrink-0 transition-all duration-300">
+                      <GameDetailsDrawer
+                        game={selectedGame}
+                        isOpen={!!selectedGame}
+                        onClose={() => setSelectedGame(null)}
+                        isGuest={currentProfile?.status === 'pending_invite'}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* MEDICAL VAULT VIEW */}
               {activeView === 'Medical Vault' && (
-                <div className="flex-1 overflow-y-auto custom-scrollbar pt-2">
-                  <MedicalVaultView session={session} />
-                </div>
+                <MedicalVaultView session={session} />
               )}
 
               {/* EDGE NODES VIEW */}
               {activeView === 'Edge Nodes' && (
-                <div className="flex-1 overflow-y-auto custom-scrollbar pt-2">
-                  <EdgeNodesView edgeNodes={edgeNodes} session={session} />
-                </div>
+                <EdgeNodesView edgeNodes={edgeNodes} session={session} />
               )}
 
               {/* PROFILE VIEW */}
               {activeView === 'Profile' && (
-                <div className="flex-1 overflow-y-auto custom-scrollbar pt-2">
-                  <ProfileView
-                    profile={currentProfile}
-                    session={session}
-                    hubTokens={hubTokens}
-                    crittverseElo={crittverseElo}
-                    userHubUnlocks={userHubUnlocks}
-                    userChessUnlocks={userChessUnlocks}
-                    ledgerHistory={ledgerHistory}
-                    onNavigateTab={(tab) => setActiveView(tab)}
-                    onProfileUpdate={(updated) => {
-                      setCurrentProfile((prev) => (prev ? { ...prev, ...updated } : null));
-                    }}
-                  />
-                </div>
+                <ProfileView
+                  profile={currentProfile}
+                  session={session}
+                  hubTokens={hubTokens}
+                  crittverseElo={crittverseElo}
+                  userHubUnlocks={userHubUnlocks}
+                  userChessUnlocks={userChessUnlocks}
+                  ledgerHistory={ledgerHistory}
+                  onNavigateTab={(tab) => setActiveView(tab)}
+                  onProfileUpdate={(updated) => {
+                    setCurrentProfile((prev) => (prev ? { ...prev, ...updated } : null));
+                  }}
+                />
               )}
 
               {/* SETTINGS VIEW */}
               {activeView === 'Settings' && (
-                <div className="max-w-2xl mx-auto w-full mt-4 space-y-6 pb-12 overflow-y-auto custom-scrollbar">
+                <div className="max-w-2xl mx-auto w-full space-y-6 pb-12">
                   <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Account Settings & Security</h2>
 
                   <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl overflow-hidden shadow-sm dark:shadow-none divide-y divide-zinc-200 dark:divide-zinc-800/60">
