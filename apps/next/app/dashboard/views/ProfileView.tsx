@@ -22,17 +22,27 @@ import {
   Upload,
   Trash2,
   Loader2,
+  Crown,
 } from 'lucide-react';
-import type { DashboardProfile, PointsLedgerItem, AchievementBadge } from '../types';
+import type {
+  DashboardProfile,
+  PointsLedgerItem,
+  AchievementBadge,
+  GameStat,
+  GameLibraryItem,
+} from '../types';
 import { updateCitizenProfile } from '../actions/profile-actions';
 
 interface ProfileViewProps {
   profile: DashboardProfile | null;
   session: any;
   hubTokens: number;
-  crittverseElo: number;
+  hubAchievements?: AchievementBadge[];
+  chessAchievements?: AchievementBadge[];
   userHubUnlocks?: Record<string, boolean>;
   userChessUnlocks?: Record<string, boolean>;
+  gameStats?: GameStat[];
+  gameLibrary?: GameLibraryItem[];
   ledgerHistory?: PointsLedgerItem[];
   onNavigateTab?: (tab: string) => void;
   onProfileUpdate?: (updated: Partial<DashboardProfile>) => void;
@@ -42,9 +52,12 @@ export function ProfileView({
   profile,
   session,
   hubTokens,
-  crittverseElo,
+  hubAchievements = [],
+  chessAchievements = [],
   userHubUnlocks = {},
   userChessUnlocks = {},
+  gameStats = [],
+  gameLibrary = [],
   ledgerHistory = [],
   onNavigateTab,
   onProfileUpdate,
@@ -192,87 +205,187 @@ export function ProfileView({
     }
   };
 
-  const badges: AchievementBadge[] = [
-    {
-      id: 'EARLY_ADOPTER',
-      name: 'Early Adopter',
-      description: 'Joined the SunShade Hub during the Genesis Alpha phase.',
-      reward_tokens: 2000,
-      game: 'SunShade Hub',
-      unlocked: true,
-      rarity: 'Legendary',
-    },
-    {
-      id: '7_DAY_STREAK',
-      name: 'Week Warrior',
-      description: 'Logged into the SunShade Hub for 7 consecutive days.',
-      reward_tokens: 500,
-      game: 'SunShade Hub',
-      unlocked: !!userHubUnlocks['7_DAY_STREAK'],
-      rarity: 'Epic',
-    },
-    {
-      id: 'GOVERNANCE_VOTER',
-      name: 'Civic Duty',
-      description: 'Participated and voted in a verified Community Poll.',
-      reward_tokens: 100,
-      game: 'Governance',
-      unlocked: !!userHubUnlocks['GOVERNANCE_VOTER'],
-      rarity: 'Rare',
-    },
-    {
-      id: 'FIRST_BLOOD',
-      name: 'First Blood',
-      description: 'Captured an opponent piece within the first 5 moves in SunShade Chess.',
-      reward_points: 50,
-      game: 'SunShade Chess',
-      unlocked: !!userChessUnlocks['FIRST_BLOOD'] || true,
-      rarity: 'Common',
-    },
-    {
-      id: 'CASTLE_CRASHER',
-      name: 'Castle Crasher',
-      description: 'Delivered checkmate while your king is castled.',
-      reward_points: 100,
-      game: 'SunShade Chess',
-      unlocked: !!userChessUnlocks['CASTLE_CRASHER'],
-      rarity: 'Rare',
-    },
-    {
-      id: 'FISCHER_MASTER',
-      name: 'Fischer 960 Grandmaster',
-      description: 'Achieved 10 consecutive victories in Chess960 format.',
-      reward_points: 1000,
-      game: 'SunShade Chess',
-      unlocked: !!userChessUnlocks['FISCHER_MASTER'],
-      rarity: 'Legendary',
-    },
+  // Combine dynamic achievements
+  const allBadges: AchievementBadge[] = [
+    ...(hubAchievements.length > 0
+      ? hubAchievements
+      : [
+          {
+            id: 'EARLY_ADOPTER',
+            name: 'Early Adopter',
+            description: 'Create an account during the Beta phase.',
+            reward_tokens: 2000,
+            game: 'SunShade Hub',
+            unlocked: true,
+            rarity: 'Legendary' as const,
+          },
+          {
+            id: '7_DAY_STREAK',
+            name: 'Week Warrior',
+            description: 'Log into the SunShade Hub for 7 consecutive days.',
+            reward_tokens: 500,
+            game: 'SunShade Hub',
+            unlocked: !!userHubUnlocks['7_DAY_STREAK'],
+            rarity: 'Epic' as const,
+          },
+          {
+            id: 'GOVERNANCE_VOTER',
+            name: 'Civic Duty',
+            description: 'Cast your first vote in a Community Poll.',
+            reward_tokens: 100,
+            game: 'SunShade Hub',
+            unlocked: !!userHubUnlocks['GOVERNANCE_VOTER'],
+            rarity: 'Rare' as const,
+          },
+        ]),
+    ...(chessAchievements.length > 0
+      ? chessAchievements
+      : [
+          {
+            id: 'FIRST_BLOOD',
+            name: 'First Blood',
+            description: 'Capture a piece in your first 5 moves in SunShade Chess.',
+            reward_points: 50,
+            game: 'SunShade Chess',
+            unlocked: !!userChessUnlocks['FIRST_BLOOD'],
+            rarity: 'Common' as const,
+          },
+          {
+            id: 'CASTLE_CRASHER',
+            name: 'Castle Crasher',
+            description: 'Deliver checkmate while your king is castled.',
+            reward_points: 100,
+            game: 'SunShade Chess',
+            unlocked: !!userChessUnlocks['CASTLE_CRASHER'],
+            rarity: 'Rare' as const,
+          },
+          {
+            id: 'FISCHER_MASTER',
+            name: 'Fischer Master',
+            description: 'Win 10 Chess960 matches in a row.',
+            reward_points: 1000,
+            game: 'SunShade Chess',
+            unlocked: !!userChessUnlocks['FISCHER_MASTER'],
+            rarity: 'Legendary' as const,
+          },
+        ]),
   ];
 
-  const transactions = ledgerHistory.length > 0 ? ledgerHistory : [
+  const unlockedBadgesCount = allBadges.filter((b) => b.unlocked).length;
+
+  // Build Ecosystem Game Matrix items dynamically
+  const gameStatsMap: Record<string, GameStat> = {};
+  gameStats.forEach((s) => {
+    gameStatsMap[s.game_name.toLowerCase()] = s;
+  });
+
+  const matrixGames = [
     {
-      id: 'tx-1',
-      user_id: citizenId,
-      amount: 2000,
-      reason: 'achievement',
-      reference_id: 'EARLY_ADOPTER',
-      created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+      name: 'Critterverse (Cozy)',
+      category: 'Cozy Farming & Village Builder',
+      statKey: 'critterverse',
+      icon: <Gamepad2 size={20} />,
+      iconBg: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+      badge: 'Season 1',
+      badgeClass: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+      stats: [
+        { label: 'Rating', value: `${profile?.critterverse_elo ?? 1200} ELO` },
+        {
+          label: 'Matches Played',
+          value: gameStatsMap['critterverse']?.matches_played ? String(gameStatsMap['critterverse'].matches_played) : '0 Played',
+        },
+        {
+          label: 'Cozy Points',
+          value: `${gameStatsMap['critterverse']?.local_currency?.toLocaleString() ?? 0} CP`,
+          highlight: 'text-blue-500',
+        },
+      ],
+      status: 'Active In Staging',
     },
     {
-      id: 'tx-2',
-      user_id: citizenId,
-      amount: 100,
-      reason: 'daily_login',
-      reference_id: 'DAILY_BONUS',
-      created_at: new Date(Date.now() - 86400000 * 1).toISOString(),
+      name: 'SunShade Chess',
+      category: 'Ranked Standard & Chess960',
+      statKey: 'sunshade chess',
+      icon: <Swords size={20} />,
+      iconBg: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
+      badge: 'Online',
+      badgeClass: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
+      stats: [
+        {
+          label: 'Matches',
+          value: gameStatsMap['sunshade chess']?.matches_played
+            ? `${gameStatsMap['sunshade chess'].matches_played} Matches`
+            : '0 Matches',
+        },
+        {
+          label: 'Win Rate',
+          value: gameStatsMap['sunshade chess']?.win_rate
+            ? `${Math.round(gameStatsMap['sunshade chess'].win_rate * 100)}%`
+            : '0%',
+        },
+        {
+          label: 'Chess Points',
+          value: `${gameStatsMap['sunshade chess']?.local_currency?.toLocaleString() ?? 0} CP`,
+          highlight: 'text-orange-500',
+        },
+      ],
+      status: 'Live Multiplayer',
     },
     {
-      id: 'tx-3',
-      user_id: citizenId,
-      amount: 50,
-      reason: 'match_win',
-      reference_id: 'CHESS_WIN_RANKED',
-      created_at: new Date().toISOString(),
+      name: 'Puk Huk Arcade',
+      category: 'Fast-Paced Neon Arena Shooter',
+      statKey: 'puk huk',
+      icon: <Zap size={20} />,
+      iconBg: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+      badge: 'Season 2',
+      badgeClass: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+      stats: [
+        {
+          label: 'Matches',
+          value: gameStatsMap['puk huk']?.matches_played
+            ? `${gameStatsMap['puk huk'].matches_played} Runs`
+            : '0 Runs',
+        },
+        {
+          label: 'Victories',
+          value: gameStatsMap['puk huk']?.wins ? `${gameStatsMap['puk huk'].wins} Wins` : '0 Wins',
+        },
+        {
+          label: 'Arcade Points',
+          value: `${gameStatsMap['puk huk']?.local_currency?.toLocaleString() ?? 0} AP`,
+          highlight: 'text-purple-500',
+        },
+      ],
+      status: 'Tournaments Live',
+    },
+    {
+      name: 'Second Wind: War',
+      category: 'Tactical Collectible Card War',
+      statKey: 'second wind',
+      icon: <Flame size={20} />,
+      iconBg: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+      badge: 'Alpha',
+      badgeClass: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+      stats: [
+        {
+          label: 'Battles',
+          value: gameStatsMap['second wind']?.matches_played
+            ? `${gameStatsMap['second wind'].matches_played} Battles`
+            : '0 Battles',
+        },
+        {
+          label: 'Win Rate',
+          value: gameStatsMap['second wind']?.win_rate
+            ? `${Math.round(gameStatsMap['second wind'].win_rate * 100)}%`
+            : '0%',
+        },
+        {
+          label: 'War Tokens',
+          value: `${gameStatsMap['second wind']?.local_currency?.toLocaleString() ?? 0} WP`,
+          highlight: 'text-emerald-500',
+        },
+      ],
+      status: 'Alpha Deckbuilder',
     },
   ];
 
@@ -549,7 +662,7 @@ export function ProfileView({
         )}
       </div>
 
-      {/* Primary Key Stats Grid (4 Metrics) */}
+      {/* Primary Key System Stats Grid (4 System-Level Metrics) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-4 sm:p-5 shadow-sm dark:shadow-none hover:border-orange-500/40 transition-colors">
           <div className="flex items-center justify-between mb-3">
@@ -561,46 +674,46 @@ export function ProfileView({
           <div className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white tracking-tight">
             {hubTokens.toLocaleString()} <span className="text-xs text-orange-500 font-semibold">HT</span>
           </div>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">Cross-game currency</p>
-        </div>
-
-        <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-4 sm:p-5 shadow-sm dark:shadow-none hover:border-blue-500/40 transition-colors">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Critterverse ELO</span>
-            <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500">
-              <TrendingUp size={18} />
-            </div>
-          </div>
-          <div className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white tracking-tight">
-            {crittverseElo.toLocaleString()}
-          </div>
-          <p className="text-[11px] text-blue-500 font-medium mt-1">Tier: Gold Champion</p>
-        </div>
-
-        <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-4 sm:p-5 shadow-sm dark:shadow-none hover:border-amber-500/40 transition-colors">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Chess Standard ELO</span>
-            <div className="p-2 bg-amber-500/10 rounded-lg text-amber-500">
-              <Swords size={18} />
-            </div>
-          </div>
-          <div className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white tracking-tight">
-            1,450 <span className="text-xs text-amber-500 font-semibold">Fischer: 1,380</span>
-          </div>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">12 Wins • 54% Winrate</p>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">Cross-game liquid balance</p>
         </div>
 
         <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-4 sm:p-5 shadow-sm dark:shadow-none hover:border-emerald-500/40 transition-colors">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Badges Unlocked</span>
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Reputation Score</span>
             <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500">
+              <Shield size={18} />
+            </div>
+          </div>
+          <div className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white tracking-tight">
+            {profile?.reputation_score ?? 100} <span className="text-xs text-emerald-500 font-semibold">/ 100</span>
+          </div>
+          <p className="text-[11px] text-emerald-500 font-medium mt-1">Verified Citizen Standing</p>
+        </div>
+
+        <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-4 sm:p-5 shadow-sm dark:shadow-none hover:border-amber-500/40 transition-colors">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Citizen Tier</span>
+            <div className="p-2 bg-amber-500/10 rounded-lg text-amber-500">
+              <Crown size={18} />
+            </div>
+          </div>
+          <div className="text-lg sm:text-xl font-black text-zinc-900 dark:text-white tracking-tight">
+            {profile?.citizen_tier || 'Active Citizen'}
+          </div>
+          <p className="text-[11px] text-amber-500 font-medium mt-1">Governance Privileges</p>
+        </div>
+
+        <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-4 sm:p-5 shadow-sm dark:shadow-none hover:border-blue-500/40 transition-colors">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Badges Unlocked</span>
+            <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500">
               <Award size={18} />
             </div>
           </div>
           <div className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white tracking-tight">
-            {badges.filter((b) => b.unlocked).length} / {badges.length}
+            {unlockedBadgesCount} / {allBadges.length}
           </div>
-          <p className="text-[11px] text-emerald-500 font-medium mt-1">3 Legendary Unlocked</p>
+          <p className="text-[11px] text-blue-500 font-medium mt-1">Ecosystem Achievements</p>
         </div>
       </div>
 
@@ -625,7 +738,7 @@ export function ProfileView({
           }`}
         >
           <Award size={16} />
-          Trophy Cabinet ({badges.filter((b) => b.unlocked).length})
+          Trophy Cabinet ({unlockedBadgesCount})
         </button>
         <button
           onClick={() => setActiveTab('ledger')}
@@ -640,183 +753,58 @@ export function ProfileView({
         </button>
       </div>
 
-      {/* TAB 1: Game Stats Breakdown Matrix */}
+      {/* TAB 1: Dynamic Game Stats Breakdown Matrix */}
       {activeTab === 'stats' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-5 shadow-sm dark:shadow-none space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500">
-                  <Gamepad2 size={20} />
+          {matrixGames.map((game) => (
+            <div
+              key={game.name}
+              className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-5 shadow-sm dark:shadow-none space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${game.iconBg}`}>
+                    {game.icon}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-zinc-900 dark:text-white">{game.name}</h4>
+                    <p className="text-xs text-zinc-500">{game.category}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-bold text-zinc-900 dark:text-white">Critterverse (Cozy)</h4>
-                  <p className="text-xs text-zinc-500">Cozy Farming & Village Builder</p>
-                </div>
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${game.badgeClass}`}>
+                  {game.badge}
+                </span>
               </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                Season 1
-              </span>
-            </div>
 
-            <div className="grid grid-cols-3 gap-2 bg-zinc-50 dark:bg-zinc-900/60 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/60 text-center">
-              <div>
-                <span className="text-[10px] text-zinc-500 uppercase block">Rank Rating</span>
-                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">{crittverseElo}</span>
+              <div className="grid grid-cols-3 gap-2 bg-zinc-50 dark:bg-zinc-900/60 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/60 text-center">
+                {game.stats.map((s, idx) => (
+                  <div key={idx}>
+                    <span className="text-[10px] text-zinc-500 uppercase block">{s.label}</span>
+                    <span className={`text-sm font-bold ${s.highlight || 'text-zinc-800 dark:text-zinc-200'}`}>
+                      {s.value}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <div>
-                <span className="text-[10px] text-zinc-500 uppercase block">Farm Level</span>
-                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Lvl 14</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-zinc-500 uppercase block">Cozy Points</span>
-                <span className="text-sm font-bold text-blue-500">3,420 CP</span>
-              </div>
-            </div>
 
-            <div className="flex items-center justify-between text-xs text-zinc-500 pt-1">
-              <span>Status: Active In Staging</span>
-              <button
-                onClick={() => onNavigateTab?.('Game Library')}
-                className="text-orange-500 hover:text-orange-400 font-medium flex items-center gap-1"
-              >
-                Launch Game <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-5 shadow-sm dark:shadow-none space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
-                  <Swords size={20} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-zinc-900 dark:text-white">SunShade Chess</h4>
-                  <p className="text-xs text-zinc-500">Ranked Standard & Chess960</p>
-                </div>
-              </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/20">
-                Online
-              </span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 bg-zinc-50 dark:bg-zinc-900/60 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/60 text-center">
-              <div>
-                <span className="text-[10px] text-zinc-500 uppercase block">Standard</span>
-                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">1,450 ELO</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-zinc-500 uppercase block">Chess960</span>
-                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">1,380 ELO</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-zinc-500 uppercase block">Win Streak</span>
-                <span className="text-sm font-bold text-orange-500">4 Wins 🔥</span>
+              <div className="flex items-center justify-between text-xs text-zinc-500 pt-1">
+                <span>Status: {game.status}</span>
+                <button
+                  onClick={() => onNavigateTab?.('Game Library')}
+                  className="text-orange-500 hover:text-orange-400 font-medium flex items-center gap-1"
+                >
+                  Launch Title <ChevronRight size={14} />
+                </button>
               </div>
             </div>
-
-            <div className="flex items-center justify-between text-xs text-zinc-500 pt-1">
-              <span>Status: Live Multiplayer</span>
-              <button
-                onClick={() => onNavigateTab?.('Game Library')}
-                className="text-orange-500 hover:text-orange-400 font-medium flex items-center gap-1"
-              >
-                Match Lobby <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-5 shadow-sm dark:shadow-none space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-500">
-                  <Zap size={20} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-zinc-900 dark:text-white">Puk Huk Arcade</h4>
-                  <p className="text-xs text-zinc-500">Fast-Paced Neon Arena Shooter</p>
-                </div>
-              </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-500 border border-purple-500/20">
-                Season 2
-              </span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 bg-zinc-50 dark:bg-zinc-900/60 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/60 text-center">
-              <div>
-                <span className="text-[10px] text-zinc-500 uppercase block">High Score</span>
-                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">89,450</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-zinc-500 uppercase block">Arcade Tier</span>
-                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Diamond</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-zinc-500 uppercase block">Global Rank</span>
-                <span className="text-sm font-bold text-purple-500">#42</span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between text-xs text-zinc-500 pt-1">
-              <span>Status: Tournaments Live</span>
-              <button
-                onClick={() => onNavigateTab?.('Game Library')}
-                className="text-orange-500 hover:text-orange-400 font-medium flex items-center gap-1"
-              >
-                Enter Arena <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-5 shadow-sm dark:shadow-none space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
-                  <Flame size={20} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-zinc-900 dark:text-white">Second Wind: War</h4>
-                  <p className="text-xs text-zinc-500">Tactical Collectible Card War</p>
-                </div>
-              </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                Alpha
-              </span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 bg-zinc-50 dark:bg-zinc-900/60 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/60 text-center">
-              <div>
-                <span className="text-[10px] text-zinc-500 uppercase block">Card Rating</span>
-                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">1,620</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-zinc-500 uppercase block">Deck Slots</span>
-                <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">6 / 8</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-zinc-500 uppercase block">Battle Tokens</span>
-                <span className="text-sm font-bold text-emerald-500">850 WP</span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between text-xs text-zinc-500 pt-1">
-              <span>Status: Alpha Deckbuilder</span>
-              <button
-                onClick={() => onNavigateTab?.('Game Library')}
-                className="text-orange-500 hover:text-orange-400 font-medium flex items-center gap-1"
-              >
-                View Decks <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
+          ))}
         </div>
       )}
 
-      {/* TAB 2: Trophy Cabinet */}
+      {/* TAB 2: Dynamic Trophy Cabinet */}
       {activeTab === 'trophies' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {badges.map((badge) => (
+          {allBadges.map((badge) => (
             <div
               key={badge.id}
               className={`p-5 rounded-xl border transition-all duration-200 flex flex-col justify-between ${
@@ -847,7 +835,7 @@ export function ProfileView({
                         : 'bg-zinc-500/10 text-zinc-500 border border-zinc-500/30'
                     }`}
                   >
-                    {badge.rarity}
+                    {badge.rarity || 'Common'}
                   </span>
                 </div>
 
@@ -870,7 +858,7 @@ export function ProfileView({
         </div>
       )}
 
-      {/* TAB 3: Points Ledger */}
+      {/* TAB 3: Dynamic Points Ledger */}
       {activeTab === 'ledger' && (
         <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl overflow-hidden shadow-sm dark:shadow-none">
           <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800/60 flex items-center justify-between">
@@ -884,35 +872,47 @@ export function ProfileView({
           </div>
 
           <div className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
-            {transactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors flex items-center justify-between gap-4"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-500/10 rounded-lg text-orange-500 shrink-0">
-                    <Hexagon size={16} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 capitalize">
-                      {tx.reason.replace(/_/g, ' ')}
-                    </p>
-                    <p className="text-xs text-zinc-500 font-mono">
-                      Ref: {tx.reference_id || 'SYSTEM_REWARD'}
-                    </p>
-                  </div>
+            {ledgerHistory.length === 0 ? (
+              <div className="p-8 text-center space-y-2">
+                <div className="p-3 bg-zinc-100 dark:bg-zinc-800/50 rounded-full w-12 h-12 flex items-center justify-center mx-auto text-zinc-400">
+                  <Hexagon size={20} />
                 </div>
-
-                <div className="text-right">
-                  <span className="text-sm font-bold font-mono text-emerald-600 dark:text-emerald-400 block">
-                    +{tx.amount} HT
-                  </span>
-                  <span className="text-[11px] text-zinc-500">
-                    {new Date(tx.created_at).toLocaleDateString()}
-                  </span>
-                </div>
+                <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">No token transactions yet</p>
+                <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+                  Earn Global Hub Tokens by completing achievements, registering edge compute nodes, or winning multiplayer matches.
+                </p>
               </div>
-            ))}
+            ) : (
+              ledgerHistory.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors flex items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-500/10 rounded-lg text-orange-500 shrink-0">
+                      <Hexagon size={16} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 capitalize">
+                        {tx.reason.replace(/_/g, ' ')}
+                      </p>
+                      <p className="text-xs text-zinc-500 font-mono">
+                        Ref: {tx.reference_id || 'SYSTEM_REWARD'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-sm font-bold font-mono text-emerald-600 dark:text-emerald-400 block">
+                      +{tx.amount} HT
+                    </span>
+                    <span className="text-[11px] text-zinc-500">
+                      {new Date(tx.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}

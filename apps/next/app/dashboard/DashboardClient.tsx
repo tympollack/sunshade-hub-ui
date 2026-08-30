@@ -15,6 +15,7 @@ import {
   Bell,
   Hexagon,
   TrendingUp,
+  Shield,
   History,
   Sun,
   Moon,
@@ -32,11 +33,15 @@ import { useHubPresence } from '../../hooks/useHubPresence';
 import { ProfileView } from './views/ProfileView';
 import { MedicalVaultView } from './views/MedicalVaultView';
 import { EdgeNodesView } from './views/EdgeNodesView';
+import { NotificationsModal } from './components/NotificationsModal';
 import type {
   DashboardProfile,
   EdgeNode,
   GameLibraryItem,
   PointsLedgerItem,
+  GameStat,
+  AchievementBadge,
+  HubNotification,
 } from './types';
 
 function getAppUrl(appId: string): string {
@@ -62,6 +67,13 @@ interface DashboardClientProps {
   edgeNodes: EdgeNode[];
   gameLibrary: GameLibraryItem[];
   ledgerHistory?: PointsLedgerItem[];
+  gameStats?: GameStat[];
+  hubAchievements?: AchievementBadge[];
+  chessAchievements?: AchievementBadge[];
+  userHubUnlocks?: Record<string, boolean>;
+  userChessUnlocks?: Record<string, boolean>;
+  hubEvents?: any[];
+  notifications?: HubNotification[];
   chessWidget: React.ReactNode;
   ecosystemWidget: React.ReactNode;
 }
@@ -71,24 +83,44 @@ export default function DashboardClient({
   edgeNodes,
   gameLibrary,
   ledgerHistory = [],
+  gameStats = [],
+  hubAchievements: initialHubAchievements = [],
+  chessAchievements: initialChessAchievements = [],
+  userHubUnlocks: initialUserHubUnlocks = {},
+  userChessUnlocks: initialUserChessUnlocks = {},
+  hubEvents: initialHubEvents = [],
+  notifications: initialNotifications = [],
   chessWidget,
   ecosystemWidget,
 }: DashboardClientProps) {
   const [currentProfile, setCurrentProfile] = useState<DashboardProfile | null>(profile);
   const [activeView, setActiveView] = useState('Overview');
-  const [chessAchievements, setChessAchievements] = useState<any[]>([]);
-  const [hubAchievements, setHubAchievements] = useState<any[]>([]);
-  const [hubEvents, setHubEvents] = useState<any[]>([]);
+  const [chessAchievements, setChessAchievements] = useState<AchievementBadge[]>(initialChessAchievements);
+  const [hubAchievements, setHubAchievements] = useState<AchievementBadge[]>(initialHubAchievements);
+  const [hubEvents, setHubEvents] = useState<any[]>(initialHubEvents);
   const [selectedGame, setSelectedGame] = useState<any | null>(null);
-  const [userChessUnlocks, setUserChessUnlocks] = useState<Record<string, boolean>>({});
-  const [userHubUnlocks, setUserHubUnlocks] = useState<Record<string, boolean>>({});
-  const [isLoading, setIsLoading] = useState(true);
+  const [userChessUnlocks, setUserChessUnlocks] = useState<Record<string, boolean>>(initialUserChessUnlocks);
+  const [userHubUnlocks, setUserHubUnlocks] = useState<Record<string, boolean>>(initialUserHubUnlocks);
+  const [isLoading, setIsLoading] = useState(false);
   const [session, setSession] = useState<any>(null);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [submittingInvite, setSubmittingInvite] = useState(false);
+
+  // Notification Modal State
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notificationsList, setNotificationsList] = useState<HubNotification[]>(initialNotifications);
+  const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const stored = localStorage.getItem('sunshade_read_notifs');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch (_) {
+      return new Set();
+    }
+  });
 
   // Auth Code State
   const [requestCodeSubmitted, setRequestCodeSubmitted] = useState(false);
@@ -103,6 +135,33 @@ export default function DashboardClient({
   useEffect(() => {
     setCurrentProfile(profile);
   }, [profile]);
+
+  useEffect(() => {
+    setMounted(true);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+  }, []);
+
+  const handleMarkAllNotificationsRead = () => {
+    const allIds = new Set(notificationsList.map((n) => n.id));
+    setReadNotificationIds(allIds);
+    try {
+      localStorage.setItem('sunshade_read_notifs', JSON.stringify(Array.from(allIds)));
+    } catch (_) {}
+  };
+
+  const handleDismissNotification = (id: string) => {
+    setNotificationsList((prev) => prev.filter((n) => n.id !== id));
+    const nextRead = new Set(readNotificationIds);
+    nextRead.add(id);
+    setReadNotificationIds(nextRead);
+    try {
+      localStorage.setItem('sunshade_read_notifs', JSON.stringify(Array.from(nextRead)));
+    } catch (_) {}
+  };
+
+  const unreadNotificationsCount = notificationsList.filter((n) => !readNotificationIds.has(n.id)).length;
 
   const handleRequestUserCode = async () => {
     const userEmail = session?.user?.email;
@@ -175,13 +234,6 @@ export default function DashboardClient({
     }
   };
 
-  useEffect(() => {
-    setMounted(true);
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-  }, []);
-
   const loadData = async () => {
     if (!session?.user?.id) return;
     setIsLoading(true);
@@ -199,40 +251,35 @@ export default function DashboardClient({
       supabase.from('hub_events').select('*').eq('is_active', true),
     ]);
 
-    if (chessData) setChessAchievements(chessData);
-    if (hubData) setHubAchievements(hubData);
+    if (chessData) {
+      setChessAchievements(
+        chessData.map((a: any) => ({
+          ...a,
+          game: 'SunShade Chess',
+          rarity: (a.reward_points ?? 0) >= 1000 ? 'Legendary' : 'Rare',
+        }))
+      );
+    }
+    if (hubData) {
+      setHubAchievements(
+        hubData.map((a: any) => ({
+          ...a,
+          game: 'SunShade Hub',
+          rarity: (a.reward_tokens ?? 0) >= 1000 ? 'Legendary' : 'Epic',
+        }))
+      );
+    }
 
     if (eventsData && eventsData.length > 0) {
       setHubEvents(eventsData);
-    } else {
-      setHubEvents([
-        {
-          id: 'fallback-1',
-          title: 'Puk Huk: Season 2',
-          description: 'The arcade is back and brighter than ever! Compete for the top score in this fast-paced neon shooter.',
-          image_url: '/puk_huk_ad.jpg',
-          call_to_action_url: getAppUrl('pukhuk'),
-          start_time: new Date().toISOString(),
-          end_time: new Date().toISOString(),
-        },
-        {
-          id: 'fallback-2',
-          title: 'Welcome to the Critterverse',
-          description: 'Build your cozy village, farm, and relax with friends in this peaceful world.',
-          image_url: '/critterverse_ad.jpg',
-          call_to_action_url: getAppUrl('cozy'),
-          start_time: new Date().toISOString(),
-          end_time: new Date().toISOString(),
-        },
-      ]);
     }
 
     const chessUnlocks: Record<string, boolean> = {};
-    userChessData?.forEach((row) => { chessUnlocks[row.achievement_id] = true; });
+    userChessData?.forEach((row: any) => { chessUnlocks[row.achievement_id] = true; });
     setUserChessUnlocks(chessUnlocks);
 
     const hubUnlocks: Record<string, boolean> = {};
-    userHubData?.forEach((row) => { hubUnlocks[row.achievement_id] = true; });
+    userHubData?.forEach((row: any) => { hubUnlocks[row.achievement_id] = true; });
     setUserHubUnlocks(hubUnlocks);
 
     setIsLoading(false);
@@ -264,22 +311,7 @@ export default function DashboardClient({
     }
   };
 
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.innerHTML = `
-      .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-      .custom-scrollbar::-webkit-scrollbar-thumb { background: #a1a1aa; border-radius: 4px; }
-      .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #3f3f46; }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #71717a; }
-      .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #52525b; }
-    `;
-    document.head.appendChild(style);
-    return () => { document.head.removeChild(style); };
-  }, []);
-
   const hubTokens = currentProfile?.global_hub_tokens ?? 0;
-  const crittverseElo = currentProfile?.critterverse_elo ?? 1200;
   const onlineNodes = edgeNodes.filter((n) => n.status === 'online').length;
 
   const isStaging = typeof window !== 'undefined' && (
@@ -373,14 +405,19 @@ export default function DashboardClient({
               <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 hidden lg:block">
                 Welcome back, {currentProfile?.display_name || currentProfile?.email || session?.user?.email || 'Citizen'}
               </span>
+
+              {/* Working Notifications Trigger */}
               <button
-                onClick={() => setActiveView('Overview')}
+                onClick={() => setIsNotificationsOpen(true)}
                 className="p-2 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-colors relative"
                 title="System Notifications"
               >
                 <Bell size={18} />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full border-2 border-white dark:border-[#161616]"></span>
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-white dark:border-[#161616] animate-pulse"></span>
+                )}
               </button>
+
               <div className="flex items-center gap-3 pl-4 border-l border-zinc-200 dark:border-zinc-800 transition-colors duration-200">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Active Citizens</p>
@@ -440,24 +477,25 @@ export default function DashboardClient({
               {/* OVERVIEW VIEW */}
               {activeView === 'Overview' && (
                 <>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                  {/* System-Level Metrics Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
                     <MetricCard
                       title="Global Hub Tokens"
-                      value={hubTokens.toLocaleString()}
-                      trend="Hub balance"
+                      value={`${hubTokens.toLocaleString()} HT`}
+                      trend="Liquid ecosystem balance"
                       icon={<Hexagon className="text-orange-500 dark:text-orange-400" size={20} />}
                     />
                     <MetricCard
-                      title="Critterverse ELO"
-                      value={crittverseElo.toLocaleString()}
-                      trend="Cross-game ranking"
-                      icon={<TrendingUp className="text-blue-500 dark:text-blue-400" size={20} />}
+                      title="Citizen Standing"
+                      value={`${currentProfile?.reputation_score ?? 100}/100`}
+                      trend={currentProfile?.citizen_tier || 'Active Citizen'}
+                      icon={<Shield className="text-emerald-500 dark:text-emerald-400" size={20} />}
                     />
                     <MetricCard
                       title="Active Edge Nodes"
                       value={`${onlineNodes} Online`}
-                      trend={edgeNodes.length === 0 ? '3 cluster nodes' : `${edgeNodes.length} total`}
-                      icon={<Server className="text-orange-500 dark:text-orange-400" size={20} />}
+                      trend={edgeNodes.length === 0 ? '0 registered nodes' : `${edgeNodes.length} cluster nodes`}
+                      icon={<Server className="text-blue-500 dark:text-blue-400" size={20} />}
                     />
                   </div>
 
@@ -606,9 +644,12 @@ export default function DashboardClient({
                   profile={currentProfile}
                   session={session}
                   hubTokens={hubTokens}
-                  crittverseElo={crittverseElo}
+                  hubAchievements={hubAchievements}
+                  chessAchievements={chessAchievements}
                   userHubUnlocks={userHubUnlocks}
                   userChessUnlocks={userChessUnlocks}
+                  gameStats={gameStats}
+                  gameLibrary={gameLibrary}
                   ledgerHistory={ledgerHistory}
                   onNavigateTab={(tab) => setActiveView(tab)}
                   onProfileUpdate={(updated) => {
@@ -719,6 +760,17 @@ export default function DashboardClient({
             </div>
           </div>
         </main>
+
+        {/* Notifications Modal */}
+        <NotificationsModal
+          isOpen={isNotificationsOpen}
+          onClose={() => setIsNotificationsOpen(false)}
+          notifications={notificationsList}
+          readIds={readNotificationIds}
+          onMarkAllAsRead={handleMarkAllNotificationsRead}
+          onDismissNotification={handleDismissNotification}
+          onNavigateView={(v) => setActiveView(v)}
+        />
 
         {/* Bottom Nav Mobile */}
         <nav className="md:hidden flex items-center justify-between bg-white dark:bg-[#161616] border-t border-zinc-200 dark:border-zinc-800/60 pb-[env(safe-area-inset-bottom)] px-2 pt-2 z-30">

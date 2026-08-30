@@ -4,7 +4,6 @@ import DashboardClient from './DashboardClient';
 import { WidgetErrorBoundary } from '../../components/WidgetErrorBoundary';
 import { ChessWidget } from './widgets/ChessWidget';
 import { EcosystemLogWidget } from './widgets/EcosystemLogWidget';
-import { OTAManager } from './OTAManager';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = { title: 'Dashboard' };
@@ -19,6 +18,13 @@ export default async function DashboardPage() {
         edgeNodes={data.edgeNodes}
         gameLibrary={data.gameLibrary}
         ledgerHistory={data.ledgerHistory}
+        gameStats={data.gameStats}
+        hubAchievements={data.hubAchievements}
+        chessAchievements={data.chessAchievements}
+        userHubUnlocks={data.userHubUnlocks}
+        userChessUnlocks={data.userChessUnlocks}
+        hubEvents={data.hubEvents}
+        notifications={data.notifications}
         chessWidget={
           <WidgetErrorBoundary gameName="SunShade Chess">
             <Suspense fallback={<WidgetSkeleton />}>
