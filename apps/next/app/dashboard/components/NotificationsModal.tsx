@@ -10,7 +10,6 @@ import {
   Server,
   ShieldCheck,
   Trash2,
-  ExternalLink,
   ChevronRight,
 } from 'lucide-react';
 import type { HubNotification } from '../types';
@@ -54,6 +53,10 @@ export function NotificationsModal({
     return notif.category === activeFilter;
   });
 
+  const countAnnouncements = notifications.filter((n) => n.category === 'announcement').length;
+  const countRewards = notifications.filter((n) => n.category === 'reward').length;
+  const countNodes = notifications.filter((n) => n.category === 'node').length;
+
   const unreadCount = notifications.filter((n) => !readIds.has(n.id)).length;
 
   const getCategoryIcon = (category: string) => {
@@ -96,9 +99,10 @@ export function NotificationsModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+      {/* Fixed Standard Height & Width Modal Container */}
+      <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-xl h-[560px] max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="p-5 border-b border-zinc-200 dark:border-zinc-800/80 flex items-center justify-between">
+        <div className="p-5 border-b border-zinc-200 dark:border-zinc-800/80 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500">
               <Bell size={18} />
@@ -141,8 +145,8 @@ export function NotificationsModal({
           </div>
         </div>
 
-        {/* Filter Category Tabs */}
-        <div className="flex items-center gap-1 px-4 py-2 border-b border-zinc-100 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/40 overflow-x-auto text-xs font-semibold">
+        {/* Filter Category Tabs with Dynamic Counts */}
+        <div className="flex items-center gap-1 px-4 py-2 border-b border-zinc-100 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/40 overflow-x-auto text-xs font-semibold shrink-0">
           <button
             onClick={() => setActiveFilter('all')}
             className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
@@ -161,7 +165,7 @@ export function NotificationsModal({
                 : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
             }`}
           >
-            Announcements
+            Announcements ({countAnnouncements})
           </button>
           <button
             onClick={() => setActiveFilter('reward')}
@@ -171,7 +175,7 @@ export function NotificationsModal({
                 : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
             }`}
           >
-            Rewards & HT
+            Rewards & HT ({countRewards})
           </button>
           <button
             onClick={() => setActiveFilter('node')}
@@ -181,14 +185,14 @@ export function NotificationsModal({
                 : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
             }`}
           >
-            Nodes & Cluster
+            Nodes & Cluster ({countNodes})
           </button>
         </div>
 
-        {/* Notifications List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar divide-y divide-zinc-100 dark:divide-zinc-800/40">
+        {/* Notifications List Container with Custom Themed Scrollbar */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar min-h-0">
           {filteredNotifications.length === 0 ? (
-            <div className="py-12 text-center space-y-3">
+            <div className="h-full flex flex-col items-center justify-center py-12 text-center space-y-3">
               <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800/60 flex items-center justify-center mx-auto text-zinc-400">
                 <Bell size={20} />
               </div>
@@ -203,10 +207,10 @@ export function NotificationsModal({
               return (
                 <div
                   key={notif.id}
-                  className={`pt-3 first:pt-0 p-3 rounded-xl transition-colors relative group ${
+                  className={`p-3.5 rounded-xl transition-colors relative group ${
                     isRead
-                      ? 'bg-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900/30'
-                      : 'bg-orange-500/[0.04] dark:bg-orange-500/[0.06] border border-orange-500/10 hover:bg-orange-500/[0.08]'
+                      ? 'bg-zinc-50/50 dark:bg-zinc-900/30 hover:bg-zinc-100/60 dark:hover:bg-zinc-900/60 border border-zinc-200/50 dark:border-zinc-800/40'
+                      : 'bg-orange-500/[0.04] dark:bg-orange-500/[0.07] border border-orange-500/20 hover:bg-orange-500/[0.09]'
                   }`}
                 >
                   <div className="flex items-start gap-3.5">
@@ -276,7 +280,7 @@ export function NotificationsModal({
         </div>
 
         {/* Footer */}
-        <div className="p-3 bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-200 dark:border-zinc-800 text-center text-[11px] text-zinc-400">
+        <div className="p-3 bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-200 dark:border-zinc-800 text-center text-[11px] text-zinc-400 shrink-0">
           SunShade Ecosystem Sentinel • Real-Time Alert Mesh
         </div>
       </div>
