@@ -42,6 +42,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
     { data: chessAchRows },
     { data: userChessAchRows },
     { data: eventsRows },
+    { data: broadcastRows },
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -97,6 +98,13 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
       .select('*')
       .eq('is_active', true)
       .order('start_time', { ascending: false }),
+
+    supabase
+      .from('hub_broadcasts')
+      .select('id, title, message, category, is_active, created_at')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(10),
   ]);
 
   const profile: DashboardProfile | null = profileRow
@@ -171,21 +179,36 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
     updated_at: s.updated_at,
   }));
 
-  // Build dynamic notifications from ledger, nodes, and system events
+  // Build dynamic notifications from live broadcasts, ledger, nodes, and system events
   const notifications: HubNotification[] = [];
 
-  // 1. Welcome announcement
-  notifications.push({
-    id: 'notif-welcome',
-    category: 'announcement',
-    title: 'Welcome to SunShade Hub Alpha',
-    message: 'Welcome to the SunShade Network Genesis Hub. Connect edge nodes, explore multiplayer titles, and claim cross-app ecosystem rewards.',
-    created_at: profileRow?.created_at || new Date().toISOString(),
-    link: '#',
-    action_label: 'Explore Games',
+  // 1. Live Ecosystem Broadcasts from Admin Gateway (Highest Priority)
+  (broadcastRows ?? []).forEach((b) => {
+    notifications.push({
+      id: `broadcast-${b.id}`,
+      category: b.category?.toLowerCase() === 'maintenance' ? 'node' : 'announcement',
+      title: b.title,
+      message: b.message,
+      created_at: b.created_at,
+      link: '#',
+      action_label: b.category?.toLowerCase() === 'maintenance' ? 'System Status' : 'Ecosystem Notice',
+    });
   });
 
-  // 2. Token reward notifications from recent ledger items
+  // 2. Welcome announcement fallback (if no live broadcasts exist)
+  if (notifications.length === 0) {
+    notifications.push({
+      id: 'notif-welcome',
+      category: 'announcement',
+      title: 'Welcome to SunShade Hub Alpha',
+      message: 'Welcome to the SunShade Network Genesis Hub. Connect edge nodes, explore multiplayer titles, and claim cross-app ecosystem rewards.',
+      created_at: profileRow?.created_at || new Date().toISOString(),
+      link: '#',
+      action_label: 'Explore Games',
+    });
+  }
+
+  // 3. Token reward notifications from recent ledger items
   ledgerHistory.slice(0, 3).forEach((item) => {
     notifications.push({
       id: `notif-reward-${item.id}`,
@@ -196,7 +219,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
     });
   });
 
-  // 3. Edge node cluster health notifications
+  // 4. Edge node cluster health notifications
   const onlineCount = (edgeRows ?? []).filter((n) => n.status === 'online').length;
   if (edgeRows && edgeRows.length > 0) {
     notifications.push({
@@ -208,7 +231,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
     });
   }
 
-  // 4. Security notifications
+  // 5. Security notifications
   if (profileRow?.wallet_address) {
     notifications.push({
       id: 'notif-wallet-linked',
