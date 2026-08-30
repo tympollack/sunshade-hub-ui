@@ -69,6 +69,7 @@ export interface BioTelemetryDevice {
 }
 
 export interface GameStat {
+  id?: string;
   game_name: string;
   matches_played: number;
   wins: number;
@@ -79,6 +80,7 @@ export interface GameStat {
   elo_rating?: number;
   rank_title?: string;
   high_score?: number;
+  updated_at?: string;
 }
 
 export interface MatchHistoryRow {
@@ -116,10 +118,27 @@ export interface GameLibraryItem {
   developer?: string;
 }
 
+export interface HubNotification {
+  id: string;
+  category: 'announcement' | 'reward' | 'node' | 'security' | 'general';
+  title: string;
+  message: string;
+  created_at: string;
+  is_read?: boolean;
+  link?: string;
+  action_label?: string;
+}
+
 export interface DashboardData {
   profile: DashboardProfile | null;
   edgeNodes: EdgeNode[];
   gameLibrary: GameLibraryItem[];
-  ledgerHistory?: PointsLedgerItem[];
+  ledgerHistory: PointsLedgerItem[];
+  gameStats: GameStat[];
+  hubAchievements: AchievementBadge[];
+  chessAchievements: AchievementBadge[];
+  userHubUnlocks: Record<string, boolean>;
+  userChessUnlocks: Record<string, boolean>;
+  hubEvents: any[];
+  notifications: HubNotification[];
 }
-
