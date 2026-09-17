@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@sunshade/supabase';
+import { supabase } from '@digitalcanopy/supabase';
 
 export function useHubPresence(userId?: string) {
   const [activeUsers, setActiveUsers] = useState<Record<string, any>>({});

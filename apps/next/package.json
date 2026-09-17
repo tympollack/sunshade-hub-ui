@@ -14,7 +14,8 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1091.0",
     "@aws-sdk/s3-request-presigner": "^3.1091.0",
-    "@sunshade/supabase": "*",
+    "@digitalcanopy/supabase": "^0.1.0",
+    "@digitalcanopy/ui": "^0.1.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.43.0",
     "@upstash/redis": "^1.34.3",
@@ -28,10 +29,10 @@
     "react-native-reanimated": "4.1.3",
     "react-native-web": "~0.19.10",
     "react-native-worklets": "0.5.1",
-    "resend": "^6.22.1",
-    "@sunshade/ui": "*"
+    "resend": "^6.22.1"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.6",

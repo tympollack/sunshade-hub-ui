@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase } from '@sunshade/supabase';
-import { LoginForm } from '@sunshade/ui';
+import { supabase } from '@digitalcanopy/supabase';
+import { LoginForm } from '@digitalcanopy/ui';
 import { Sparkles, Compass, Key, ExternalLink, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { getValidatedRedirectUrl } from '../../lib/env';

@@ -5,7 +5,7 @@ import { WebView } from 'react-native-webview';
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
-import { GlassCard, AtmosphericBadge, TokenBalanceBadge, PrimaryButton } from '@sunshade/ui';
+import { GlassCard, AtmosphericBadge, TokenBalanceBadge, PrimaryButton } from '@digitalcanopy/ui';
 
 // Synchronously compute the URL so we don't flash the production URL in dev mode
 const isDev = __DEV__;

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase } from '@sunshade/supabase';
+import { supabase } from '@digitalcanopy/supabase';
 import {
   Lock,
   Eye,

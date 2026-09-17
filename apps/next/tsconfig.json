@@ -27,12 +27,6 @@
     "paths": {
       "@app/*": [
         "../../packages/app/*"
-      ],
-      "@sunshade/ui": [
-        "../../packages/ui/src/index.ts"
-      ],
-      "@sunshade/ui/*": [
-        "../../packages/ui/src/*"
       ]
     }
   },
