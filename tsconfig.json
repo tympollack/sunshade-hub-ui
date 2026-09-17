@@ -1,11 +1,14 @@
 {
   "compilerOptions": {
+    "skipLibCheck": true,
     "strictNullChecks": true,
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "paths": {
-      "app/*": ["./packages/app/*"]
+      "app/*": ["./packages/app/*"],
+      "@sunshade/ui": ["./packages/ui/src/index.ts"],
+      "@sunshade/ui/*": ["./packages/ui/src/*"]
     },
     "baseUrl": ".",
     "jsx": "react-jsx"

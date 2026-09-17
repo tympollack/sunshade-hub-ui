@@ -75,7 +75,7 @@ module.exports = {
     'moti',
     'react-native-gesture-handler',
     '@sunshade/supabase',
-    'ui',
+    '@sunshade/ui',
   ],
 
   compiler: {
