@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@sunshade/supabase';
+import { supabase } from '@digitalcanopy/supabase';
 import {
   AuthGate,
   EventsCarousel,
@@ -9,7 +9,7 @@ import {
   AtmosphericBadge,
   TokenBalanceBadge,
   PrimaryButton,
-} from '@sunshade/ui';
+} from '@digitalcanopy/ui';
 import { useTheme } from 'next-themes';
 import { OTAManager } from './OTAManager';
 import {

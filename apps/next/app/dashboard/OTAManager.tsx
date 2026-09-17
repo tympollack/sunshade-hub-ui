@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@sunshade/supabase';
+import { supabase } from '@digitalcanopy/supabase';
 
 // In a real app, this would be dynamically injected by the React Native wrapper,
 // or we track versions locally per app. For the Hub itself, it's 1.

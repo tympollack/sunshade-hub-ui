@@ -7,8 +7,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
-      'ui': path.resolve(__dirname, '../../packages/ui'),
-      '@sunshade/supabase': path.resolve(__dirname, '../../packages/supabase'),
     },
   },
   test: {

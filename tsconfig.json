@@ -6,9 +6,7 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "paths": {
-      "app/*": ["./packages/app/*"],
-      "@sunshade/ui": ["./packages/ui/src/index.ts"],
-      "@sunshade/ui/*": ["./packages/ui/src/*"]
+      "app/*": ["./packages/app/*"]
     },
     "baseUrl": ".",
     "jsx": "react-jsx"

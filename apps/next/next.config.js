@@ -74,8 +74,8 @@ module.exports = {
     'solito',
     'moti',
     'react-native-gesture-handler',
-    '@sunshade/supabase',
-    '@sunshade/ui',
+    '@digitalcanopy/supabase',
+    '@digitalcanopy/ui',
   ],
 
   compiler: {
