@@ -3,12 +3,14 @@ import { StatusBar, Platform, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import Constants from 'expo-constants';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
+import { GlassCard, AtmosphericBadge, TokenBalanceBadge, PrimaryButton } from '@sunshade/ui';
 
 // Synchronously compute the URL so we don't flash the production URL in dev mode
 const isDev = __DEV__;
-const channel = Constants.expoConfig?.extra?.easUpdateChannel ?? Constants.expoConfig?.updates?.channel ?? '';
+const expoConfig = Constants.expoConfig as any;
+const channel = expoConfig?.extra?.easUpdateChannel ?? expoConfig?.updates?.channel ?? '';
 const initialUrl = isDev
   ? 'http://localhost:3000/dashboard'
   : channel === 'preview'
@@ -27,7 +29,11 @@ export default function App() {
         
         if (Platform.OS === 'android') {
           // Download APK
-          const downloadDest = `${FileSystem.documentDirectory}update.apk`;
+          const docDir = FileSystem.documentDirectory;
+          if (!docDir) {
+            throw new Error('FileSystem.documentDirectory is unavailable');
+          }
+          const downloadDest = `${docDir}update.apk`;
           const { uri } = await FileSystem.downloadAsync(apkUrl, downloadDest);
           
           // DO NOT skip this step, or Android will crash the intent
@@ -50,16 +56,26 @@ export default function App() {
 
   if (error) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#111111', justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: 'red', fontSize: 18, marginBottom: 10, fontWeight: 'bold' }}>WebView Connection Failed</Text>
-        <Text style={{ color: 'white', textAlign: 'center', padding: 20 }}>
-          {error}
-        </Text>
-        <Text style={{ color: '#ea580c', textAlign: 'center', padding: 20, marginTop: 20, fontWeight: 'bold' }}>
-          Make sure your Next.js server is running on port 3000!
-          Run `npm run web` in the root of the project.
-          (Note: If you are on a physical Android device, 10.0.2.2 won't work, you'll need to hardcode your computer's local IP address.)
-        </Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#111111', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+        <GlassCard variant="cozy" padding="lg" style={{ width: '100%', maxWidth: 450, alignItems: 'center' }}>
+          <AtmosphericBadge label="Connection Offline" variant="error" statusDot pulse style={{ marginBottom: 16 }} />
+          <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>
+            WebView Connection Failed
+          </Text>
+          <Text style={{ color: '#a1a1aa', textAlign: 'center', marginBottom: 16, fontSize: 13 }}>
+            {error}
+          </Text>
+          <TokenBalanceBadge balance="NODE DISCONNECTED" symbol="HUB" variant="cozy" isLive={false} style={{ marginBottom: 20 }} />
+          <PrimaryButton
+            label="Retry Connection"
+            variant="sunshade"
+            size="md"
+            onPress={() => {
+              setError(null);
+              setHubUrl(initialUrl);
+            }}
+          />
+        </GlassCard>
       </SafeAreaView>
     );
   }
