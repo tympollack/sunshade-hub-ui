@@ -16,6 +16,7 @@ export interface PrimaryButtonProps {
   className?: string;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
+  testID?: string;
 }
 
 const variantConfig = {
@@ -105,7 +106,9 @@ export function PrimaryButton({
   className,
   style,
   textStyle,
-}: PrimaryButtonProps) {
+  testID,
+  ...rest
+}: PrimaryButtonProps & { [key: string]: any }) {
   const v = variantConfig[variant] || variantConfig.sunshade;
   const s = sizeConfig[size] || sizeConfig.md;
   const isDisabled = disabled || isLoading;
@@ -121,6 +124,9 @@ export function PrimaryButton({
 
   return (
     <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      {...rest}
       onPress={handlePress}
       disabled={isDisabled}
       // @ts-ignore className support in NativeWind/Solito/React Native Web

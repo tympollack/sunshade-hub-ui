@@ -3,7 +3,7 @@ import { StatusBar, Platform, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import Constants from 'expo-constants';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { GlassCard, AtmosphericBadge, TokenBalanceBadge, PrimaryButton } from '@sunshade/ui';
 
@@ -29,7 +29,10 @@ export default function App() {
         
         if (Platform.OS === 'android') {
           // Download APK
-          const docDir = (FileSystem as any).documentDirectory ?? '';
+          const docDir = FileSystem.documentDirectory;
+          if (!docDir) {
+            throw new Error('FileSystem.documentDirectory is unavailable');
+          }
           const downloadDest = `${docDir}update.apk`;
           const { uri } = await FileSystem.downloadAsync(apkUrl, downloadDest);
           

@@ -14,6 +14,7 @@ export interface TokenBalanceBadgeProps {
   className?: string;
   style?: StyleProp<ViewStyle>;
   balanceStyle?: StyleProp<TextStyle>;
+  testID?: string;
 }
 
 const variantStyles = {
@@ -62,11 +63,15 @@ export function TokenBalanceBadge({
   className,
   style,
   balanceStyle,
-}: TokenBalanceBadgeProps) {
+  testID,
+  ...rest
+}: TokenBalanceBadgeProps & { [key: string]: any }) {
   const v = variantStyles[variant] || variantStyles.default;
 
   const content = (
     <View
+      testID={testID}
+      {...rest}
       // @ts-ignore className support
       className={cn(
         'inline-flex flex-row items-center gap-2 px-3 py-1.5 rounded-xl border',

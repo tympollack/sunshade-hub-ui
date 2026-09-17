@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { View, Pressable, type ViewProps, type ViewStyle, type StyleProp } from 'react-native';
 import { glassPresets, glassStyles } from '../tokens/glass';
 import { cn } from '../utils/cn';
@@ -19,6 +19,13 @@ const paddingClasses = {
   lg: 'p-8',
 };
 
+const paddingNumeric = {
+  none: 0,
+  sm: 12,
+  md: 20,
+  lg: 32,
+};
+
 /**
  * GlassCard - Shared cross-platform glassmorphic container primitive.
  * Standard preset: backdrop-blur-md bg-stone-950/85 border border-white/10 shadow-xl rounded-2xl
@@ -35,6 +42,7 @@ export function GlassCard({
   const variantClass = glassPresets[variant] || glassPresets.standard;
   const combinedClassName = cn(variantClass, paddingClasses[padding], className);
   const fallbackStyle = glassStyles[variant === 'cozy' ? 'cozy' : variant === 'subtle' ? 'subtle' : 'standard'];
+  const nativePaddingStyle: ViewStyle = { padding: paddingNumeric[padding] };
 
   if (onPress) {
     return (
@@ -42,7 +50,7 @@ export function GlassCard({
         onPress={onPress}
         // @ts-ignore className support in NativeWind/Solito/React Native Web
         className={combinedClassName}
-        style={[fallbackStyle as ViewStyle, style as ViewStyle]}
+        style={[fallbackStyle as ViewStyle, nativePaddingStyle, style as ViewStyle]}
         {...rest}
       >
         {children}
@@ -54,7 +62,7 @@ export function GlassCard({
     <View
       // @ts-ignore className support in NativeWind/Solito/React Native Web
       className={combinedClassName}
-      style={[fallbackStyle as ViewStyle, style as ViewStyle]}
+      style={[fallbackStyle as ViewStyle, nativePaddingStyle, style as ViewStyle]}
       {...rest}
     >
       {children}

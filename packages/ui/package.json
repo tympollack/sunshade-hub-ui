@@ -35,9 +35,7 @@
     "test:boundaries": "vitest run"
   },
   "dependencies": {
-    "@sunshade/supabase": "*",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.0"
+    "@sunshade/supabase": "*"
   },
   "peerDependencies": {
     "nativewind": "*",

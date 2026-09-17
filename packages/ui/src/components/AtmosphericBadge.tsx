@@ -12,6 +12,7 @@ export interface AtmosphericBadgeProps {
   className?: string;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
+  testID?: string;
 }
 
 const variantConfig = {
@@ -34,9 +35,9 @@ const variantConfig = {
     styleDot: '#F59E0B',
   },
   telemetry: {
-    container: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 font-mono',
+    container: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400',
     dot: 'bg-cyan-400',
-    text: 'text-cyan-300 font-mono',
+    text: 'text-cyan-300',
     styleBg: 'rgba(6, 182, 212, 0.15)',
     styleBorder: 'rgba(6, 182, 212, 0.40)',
     styleText: '#67e8f9',
@@ -44,7 +45,7 @@ const variantConfig = {
   },
   success: {
     container: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
-    dot: 'bg-emerald-400',
+    dot: 'bg-emerald-500',
     text: 'text-emerald-300',
     styleBg: 'rgba(16, 185, 129, 0.15)',
     styleBorder: 'rgba(16, 185, 129, 0.40)',
@@ -52,17 +53,17 @@ const variantConfig = {
     styleDot: '#10B981',
   },
   warning: {
-    container: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400',
-    dot: 'bg-yellow-400',
-    text: 'text-yellow-300',
-    styleBg: 'rgba(234, 179, 8, 0.15)',
-    styleBorder: 'rgba(234, 179, 8, 0.40)',
-    styleText: '#fde047',
-    styleDot: '#EAB308',
+    container: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
+    dot: 'bg-amber-500',
+    text: 'text-amber-300',
+    styleBg: 'rgba(245, 158, 11, 0.15)',
+    styleBorder: 'rgba(245, 158, 11, 0.40)',
+    styleText: '#fcd34d',
+    styleDot: '#F59E0B',
   },
   error: {
     container: 'bg-rose-500/10 border-rose-500/30 text-rose-400',
-    dot: 'bg-rose-400',
+    dot: 'bg-rose-500',
     text: 'text-rose-300',
     styleBg: 'rgba(244, 63, 94, 0.15)',
     styleBorder: 'rgba(244, 63, 94, 0.40)',
@@ -114,12 +115,16 @@ export function AtmosphericBadge({
   className,
   style,
   textStyle,
-}: AtmosphericBadgeProps) {
+  testID,
+  ...rest
+}: AtmosphericBadgeProps & { [key: string]: any }) {
   const v = variantConfig[variant] || variantConfig.core;
   const s = sizeConfig[size] || sizeConfig.md;
 
   return (
     <View
+      testID={testID}
+      {...rest}
       // @ts-ignore className support
       className={cn(
         'inline-flex flex-row items-center border backdrop-blur-sm',

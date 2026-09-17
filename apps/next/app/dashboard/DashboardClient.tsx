@@ -497,7 +497,7 @@ export default function DashboardClient({
                           symbol="HT"
                           label="Global Balance"
                           variant="default"
-                          isLive={true}
+                          isLive={false}
                         />
                       </div>
                     </div>
