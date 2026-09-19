@@ -81,6 +81,10 @@ export default function ResetPasswordClient() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [redirectCount, setRedirectCount] = useState(3);
 
+  const [manualEmail, setManualEmail] = useState('');
+  const [manualCode, setManualCode] = useState('');
+  const [isVerifyingManual, setIsVerifyingManual] = useState(false);
+
   // Keep refs for countdown timer to avoid restarting on session update events
   const sessionDataRef = useRef<any>(null);
   sessionDataRef.current = sessionData;
@@ -164,7 +168,12 @@ export default function ResetPasswordClient() {
               token_hash: tokenHash,
               type,
             });
-          if (!otpError && otpData?.session && isMounted) {
+          if (otpError) {
+            console.warn('[ResetPassword] verifyOtp notice:', otpError.message);
+            if (isMounted) {
+              setError(otpError.message);
+            }
+          } else if (!otpError && otpData?.session && isMounted) {
             setHasSession(true);
             setSessionData(otpData.session);
             return;
@@ -321,6 +330,34 @@ export default function ResetPasswordClient() {
     }
   };
 
+  const handleVerifyManualCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualEmail.trim() || !manualCode.trim()) {
+      setError('Please enter your email and the 6-digit verification code.');
+      return;
+    }
+    setIsVerifyingManual(true);
+    setError(null);
+    try {
+      const { data: otpData, error: otpError } = await supabase.auth.verifyOtp({
+        email: manualEmail.trim().toLowerCase(),
+        token: manualCode.trim(),
+        type: 'recovery',
+      });
+      if (otpError) {
+        throw otpError;
+      }
+      if (otpData?.session) {
+        setHasSession(true);
+        setSessionData(otpData.session);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Invalid or expired verification code.');
+    } finally {
+      setIsVerifyingManual(false);
+    }
+  };
+
   const forgotPasswordLink = `/forgot-password${
     handshakeTargetUrl !== '/dashboard'
       ? `?redirect_to=${encodeURIComponent(handshakeTargetUrl)}`
@@ -415,6 +452,48 @@ export default function ResetPasswordClient() {
                 link to continue.
               </p>
             </div>
+
+            <form onSubmit={handleVerifyManualCode} className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 space-y-3">
+              <div className="text-center">
+                <span className="text-xs font-semibold text-zinc-200">
+                  Have a 6-digit code from your email?
+                </span>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  Enter your email and code to verify directly:
+                </p>
+              </div>
+              <input
+                type="email"
+                placeholder="Account email"
+                value={manualEmail}
+                onChange={(e) => setManualEmail(e.target.value)}
+                required
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-zinc-900 border border-zinc-700 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-orange-500 transition-colors"
+              />
+              <input
+                type="text"
+                placeholder="6-digit code (e.g. 123456)"
+                value={manualCode}
+                onChange={(e) => setManualCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                maxLength={6}
+                required
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm font-mono tracking-widest text-center bg-zinc-900 border border-zinc-700 text-orange-400 placeholder-zinc-500 focus:outline-none focus:border-orange-500 transition-colors"
+              />
+              <button
+                type="submit"
+                disabled={isVerifyingManual || !manualCode || !manualEmail}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+              >
+                {isVerifyingManual ? (
+                  <span>Verifying Code...</span>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5 text-orange-400" />
+                    <span>Verify Code & Set Password</span>
+                  </>
+                )}
+              </button>
+            </form>
 
             <Link
               href={forgotPasswordLink}

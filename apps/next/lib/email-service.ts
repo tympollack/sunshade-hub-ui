@@ -43,16 +43,19 @@ export interface SendPasswordResetEmailParams {
   to: string;
   resetUrl: string;
   targetAppName?: string | null;
+  otpCode?: string | null;
 }
 
 export async function sendPasswordResetEmail({
   to,
   resetUrl,
   targetAppName,
+  otpCode,
 }: SendPasswordResetEmailParams): Promise<{ success: boolean; resendId?: string; error?: string }> {
   const safeEmail = escapeHtml(to);
   const safeResetUrl = escapeHtml(resetUrl);
   const safeAppName = targetAppName ? escapeHtml(targetAppName) : null;
+  const safeOtpCode = otpCode ? escapeHtml(otpCode.trim()) : null;
 
   const subject = safeAppName
     ? `Reset your SunShade account password (${safeAppName})`
@@ -64,7 +67,7 @@ We received a request to reset the password for your SunShade account (${to}).
 
 Click the link below to set a new password:
 ${resetUrl}
-
+${safeOtpCode ? `\nOr use verification code: ${safeOtpCode}\n` : ''}
 This link is valid for 24 hours and can only be used once.
 
 If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.
@@ -119,6 +122,21 @@ SunShade Ecosystem • Central SSO Gateway`;
                     </td>
                   </tr>
                 </table>
+
+                ${
+                  safeOtpCode
+                    ? `
+                <div style="background-color: #0c0a09; border: 1px solid rgba(234, 88, 12, 0.3); border-radius: 12px; padding: 14px 16px; margin-bottom: 20px; text-align: center;">
+                  <p style="margin: 0 0 6px 0; font-size: 11px; font-family: monospace; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px;">
+                    Or enter this 6-digit verification code:
+                  </p>
+                  <span style="display: inline-block; font-family: monospace; font-size: 22px; font-weight: 800; letter-spacing: 6px; color: #ea580c; background-color: #18181b; padding: 6px 16px; border-radius: 8px; border: 1px solid #27272a;">
+                    ${safeOtpCode}
+                  </span>
+                </div>
+                `
+                    : ''
+                }
 
                 <!-- Security Box -->
                 <div style="background-color: #09090b; border: 1px solid #27272a; border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;">
