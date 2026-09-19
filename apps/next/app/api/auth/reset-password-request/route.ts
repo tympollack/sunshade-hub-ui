@@ -135,15 +135,28 @@ export async function POST(req: NextRequest) {
     }
 
     const rawActionLink = linkData?.properties?.action_link;
+    const tokenHash = linkData?.properties?.hashed_token;
+    const emailOtp = linkData?.properties?.email_otp;
 
-    if (rawActionLink) {
-      const finalActionLink = formatRecoveryActionLink(rawActionLink, callbackRedirectUrl);
+    // Use direct Hub URL if tokenHash is available:
+    // This points directly to the Hub's /reset-password page, preventing Supabase Auth
+    // from redirecting to localhost:3000 on error or unlisted redirect, and protecting
+    // single-use OTPs from being consumed by corporate email security prefetchers.
+    const finalActionLink = tokenHash
+      ? `${origin}/reset-password?token_hash=${encodeURIComponent(tokenHash)}&type=recovery${
+          rawRedirect ? `&redirect_to=${encodeURIComponent(rawRedirect)}` : ''
+        }`
+      : rawActionLink
+      ? formatRecoveryActionLink(rawActionLink, callbackRedirectUrl)
+      : callbackRedirectUrl;
 
+    if (finalActionLink) {
       // Dispatch branded email via Resend SDK
       const emailResult = await sendPasswordResetEmail({
         to: cleanEmail,
         resetUrl: finalActionLink,
         targetAppName,
+        otpCode: emailOtp || null,
       });
 
       if (!emailResult.success) {
