@@ -14,6 +14,7 @@
   "scripts": {
     "native": "cd apps/expo && npm run android",
     "web": "cd apps/next && npm run dev",
+    "lint": "node scripts/lint-filesize.mjs",
     "lint:filesize": "node scripts/lint-filesize.mjs"
   },
   "packageManager": "yarn@4.7.0",

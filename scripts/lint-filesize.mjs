@@ -9,8 +9,8 @@ const SCAN_DIRS = ['apps', 'packages'];
 // Files here are strictly capped at their legacy size and must NOT grow larger.
 // When refactored down below standard thresholds, files are removed from this list.
 const LEGACY_EXEMPTIONS = new Map([
-  ['apps/next/app/dashboard/views/ProfileView.tsx', 930],
-  ['apps/next/app/dashboard/DashboardClient.tsx', 910],
+  ['apps/next/app/dashboard/views/ProfileView.tsx', 921],
+  ['apps/next/app/dashboard/DashboardClient.tsx', 901],
 ]);
 
 const RULES = {
