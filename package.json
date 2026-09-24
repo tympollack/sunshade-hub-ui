@@ -13,7 +13,9 @@
   },
   "scripts": {
     "native": "cd apps/expo && npm run android",
-    "web": "cd apps/next && npm run dev"
+    "web": "cd apps/next && npm run dev",
+    "lint": "node scripts/lint-filesize.mjs",
+    "lint:filesize": "node scripts/lint-filesize.mjs"
   },
   "packageManager": "yarn@4.7.0",
   "eslintConfig": {
@@ -23,7 +25,53 @@
         "rootDir": "apps/next/"
       }
     },
-    "root": true
+    "root": true,
+    "rules": {
+      "max-lines": [
+        "warn",
+        {
+          "max": 400,
+          "skipBlankLines": true,
+          "skipComments": true
+        }
+      ],
+      "max-lines-per-function": [
+        "warn",
+        {
+          "max": 150,
+          "skipBlankLines": true,
+          "skipComments": true,
+          "IIFEs": true
+        }
+      ]
+    },
+    "overrides": [
+      {
+        "files": [
+          "apps/next/app/**/page.tsx"
+        ],
+        "rules": {
+          "max-lines": [
+            "error",
+            {
+              "max": 300,
+              "skipBlankLines": true,
+              "skipComments": true
+            }
+          ]
+        }
+      },
+      {
+        "files": [
+          "apps/next/app/dashboard/views/ProfileView.tsx",
+          "apps/next/app/dashboard/DashboardClient.tsx"
+        ],
+        "rules": {
+          "max-lines": "off",
+          "max-lines-per-function": "off"
+        }
+      }
+    ]
   },
   "prettier": {
     "semi": false,
