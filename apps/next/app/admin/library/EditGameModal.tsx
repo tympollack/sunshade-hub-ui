@@ -108,10 +108,18 @@ export default function EditGameModal({ game, onClose, onSave }: EditGameModalPr
     }
   };
 
+  const handleClose = () => {
+    if (isSaving) return;
+    onClose();
+  };
+
   return (
     <Modal
       isOpen={true}
-      onClose={onClose}
+      onClose={handleClose}
+      closeOnEscape={!isSaving}
+      closeOnBackdropClick={!isSaving}
+      hideCloseButton={isSaving}
       size="lg"
       title={`Edit ${game.name}`}
       className="bg-[#161616] border border-zinc-800 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl p-0 overflow-hidden text-white"
@@ -122,7 +130,7 @@ export default function EditGameModal({ game, onClose, onSave }: EditGameModalPr
         <>
           <button 
             type="button" 
-            onClick={onClose} 
+            onClick={handleClose} 
             disabled={isSaving}
             className="px-5 py-2.5 rounded-lg text-sm font-semibold text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors disabled:opacity-50"
           >
