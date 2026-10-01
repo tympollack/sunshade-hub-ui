@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { Skeleton } from '@digitalcanopy/ui';
 import { getDashboardData } from './data';
 import DashboardClient from './DashboardClient';
 import { WidgetErrorBoundary } from '../../components/WidgetErrorBoundary';
@@ -47,12 +48,12 @@ export default async function DashboardPage() {
 function DashboardSkeleton() {
   return (
     <div className="w-full h-screen bg-zinc-50 dark:bg-[#111111] flex items-center justify-center">
-      <div className="space-y-4 w-full max-w-2xl px-8 animate-pulse">
-        <div className="h-8 bg-zinc-200 dark:bg-zinc-800 rounded w-1/3" />
+      <div className="space-y-4 w-full max-w-2xl px-8">
+        <Skeleton width="33%" height={32} className="rounded" />
         <div className="grid grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => <div key={i} className="h-24 bg-zinc-200 dark:bg-zinc-800 rounded-xl" />)}
+          {[1, 2, 3].map((i) => <Skeleton key={i} height={96} className="rounded-xl" />)}
         </div>
-        <div className="h-64 bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
+        <Skeleton height={256} className="rounded-xl" />
       </div>
     </div>
   );
@@ -60,13 +61,13 @@ function DashboardSkeleton() {
 
 export function WidgetSkeleton() {
   return (
-    <div className="w-full h-64 bg-zinc-100 dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 animate-pulse">
-      <div className="h-6 bg-zinc-200 dark:bg-zinc-800 rounded w-1/3 mb-6" />
+    <div className="w-full h-64 bg-zinc-100 dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6">
+      <Skeleton width="33%" height={24} className="rounded mb-6" />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        {[1, 2, 3, 4].map((i) => <div key={i} className="h-16 bg-zinc-200 dark:bg-zinc-800 rounded-lg" />)}
+        {[1, 2, 3, 4].map((i) => <Skeleton key={i} height={64} className="rounded-lg" />)}
       </div>
       <div className="space-y-3">
-        {[1, 2].map((i) => <div key={i} className="h-12 bg-zinc-200 dark:bg-zinc-800 rounded-lg" />)}
+        {[1, 2].map((i) => <Skeleton key={i} height={48} className="rounded-lg" />)}
       </div>
     </div>
   );
