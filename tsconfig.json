@@ -1,14 +1,24 @@
 {
   "compilerOptions": {
     "skipLibCheck": true,
-    "strictNullChecks": true,
-    "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
+    "moduleResolution": "bundler",
+    "module": "esnext",
     "paths": {
       "app/*": ["./packages/app/*"]
     },
     "baseUrl": ".",
     "jsx": "react-jsx"
-  }
+  },
+  "files": [
+    "apps/next/app-env.d.ts"
+  ],
+  "include": [],
+  "exclude": [
+    "node_modules",
+    "supabase",
+    "apps",
+    "packages"
+  ]
 }
