@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Bell,
   X,
@@ -12,6 +12,7 @@ import {
   Trash2,
   ChevronRight,
 } from 'lucide-react';
+import { Modal } from '@digitalcanopy/ui';
 import type { HubNotification } from '../types';
 
 interface NotificationsModalProps {
@@ -34,19 +35,6 @@ export function NotificationsModal({
   onNavigateView,
 }: NotificationsModalProps) {
   const [activeFilter, setActiveFilter] = useState<'all' | 'announcement' | 'reward' | 'node' | 'security'>('all');
-
-  // Handle escape key to close
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
 
   const filteredNotifications = notifications.filter((notif) => {
     if (activeFilter === 'all') return true;
@@ -90,60 +78,65 @@ export function NotificationsModal({
   };
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="notifications-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      {/* Fixed Standard Height & Width Modal Container */}
-      <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-xl h-[560px] max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="p-5 border-b border-zinc-200 dark:border-zinc-800/80 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500">
-              <Bell size={18} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 id="notifications-title" className="font-bold text-zinc-900 dark:text-white text-lg">
-                  System Notifications
-                </h3>
-                {unreadCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500 text-white">
-                    {unreadCount} New
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Ecosystem broadcasts, reward distributions & node health
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {unreadCount > 0 && (
-              <button
-                onClick={onMarkAllAsRead}
-                className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-500 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 transition-colors"
-                title="Mark all as read"
-              >
-                <CheckCheck size={14} />
-                <span className="hidden sm:inline">Mark read</span>
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              title="Close notifications"
-            >
-              <X size={18} />
-            </button>
-          </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      hideCloseButton
+      size="md"
+      className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-xl h-[560px] max-h-[85vh] p-0 overflow-hidden shadow-2xl text-zinc-900 dark:text-zinc-100"
+      bodyClassName="p-0 flex flex-col flex-1 min-h-0 overflow-hidden"
+      headerClassName="p-5 border-b border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-[#161616]"
+      icon={
+        <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500">
+          <Bell size={18} />
         </div>
+      }
+      title={
+        <div className="flex items-center gap-2">
+          <span id="notifications-title" className="font-bold text-zinc-900 dark:text-white text-lg">
+            System Notifications
+          </span>
+          {unreadCount > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500 text-white">
+              {unreadCount} New
+            </span>
+          )}
+        </div>
+      }
+      subtitle={
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          Ecosystem broadcasts, reward distributions & node health
+        </span>
+      }
+      headerExtra={
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 && (
+            <button
+              onClick={onMarkAllAsRead}
+              className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-500 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 transition-colors"
+              title="Mark all as read"
+            >
+              <CheckCheck size={14} />
+              <span className="hidden sm:inline">Mark read</span>
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            title="Close notifications"
+            aria-label="Close notifications"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      }
+      footer={
+        <div className="w-full text-center text-[11px] text-zinc-400">
+          SunShade Ecosystem Sentinel • Real-Time Alert Mesh
+        </div>
+      }
+      footerClassName="p-3 bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-200 dark:border-zinc-800 justify-center"
+    >
 
         {/* Filter Category Tabs with Dynamic Counts */}
         <div className="flex items-center gap-1 px-4 py-2 border-b border-zinc-100 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/40 overflow-x-auto text-xs font-semibold shrink-0">
@@ -279,11 +272,6 @@ export function NotificationsModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-3 bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-200 dark:border-zinc-800 text-center text-[11px] text-zinc-400 shrink-0">
-          SunShade Ecosystem Sentinel • Real-Time Alert Mesh
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

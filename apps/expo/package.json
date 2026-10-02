@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@digitalcanopy/ui": "^0.1.0",
+    "@digitalcanopy/ui": "^0.1.2",
     "app": "*",
     "expo": "^54.0.16",
     "expo-constants": "~18.0.13",

@@ -8,7 +8,7 @@ import {
   GlassCard,
   AtmosphericBadge,
   TokenBalanceBadge,
-  PrimaryButton,
+  PrimaryButton, Skeleton,
 } from '@digitalcanopy/ui';
 import { useTheme } from 'next-themes';
 import { OTAManager } from './OTAManager';
@@ -846,9 +846,9 @@ export default function DashboardClient({
 
 function SkeletonTable() {
   return (
-    <div className="space-y-2 animate-pulse">
+    <div className="space-y-2">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="h-10 bg-zinc-100 dark:bg-zinc-800 rounded" />
+        <Skeleton key={i} height={40} className="rounded" />
       ))}
     </div>
   );
