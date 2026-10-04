@@ -12,10 +12,14 @@
     "typescript": "^5.2.2"
   },
   "scripts": {
+    "build": "npm --prefix apps/next run build",
+    "test": "npm --prefix apps/next test",
     "native": "cd apps/expo && npm run android",
     "web": "cd apps/next && npm run dev",
     "lint": "node scripts/lint-filesize.mjs",
-    "lint:filesize": "node scripts/lint-filesize.mjs"
+    "lint:filesize": "node scripts/lint-filesize.mjs",
+    "assets:build": "node packages/assets/scripts/build-manifest.mjs",
+    "assets:validate": "node packages/assets/scripts/validate-manifest.mjs"
   },
   "packageManager": "yarn@4.7.0",
   "eslintConfig": {

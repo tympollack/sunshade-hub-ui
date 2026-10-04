@@ -1,0 +1,15 @@
+{
+  "name": "assets",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SunShade Kenney CC0 curated asset catalog, texture registry, and manifest",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build:manifest": "node scripts/build-manifest.mjs",
+    "validate": "node scripts/validate-manifest.mjs"
+  },
+  "dependencies": {
+    "image-size": "^1.1.1"
+  }
+}
