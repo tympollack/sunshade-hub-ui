@@ -1,9 +1,15 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@sunshade/supabase';
-import { AuthGate } from 'ui';
-import { EventsCarousel } from 'ui/src/EventsCarousel';
+import { supabase } from '@digitalcanopy/supabase';
+import {
+  AuthGate,
+  EventsCarousel,
+  GlassCard,
+  AtmosphericBadge,
+  TokenBalanceBadge,
+  PrimaryButton, Skeleton,
+} from '@digitalcanopy/ui';
 import { useTheme } from 'next-themes';
 import { OTAManager } from './OTAManager';
 import {
@@ -477,6 +483,26 @@ export default function DashboardClient({
               {/* OVERVIEW VIEW */}
               {activeView === 'Overview' && (
                 <>
+                  {/* Ecosystem Telemetry & Atmospheric Status Banner */}
+                  <GlassCard variant="default" padding="md" className="mb-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <AtmosphericBadge label="SunShade Core: Online" variant="core" statusDot pulse size="sm" />
+                        <AtmosphericBadge label="Cozy Ecosystem: Synchronized" variant="cozy" statusDot size="sm" />
+                        <AtmosphericBadge label="Telemetry Feed: Active" variant="telemetry" size="sm" />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <TokenBalanceBadge
+                          balance={hubTokens}
+                          symbol="HT"
+                          label="Global Balance"
+                          variant="default"
+                          isLive={false}
+                        />
+                      </div>
+                    </div>
+                  </GlassCard>
+
                   {/* System-Level Metrics Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
                     <MetricCard
@@ -820,9 +846,9 @@ export default function DashboardClient({
 
 function SkeletonTable() {
   return (
-    <div className="space-y-2 animate-pulse">
+    <div className="space-y-2">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="h-10 bg-zinc-100 dark:bg-zinc-800 rounded" />
+        <Skeleton key={i} height={40} className="rounded" />
       ))}
     </div>
   );

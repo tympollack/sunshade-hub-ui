@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Bell,
   X,
@@ -10,9 +10,9 @@ import {
   Server,
   ShieldCheck,
   Trash2,
-  ExternalLink,
   ChevronRight,
 } from 'lucide-react';
+import { Modal } from '@digitalcanopy/ui';
 import type { HubNotification } from '../types';
 
 interface NotificationsModalProps {
@@ -36,23 +36,14 @@ export function NotificationsModal({
 }: NotificationsModalProps) {
   const [activeFilter, setActiveFilter] = useState<'all' | 'announcement' | 'reward' | 'node' | 'security'>('all');
 
-  // Handle escape key to close
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
   const filteredNotifications = notifications.filter((notif) => {
     if (activeFilter === 'all') return true;
     return notif.category === activeFilter;
   });
+
+  const countAnnouncements = notifications.filter((n) => n.category === 'announcement').length;
+  const countRewards = notifications.filter((n) => n.category === 'reward').length;
+  const countNodes = notifications.filter((n) => n.category === 'node').length;
 
   const unreadCount = notifications.filter((n) => !readIds.has(n.id)).length;
 
@@ -87,62 +78,68 @@ export function NotificationsModal({
   };
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="notifications-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="p-5 border-b border-zinc-200 dark:border-zinc-800/80 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500">
-              <Bell size={18} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 id="notifications-title" className="font-bold text-zinc-900 dark:text-white text-lg">
-                  System Notifications
-                </h3>
-                {unreadCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500 text-white">
-                    {unreadCount} New
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Ecosystem broadcasts, reward distributions & node health
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {unreadCount > 0 && (
-              <button
-                onClick={onMarkAllAsRead}
-                className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-500 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 transition-colors"
-                title="Mark all as read"
-              >
-                <CheckCheck size={14} />
-                <span className="hidden sm:inline">Mark read</span>
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              title="Close notifications"
-            >
-              <X size={18} />
-            </button>
-          </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      hideCloseButton
+      size="md"
+      className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-xl h-[560px] max-h-[85vh] p-0 overflow-hidden shadow-2xl text-zinc-900 dark:text-zinc-100"
+      bodyClassName="p-0 flex flex-col flex-1 min-h-0 overflow-hidden"
+      headerClassName="p-5 border-b border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-[#161616]"
+      icon={
+        <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500">
+          <Bell size={18} />
         </div>
+      }
+      title={
+        <div className="flex items-center gap-2">
+          <span id="notifications-title" className="font-bold text-zinc-900 dark:text-white text-lg">
+            System Notifications
+          </span>
+          {unreadCount > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500 text-white">
+              {unreadCount} New
+            </span>
+          )}
+        </div>
+      }
+      subtitle={
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          Ecosystem broadcasts, reward distributions & node health
+        </span>
+      }
+      headerExtra={
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 && (
+            <button
+              onClick={onMarkAllAsRead}
+              className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-500 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 transition-colors"
+              title="Mark all as read"
+            >
+              <CheckCheck size={14} />
+              <span className="hidden sm:inline">Mark read</span>
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            title="Close notifications"
+            aria-label="Close notifications"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      }
+      footer={
+        <div className="w-full text-center text-[11px] text-zinc-400">
+          SunShade Ecosystem Sentinel • Real-Time Alert Mesh
+        </div>
+      }
+      footerClassName="p-3 bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-200 dark:border-zinc-800 justify-center"
+    >
 
-        {/* Filter Category Tabs */}
-        <div className="flex items-center gap-1 px-4 py-2 border-b border-zinc-100 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/40 overflow-x-auto text-xs font-semibold">
+        {/* Filter Category Tabs with Dynamic Counts */}
+        <div className="flex items-center gap-1 px-4 py-2 border-b border-zinc-100 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/40 overflow-x-auto text-xs font-semibold shrink-0">
           <button
             onClick={() => setActiveFilter('all')}
             className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
@@ -161,7 +158,7 @@ export function NotificationsModal({
                 : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
             }`}
           >
-            Announcements
+            Announcements ({countAnnouncements})
           </button>
           <button
             onClick={() => setActiveFilter('reward')}
@@ -171,7 +168,7 @@ export function NotificationsModal({
                 : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
             }`}
           >
-            Rewards & HT
+            Rewards & HT ({countRewards})
           </button>
           <button
             onClick={() => setActiveFilter('node')}
@@ -181,14 +178,14 @@ export function NotificationsModal({
                 : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
             }`}
           >
-            Nodes & Cluster
+            Nodes & Cluster ({countNodes})
           </button>
         </div>
 
-        {/* Notifications List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar divide-y divide-zinc-100 dark:divide-zinc-800/40">
+        {/* Notifications List Container with Custom Themed Scrollbar */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar min-h-0">
           {filteredNotifications.length === 0 ? (
-            <div className="py-12 text-center space-y-3">
+            <div className="h-full flex flex-col items-center justify-center py-12 text-center space-y-3">
               <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800/60 flex items-center justify-center mx-auto text-zinc-400">
                 <Bell size={20} />
               </div>
@@ -203,10 +200,10 @@ export function NotificationsModal({
               return (
                 <div
                   key={notif.id}
-                  className={`pt-3 first:pt-0 p-3 rounded-xl transition-colors relative group ${
+                  className={`p-3.5 rounded-xl transition-colors relative group ${
                     isRead
-                      ? 'bg-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900/30'
-                      : 'bg-orange-500/[0.04] dark:bg-orange-500/[0.06] border border-orange-500/10 hover:bg-orange-500/[0.08]'
+                      ? 'bg-zinc-50/50 dark:bg-zinc-900/30 hover:bg-zinc-100/60 dark:hover:bg-zinc-900/60 border border-zinc-200/50 dark:border-zinc-800/40'
+                      : 'bg-orange-500/[0.04] dark:bg-orange-500/[0.07] border border-orange-500/20 hover:bg-orange-500/[0.09]'
                   }`}
                 >
                   <div className="flex items-start gap-3.5">
@@ -275,11 +272,6 @@ export function NotificationsModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-3 bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-200 dark:border-zinc-800 text-center text-[11px] text-zinc-400">
-          SunShade Ecosystem Sentinel • Real-Time Alert Mesh
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

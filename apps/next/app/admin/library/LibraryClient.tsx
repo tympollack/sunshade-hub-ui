@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@sunshade/supabase';
+import { supabase } from '@digitalcanopy/supabase';
 import { Edit, Eye, EyeOff } from 'lucide-react';
 import type { GameLibraryItem } from '../../dashboard/types';
 import EditGameModal from './EditGameModal';

@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Lint file size guard
+        run: npm run lint:filesize
+
       - name: Type-check
         run: npx tsc --noEmit
         working-directory: apps/next

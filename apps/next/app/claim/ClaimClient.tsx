@@ -17,7 +17,7 @@ import {
   ShieldCheck,
   Compass,
 } from 'lucide-react';
-import { supabase } from '@sunshade/supabase';
+import { supabase } from '@digitalcanopy/supabase';
 import { getValidatedRedirectUrl } from '../../lib/env';
 
 export default function ClaimClient() {

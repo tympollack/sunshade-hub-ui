@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Modal } from '@digitalcanopy/ui';
 import {
   Server,
   Cpu,
@@ -198,55 +199,51 @@ export function EdgeNodesView({ edgeNodes, session }: EdgeNodesViewProps) {
       </div>
 
       {/* Connect Node Modal */}
-      {showPairModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Terminal size={20} className="text-orange-500" />
-                <h3 className="font-bold text-zinc-900 dark:text-white text-lg">Provision New Edge Node</h3>
-              </div>
-              <button
-                onClick={() => setShowPairModal(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-sm font-bold"
-              >
-                ✕
-              </button>
-            </div>
+      <Modal
+        isOpen={showPairModal}
+        onClose={() => setShowPairModal(false)}
+        size="md"
+        className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-lg w-full shadow-2xl p-0 overflow-hidden text-zinc-900 dark:text-zinc-100"
+        headerClassName="p-6 border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-[#161616]"
+        bodyClassName="p-6 space-y-4"
+        footerClassName="p-6 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-2 bg-white dark:bg-[#161616]"
+        icon={<Terminal size={20} className="text-orange-500" />}
+        title={
+          <span className="font-bold text-zinc-900 dark:text-white text-lg">Provision New Edge Node</span>
+        }
+        footer={
+          <>
+            <button
+              onClick={() => setShowPairModal(false)}
+              className="px-4 py-2 text-xs font-semibold rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition-colors"
+            >
+              Close
+            </button>
+            <button
+              onClick={handleCopyCommand}
+              className="px-5 py-2 text-xs font-bold rounded-lg bg-orange-600 hover:bg-orange-500 text-white transition-colors flex items-center gap-1.5"
+            >
+              {copiedToken ? <Check size={14} /> : <Copy size={14} />}
+              {copiedToken ? 'Copied Command!' : 'Copy Script'}
+            </button>
+          </>
+        }
+      >
+        <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+          Run this pairing command on your Linux/macOS or Raspberry Pi edge device to join the SunShade Distributed Node Mesh:
+        </p>
 
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              Run this pairing command on your Linux/macOS or Raspberry Pi edge device to join the SunShade Distributed Node Mesh:
-            </p>
-
-            <div className="bg-zinc-900 text-zinc-100 p-3.5 rounded-xl font-mono text-xs relative group border border-zinc-800">
-              <p className="break-all pr-8 select-all">{pairCommand}</p>
-              <button
-                onClick={handleCopyCommand}
-                className="absolute top-2.5 right-2.5 p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-zinc-300 transition-colors"
-                title="Copy Command"
-              >
-                {copiedToken ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-              </button>
-            </div>
-
-            <div className="pt-2 flex justify-end gap-2">
-              <button
-                onClick={() => setShowPairModal(false)}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition-colors"
-              >
-                Close
-              </button>
-              <button
-                onClick={handleCopyCommand}
-                className="px-5 py-2 text-xs font-bold rounded-lg bg-orange-600 hover:bg-orange-500 text-white transition-colors flex items-center gap-1.5"
-              >
-                {copiedToken ? <Check size={14} /> : <Copy size={14} />}
-                {copiedToken ? 'Copied Command!' : 'Copy Script'}
-              </button>
-            </div>
-          </div>
+        <div className="bg-zinc-900 text-zinc-100 p-3.5 rounded-xl font-mono text-xs relative group border border-zinc-800">
+          <p className="break-all pr-8 select-all">{pairCommand}</p>
+          <button
+            onClick={handleCopyCommand}
+            className="absolute top-2.5 right-2.5 p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-zinc-300 transition-colors"
+            title="Copy Command"
+          >
+            {copiedToken ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+          </button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
