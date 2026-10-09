@@ -1,0 +1,96 @@
+{
+  "meta": {
+    "app": "sunshade-atlas-pipeline",
+    "version": "1.0.0",
+    "image": "https://cdn.sunshade.icu/assets/kenney/ui-pack/ui-sprites-atlas.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 1024,
+      "h": 512
+    },
+    "scale": "1",
+    "pack": "ui-sprites"
+  },
+  "frames": {
+    "icon-heart-64": {
+      "frame": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "sourceSize": { "w": 64, "h": 64 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "icon-star-64": {
+      "frame": { "x": 64, "y": 0, "w": 64, "h": 64 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "sourceSize": { "w": 64, "h": 64 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "icon-coin-64": {
+      "frame": { "x": 128, "y": 0, "w": 64, "h": 64 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "sourceSize": { "w": 64, "h": 64 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "icon-gear-64": {
+      "frame": { "x": 192, "y": 0, "w": 64, "h": 64 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "sourceSize": { "w": 64, "h": 64 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "icon-audio-on-64": {
+      "frame": { "x": 256, "y": 0, "w": 64, "h": 64 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "sourceSize": { "w": 64, "h": 64 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "icon-audio-off-64": {
+      "frame": { "x": 320, "y": 0, "w": 64, "h": 64 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "sourceSize": { "w": 64, "h": 64 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "icon-trophy-128": {
+      "frame": { "x": 0, "y": 64, "w": 128, "h": 128 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
+      "sourceSize": { "w": 128, "h": 128 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "icon-shield-128": {
+      "frame": { "x": 128, "y": 64, "w": 128, "h": 128 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
+      "sourceSize": { "w": 128, "h": 128 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "icon-play-128": {
+      "frame": { "x": 256, "y": 64, "w": 128, "h": 128 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
+      "sourceSize": { "w": 128, "h": 128 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "icon-pause-128": {
+      "frame": { "x": 384, "y": 64, "w": 128, "h": 128 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
+      "sourceSize": { "w": 128, "h": 128 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    }
+  }
+}

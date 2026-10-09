@@ -1,0 +1,23 @@
+{
+  "name": "@sunshade/shared-assets",
+  "version": "0.1.0",
+  "description": "Multi-engine texture atlases, sprite sheets, and CDN manifests for Flame (Flutter) and WebGL (Next.js)",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/atlases.test.mjs",
+    "pack:atlases": "node scripts/pack-atlases.mjs"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./atlases/*": "./atlases/*",
+    "./types": "./src/types.ts",
+    "./validator": "./src/validator.ts",
+    "./resolvers": "./src/resolvers.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  }
+}

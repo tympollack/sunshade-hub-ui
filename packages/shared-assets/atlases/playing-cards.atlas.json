@@ -1,0 +1,96 @@
+{
+  "meta": {
+    "app": "sunshade-atlas-pipeline",
+    "version": "1.0.0",
+    "image": "https://cdn.sunshade.icu/assets/kenney/boardgame-pack/playing-cards-atlas.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 2048,
+      "h": 1024
+    },
+    "scale": "1",
+    "pack": "playing-cards"
+  },
+  "frames": {
+    "card-back-blue": {
+      "frame": { "x": 0, "y": 0, "w": 140, "h": 190 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 140, "h": 190 },
+      "sourceSize": { "w": 140, "h": 190 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "card-back-red": {
+      "frame": { "x": 140, "y": 0, "w": 140, "h": 190 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 140, "h": 190 },
+      "sourceSize": { "w": 140, "h": 190 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "card-back-green": {
+      "frame": { "x": 280, "y": 0, "w": 140, "h": 190 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 140, "h": 190 },
+      "sourceSize": { "w": 140, "h": 190 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "card-spades-ace": {
+      "frame": { "x": 420, "y": 0, "w": 140, "h": 190 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 140, "h": 190 },
+      "sourceSize": { "w": 140, "h": 190 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "card-hearts-ace": {
+      "frame": { "x": 560, "y": 0, "w": 140, "h": 190 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 140, "h": 190 },
+      "sourceSize": { "w": 140, "h": 190 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "card-diamonds-ace": {
+      "frame": { "x": 700, "y": 0, "w": 140, "h": 190 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 140, "h": 190 },
+      "sourceSize": { "w": 140, "h": 190 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "card-clubs-ace": {
+      "frame": { "x": 840, "y": 0, "w": 140, "h": 190 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 140, "h": 190 },
+      "sourceSize": { "w": 140, "h": 190 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "card-spades-king": {
+      "frame": { "x": 0, "y": 190, "w": 140, "h": 190 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 140, "h": 190 },
+      "sourceSize": { "w": 140, "h": 190 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "card-hearts-queen": {
+      "frame": { "x": 140, "y": 190, "w": 140, "h": 190 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 140, "h": 190 },
+      "sourceSize": { "w": 140, "h": 190 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "card-diamonds-jack": {
+      "frame": { "x": 280, "y": 190, "w": 140, "h": 190 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 140, "h": 190 },
+      "sourceSize": { "w": 140, "h": 190 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    }
+  }
+}

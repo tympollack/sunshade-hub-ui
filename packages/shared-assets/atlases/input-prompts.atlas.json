@@ -1,0 +1,64 @@
+{
+  "meta": {
+    "app": "sunshade-atlas-pipeline",
+    "version": "1.0.0",
+    "image": "https://cdn.sunshade.icu/assets/kenney/input-prompts/input-prompts-atlas.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 1024,
+      "h": 512
+    },
+    "scale": "1",
+    "pack": "input-prompts"
+  },
+  "frames": {
+    "prompt-btn-a-64": {
+      "frame": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "sourceSize": { "w": 64, "h": 64 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "prompt-btn-b-64": {
+      "frame": { "x": 64, "y": 0, "w": 64, "h": 64 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "sourceSize": { "w": 64, "h": 64 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "prompt-btn-x-64": {
+      "frame": { "x": 128, "y": 0, "w": 64, "h": 64 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "sourceSize": { "w": 64, "h": 64 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "prompt-btn-y-64": {
+      "frame": { "x": 192, "y": 0, "w": 64, "h": 64 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "sourceSize": { "w": 64, "h": 64 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "prompt-touch-tap-64": {
+      "frame": { "x": 256, "y": 0, "w": 64, "h": 64 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "sourceSize": { "w": 64, "h": 64 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    },
+    "prompt-touch-swipe-64": {
+      "frame": { "x": 320, "y": 0, "w": 64, "h": 64 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 64, "h": 64 },
+      "sourceSize": { "w": 64, "h": 64 },
+      "anchor": { "ax": 0.5, "ay": 0.5 }
+    }
+  }
+}
