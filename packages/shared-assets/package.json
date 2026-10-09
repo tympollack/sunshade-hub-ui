@@ -7,8 +7,9 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/atlases.test.mjs",
-    "pack:atlases": "node scripts/pack-atlases.mjs"
+    "test": "node --test tests/atlases.test.mjs tests/r2-cdn.test.mjs",
+    "pack:atlases": "node scripts/pack-atlases.mjs",
+    "sync:r2": "node scripts/sync-r2.mjs"
   },
   "exports": {
     ".": "./src/index.ts",

@@ -16,8 +16,9 @@
     "web": "cd apps/next && npm run dev",
     "lint": "node scripts/lint-filesize.mjs",
     "lint:filesize": "node scripts/lint-filesize.mjs",
-    "test": "node --test packages/shared-assets/tests/atlases.test.mjs",
-    "test:atlases": "node --test packages/shared-assets/tests/atlases.test.mjs"
+    "test": "node --test packages/shared-assets/tests/atlases.test.mjs packages/shared-assets/tests/r2-cdn.test.mjs",
+    "test:atlases": "node --test packages/shared-assets/tests/atlases.test.mjs",
+    "test:r2": "node --test packages/shared-assets/tests/r2-cdn.test.mjs"
   },
   "packageManager": "yarn@4.7.0",
   "eslintConfig": {

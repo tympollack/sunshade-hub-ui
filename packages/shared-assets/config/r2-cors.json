@@ -1,0 +1,24 @@
+[
+  {
+    "AllowedOrigins": [
+      "https://*.sunshade.icu",
+      "https://sunshade.icu",
+      "http://localhost:*",
+      "http://127.0.0.1:*"
+    ],
+    "AllowedMethods": [
+      "GET",
+      "HEAD"
+    ],
+    "AllowedHeaders": [
+      "*"
+    ],
+    "ExposeHeaders": [
+      "ETag",
+      "Content-Type",
+      "Cache-Control",
+      "cf-cache-status"
+    ],
+    "MaxAgeSeconds": 86400
+  }
+]
