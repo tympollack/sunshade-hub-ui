@@ -90,3 +90,15 @@ build/**
 
 dist/
 **/dist
+
+# Kenney / Raw Game Assets (Streamed via Cloudflare R2 CDN)
+**/assets/raw/
+*.png
+*.svg
+*.wav
+*.ogg
+!public/favicon.ico
+!public/brand/**
+!apps/expo/assets/**
+!apps/next/public/**
+!apps/next/app/icon.png
