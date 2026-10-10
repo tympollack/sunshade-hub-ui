@@ -15,17 +15,28 @@ export function resolveCdnUrl(pack: string, fileName?: string): string {
 
 /**
  * Extracts a specific frame by ID from a given AtlasManifest.
+ * Uses Object.hasOwn / hasOwnProperty to guard against prototype poisoning
+ * and inherited property collisions (e.g. 'toString', 'constructor').
  */
 export function getAtlasFrame(manifest: AtlasManifest, frameId: string): AtlasFrameLookupResult | null {
-  if (!manifest || !manifest.frames || !manifest.frames[frameId]) {
+  if (
+    !manifest ||
+    !manifest.frames ||
+    typeof manifest.frames !== 'object' ||
+    !Object.prototype.hasOwnProperty.call(manifest.frames, frameId)
+  ) {
     return null;
   }
 
   const frame = manifest.frames[frameId];
+  if (!frame || typeof frame !== 'object' || !('frame' in frame)) {
+    return null;
+  }
+
   return {
-    pack: manifest.meta.pack,
+    pack: manifest.meta?.pack || '',
     frameId,
-    cdnUrl: manifest.meta.image,
+    cdnUrl: manifest.meta?.image || '',
     frame,
   };
 }

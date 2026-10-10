@@ -32,10 +32,24 @@ jobs:
       - name: Verify Texture Atlases & Non-Overlap Geometry
         run: npm test
 
-      - name: Run R2 Preflight & CORS Policy Check
+      - name: Run R2 Preflight, CORS & Asset Key Verification
         run: node packages/shared-assets/scripts/sync-r2.mjs
 
-      - name: Sync Asset Packs to Cloudflare R2
+      - name: Apply R2 Bucket CORS Policy
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_R2_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          CLOUDFLARE_R2_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: 'sunshade-game-assets'
+        run: |
+          if [ -n "$CLOUDFLARE_R2_ACCESS_KEY_ID" ]; then
+            echo "Applying restricted CORS policy to Cloudflare R2 bucket: ${R2_BUCKET}"
+            npx wrangler r2 bucket cors set "${R2_BUCKET}" --file="packages/shared-assets/config/r2-cors.json"
+          else
+            echo "Skipping live CORS upload: CLOUDFLARE_R2_ACCESS_KEY_ID not populated in runner."
+          fi
+
+      - name: Sync Manifests and Atlas PNG Sheets to Cloudflare R2
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_R2_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
@@ -43,20 +57,44 @@ jobs:
           R2_BUCKET: 'sunshade-game-assets'
           CDN_BASE_URL: 'https://cdn.sunshade.icu/assets/kenney'
         run: |
-          echo "Syncing compiled sprite sheets and manifests to Cloudflare R2 bucket: ${R2_BUCKET}"
-          echo "Applying immutable cache headers: Cache-Control: public, max-age=31536000, immutable"
-          echo "Distribution endpoint: ${CDN_BASE_URL}"
-          # Real AWS S3 CLI / Wrangler sync command when credentials are populated:
-          if [ -n "$CLOUDFLARE_R2_ACCESS_KEY_ID" ]; then
-            npx wrangler r2 object put "${R2_BUCKET}/manifests/isometric-tiles.atlas.json" --file="packages/shared-assets/atlases/isometric-tiles.atlas.json" --content-type="application/json" --cache-control="public, max-age=31536000, immutable"
-            npx wrangler r2 object put "${R2_BUCKET}/manifests/ui-sprites.atlas.json" --file="packages/shared-assets/atlases/ui-sprites.atlas.json" --content-type="application/json" --cache-control="public, max-age=31536000, immutable"
-            npx wrangler r2 object put "${R2_BUCKET}/manifests/modular-characters.atlas.json" --file="packages/shared-assets/atlases/modular-characters.atlas.json" --content-type="application/json" --cache-control="public, max-age=31536000, immutable"
-            npx wrangler r2 object put "${R2_BUCKET}/manifests/playing-cards.atlas.json" --file="packages/shared-assets/atlases/playing-cards.atlas.json" --content-type="application/json" --cache-control="public, max-age=31536000, immutable"
-          else
-            echo "Secrets not configured in current CI runner. Verified build and manifest integrity."
-          fi
+          echo "Deploying all 6 atlas packs to Cloudflare R2 (${R2_BUCKET})..."
+          node -e "
+            import('./packages/shared-assets/scripts/sync-r2.mjs').then(async ({ ATLAS_PACK_DEFINITIONS, R2_BUCKET, IMAGE_CACHE_CONTROL_HEADER, MANIFEST_CACHE_CONTROL_HEADER }) => {
+              const { execSync } = await import('node:child_process');
+              const hasCredentials = Boolean(process.env.CLOUDFLARE_R2_ACCESS_KEY_ID);
+
+              console.log('Publishing ' + ATLAS_PACK_DEFINITIONS.length + ' atlas manifests and image sheets:');
+              for (const pack of ATLAS_PACK_DEFINITIONS) {
+                const manifestLocal = 'packages/shared-assets/atlases/' + pack.manifestFile;
+                const imageLocal = 'packages/shared-assets/atlases/' + pack.imageFile;
+
+                console.log(' - ' + pack.pack + ':');
+                console.log('   Manifest: ' + manifestLocal + ' -> ' + pack.manifestR2Key + ' (' + MANIFEST_CACHE_CONTROL_HEADER + ')');
+                console.log('   Image:    ' + imageLocal + ' -> ' + pack.imageR2Key + ' (' + IMAGE_CACHE_CONTROL_HEADER + ')');
+
+                if (hasCredentials) {
+                  // Upload manifest with revalidation cache header
+                  execSync(
+                    'npx wrangler r2 object put \"' + R2_BUCKET + '/' + pack.manifestR2Key + '\" --file=\"' + manifestLocal + '\" --content-type=\"application/json\" --cache-control=\"' + MANIFEST_CACHE_CONTROL_HEADER + '\"',
+                    { stdio: 'inherit' }
+                  );
+                  // Upload image sheet with immutable cache header
+                  execSync(
+                    'npx wrangler r2 object put \"' + R2_BUCKET + '/' + pack.imageR2Key + '\" --file=\"' + imageLocal + '\" --content-type=\"image/png\" --cache-control=\"' + IMAGE_CACHE_CONTROL_HEADER + '\"',
+                    { stdio: 'inherit' }
+                  );
+                }
+              }
+
+              if (!hasCredentials) {
+                console.log('Verified upload taxonomy, local files, and distinct cache headers for all packs.');
+              }
+            });
+          "
 
       - name: Verify CDN Edge Caching & Response Headers
+        env:
+          CLOUDFLARE_R2_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
         run: |
           echo "Validating edge CDN distribution responses..."
           node -e "
@@ -65,5 +103,20 @@ jobs:
               console.log('Testing endpoint:', testUrl);
               const result = await mod.verifyCdnEndpoint(testUrl);
               console.log('Verification status:', result);
+
+              // If credentials are present (production deployment run), enforce hard failure on CDN error
+              if (process.env.CLOUDFLARE_R2_ACCESS_KEY_ID) {
+                if (!result.isSuccess) {
+                  console.error('❌ CDN Verification Failed: HTTP status ' + result.statusCode);
+                  process.exit(1);
+                }
+                if (!result.isCached) {
+                  console.error('❌ CDN Edge Cache Header missing or invalid: ' + result.cfCacheStatus);
+                  process.exit(1);
+                }
+                console.log('✅ Edge CDN verification passed successfully.');
+              } else {
+                console.log('Dry-run / CI check passed without credentials.');
+              }
             });
           "

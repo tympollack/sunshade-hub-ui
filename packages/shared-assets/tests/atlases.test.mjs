@@ -5,25 +5,30 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { packSpriteSheet } from '../scripts/pack-atlases.mjs';
+import { getAtlasFrame, toFlameSpriteDefinition, resolveCdnUrl } from '../src/resolvers.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ATLASES_DIR = path.resolve(__dirname, '../atlases');
 
-test('Texture Atlases Directory contains required manifests', () => {
+test('Texture Atlases Directory contains required manifests and PNG image sheets', () => {
   assert.ok(fs.existsSync(ATLASES_DIR), 'atlases directory must exist');
   const files = fs.readdirSync(ATLASES_DIR).filter((f) => f.endsWith('.atlas.json'));
-  assert.ok(files.length >= 4, `Expected at least 4 atlas manifests, found ${files.length}`);
+  assert.ok(files.length >= 6, `Expected 6 atlas manifests, found ${files.length}`);
 
   const requiredPacks = [
     'isometric-tiles.atlas.json',
     'ui-sprites.atlas.json',
     'modular-characters.atlas.json',
     'playing-cards.atlas.json',
+    'particle-pack.atlas.json',
+    'input-prompts.atlas.json',
   ];
 
   for (const pack of requiredPacks) {
     assert.ok(files.includes(pack), `Missing required atlas manifest: ${pack}`);
+    const pngName = pack.replace('.atlas.json', '-atlas.png');
+    assert.ok(fs.existsSync(path.join(ATLASES_DIR, pngName)), `Missing corresponding atlas PNG: ${pngName}`);
   }
 });
 
@@ -104,12 +109,14 @@ test('UI icons standardize to 64x64 or 128x128 standard grids', () => {
   }
 });
 
-test('Automated packing routine generates valid collision-free sprite sheets', () => {
+test('Automated packing routine generates valid collision-free sprite sheets and accommodates oversized frames', () => {
   const mockSprites = [
     { id: 'sprite_a', w: 64, h: 64 },
     { id: 'sprite_b', w: 64, h: 64 },
     { id: 'sprite_c', w: 128, h: 128 },
     { id: 'sprite_d', w: 256, h: 128 },
+    // Oversized sprite wider than default maxWidth:
+    { id: 'sprite_giant', w: 600, h: 100 },
   ];
 
   const packed = packSpriteSheet(mockSprites, {
@@ -120,13 +127,19 @@ test('Automated packing routine generates valid collision-free sprite sheets', (
   });
 
   assert.equal(packed.meta.pack, 'test-pack');
-  assert.equal(Object.keys(packed.frames).length, 4);
+  assert.equal(Object.keys(packed.frames).length, 5);
+  // Canvas width must expand to cover oversized sprite
+  assert.ok(packed.meta.size.w >= 600, `Canvas width must accommodate oversized sprite: ${packed.meta.size.w}`);
 
-  // Validate no collision in packed output
+  // Validate no collision and strict canvas containment
   const entries = Object.entries(packed.frames);
   for (let i = 0; i < entries.length; i++) {
     const [idA, dataA] = entries[i];
     const a = dataA.frame;
+
+    assert.ok(a.x + a.w <= packed.meta.size.w, `Frame ${idA} must fit in canvas width`);
+    assert.ok(a.y + a.h <= packed.meta.size.h, `Frame ${idA} must fit in canvas height`);
+
     for (let j = i + 1; j < entries.length; j++) {
       const [idB, dataB] = entries[j];
       const b = dataB.frame;
@@ -135,4 +148,20 @@ test('Automated packing routine generates valid collision-free sprite sheets', (
       assert.ok(!overlapsX || !overlapsY, `Automated packing produced collision between ${idA} and ${idB}`);
     }
   }
+});
+
+test('Resolver guards against prototype property collision (ANALYSIS_0003)', () => {
+  const uiJson = JSON.parse(fs.readFileSync(path.join(ATLASES_DIR, 'ui-sprites.atlas.json'), 'utf8'));
+
+  // Should return null for inherited properties
+  assert.equal(getAtlasFrame(uiJson, 'toString'), null, 'toString should return null');
+  assert.equal(getAtlasFrame(uiJson, 'constructor'), null, 'constructor should return null');
+  assert.equal(getAtlasFrame(uiJson, '__proto__'), null, '__proto__ should return null');
+  assert.equal(getAtlasFrame(uiJson, 'valueOf'), null, 'valueOf should return null');
+
+  // Should return valid frame for real sprite keys
+  const validFrame = getAtlasFrame(uiJson, 'icon-heart-64');
+  assert.ok(validFrame !== null, 'Valid frame should not be null');
+  assert.equal(validFrame.frameId, 'icon-heart-64');
+  assert.deepEqual(validFrame.frame.frame, { x: 0, y: 0, w: 64, h: 64 });
 });

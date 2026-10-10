@@ -33,9 +33,18 @@ const ATLASES_DIR = path.resolve(__dirname, '../atlases');
 
 /**
  * Packs rectangular sprite frames into an optimal sheet with guaranteed padding.
+ * Automatically expands canvas width if any individual sprite exceeds default maxWidth,
+ * guaranteeing all frames remain completely inside canvas dimensions.
  */
 export function packSpriteSheet(sprites, options) {
-  const { maxWidth = 2048, padding = 0, packName, imageCdnUrl } = options;
+  let { maxWidth = 2048, padding = 0, packName, imageCdnUrl } = options;
+
+  // Expand maxWidth if any individual sprite is wider than the configured boundary
+  for (const sprite of sprites) {
+    if (sprite.w > maxWidth) {
+      maxWidth = Math.pow(2, Math.ceil(Math.log2(sprite.w)));
+    }
+  }
 
   let currentX = 0;
   let currentY = 0;
@@ -46,7 +55,7 @@ export function packSpriteSheet(sprites, options) {
   const frames = {};
 
   for (const sprite of sprites) {
-    if (currentX + sprite.w > maxWidth) {
+    if (currentX + sprite.w > maxWidth && currentX > 0) {
       // Start next row
       currentX = 0;
       currentY += rowHeight + padding;
@@ -81,8 +90,8 @@ export function packSpriteSheet(sprites, options) {
     sheetHeight = Math.max(sheetHeight, currentY + rowHeight);
   }
 
-  // Round up sheet dimensions to power of 2 for GPU optimization
-  const powerOfTwoW = Math.min(maxWidth, Math.pow(2, Math.ceil(Math.log2(Math.max(sheetWidth, 64)))));
+  // Round up sheet dimensions to power of 2 for GPU optimization, ensuring dimensions cover actual extent
+  const powerOfTwoW = Math.max(maxWidth, Math.pow(2, Math.ceil(Math.log2(Math.max(sheetWidth, 64)))));
   const powerOfTwoH = Math.pow(2, Math.ceil(Math.log2(Math.max(sheetHeight, 64))));
 
   return {
@@ -125,7 +134,7 @@ export function verifyAtlasDirectory() {
       const a = dataA.frame;
 
       if (a.x + a.w > content.meta.size.w || a.y + a.h > content.meta.size.h) {
-        console.error(`  ❌ Frame ${idA} exceeds atlas canvas dimensions`);
+        console.error(`  ❌ Frame ${idA} exceeds atlas canvas dimensions: ${a.x + a.w} > ${content.meta.size.w} or ${a.y + a.h} > ${content.meta.size.h}`);
         allValid = false;
       }
 

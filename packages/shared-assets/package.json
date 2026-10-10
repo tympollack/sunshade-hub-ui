@@ -1,6 +1,7 @@
 {
   "name": "@sunshade/shared-assets",
   "version": "0.1.0",
+  "type": "module",
   "description": "Multi-engine texture atlases, sprite sheets, and CDN manifests for Flame (Flutter) and WebGL (Next.js)",
   "private": true,
   "main": "./src/index.ts",
