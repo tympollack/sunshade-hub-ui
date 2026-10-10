@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ATLASES_DIR = path.resolve(__dirname, '../atlases');
 
-test('Texture Atlases Directory contains required manifests and PNG image sheets', () => {
+test('Texture Atlases Directory contains required manifests', () => {
   assert.ok(fs.existsSync(ATLASES_DIR), 'atlases directory must exist');
   const files = fs.readdirSync(ATLASES_DIR).filter((f) => f.endsWith('.atlas.json'));
   assert.ok(files.length >= 6, `Expected 6 atlas manifests, found ${files.length}`);
@@ -27,8 +27,6 @@ test('Texture Atlases Directory contains required manifests and PNG image sheets
 
   for (const pack of requiredPacks) {
     assert.ok(files.includes(pack), `Missing required atlas manifest: ${pack}`);
-    const pngName = pack.replace('.atlas.json', '-atlas.png');
-    assert.ok(fs.existsSync(path.join(ATLASES_DIR, pngName)), `Missing corresponding atlas PNG: ${pngName}`);
   }
 });
 

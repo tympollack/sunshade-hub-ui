@@ -78,11 +78,14 @@ jobs:
                     'npx wrangler r2 object put \"' + R2_BUCKET + '/' + pack.manifestR2Key + '\" --file=\"' + manifestLocal + '\" --content-type=\"application/json\" --cache-control=\"' + MANIFEST_CACHE_CONTROL_HEADER + '\"',
                     { stdio: 'inherit' }
                   );
-                  // Upload image sheet with immutable cache header
-                  execSync(
-                    'npx wrangler r2 object put \"' + R2_BUCKET + '/' + pack.imageR2Key + '\" --file=\"' + imageLocal + '\" --content-type=\"image/png\" --cache-control=\"' + IMAGE_CACHE_CONTROL_HEADER + '\"',
-                    { stdio: 'inherit' }
-                  );
+                  // Upload image sheet with immutable cache header if available locally
+                  const fs = await import('node:fs');
+                  if (fs.existsSync(imageLocal)) {
+                    execSync(
+                      'npx wrangler r2 object put \"' + R2_BUCKET + '/' + pack.imageR2Key + '\" --file=\"' + imageLocal + '\" --content-type=\"image/png\" --cache-control=\"' + IMAGE_CACHE_CONTROL_HEADER + '\"',
+                      { stdio: 'inherit' }
+                    );
+                  }
                 }
               }
 

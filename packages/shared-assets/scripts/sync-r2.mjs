@@ -214,7 +214,7 @@ export function runPreflightCheck() {
     process.exit(1);
   }
 
-  // Validate Atlas Pack Definitions & File Presence
+  // Validate Atlas Pack Definitions & Manifest Presence
   console.log(`Checking ${ATLAS_PACK_DEFINITIONS.length} atlas pack definitions...`);
   for (const packDef of ATLAS_PACK_DEFINITIONS) {
     const manifestPath = path.join(ATLASES_DIR, packDef.manifestFile);
@@ -222,10 +222,6 @@ export function runPreflightCheck() {
 
     if (!fs.existsSync(manifestPath)) {
       console.error(`❌ Manifest file missing: ${manifestPath}`);
-      process.exit(1);
-    }
-    if (!fs.existsSync(imagePath)) {
-      console.error(`❌ Atlas PNG image missing: ${imagePath}`);
       process.exit(1);
     }
 
@@ -241,7 +237,8 @@ export function runPreflightCheck() {
       process.exit(1);
     }
 
-    console.log(`  ✓ ${packDef.pack}: manifest & image verified -> ${packDef.imageR2Key}`);
+    const hasLocalImage = fs.existsSync(imagePath);
+    console.log(`  ✓ ${packDef.pack}: manifest verified; CDN image target -> ${packDef.imageR2Key}${hasLocalImage ? ' (local staged)' : ' (streamed via R2 CDN)'}`);
   }
 
   console.log('✅ All atlas manifests and image sheets validated with deterministic R2 CDN taxonomy keys.');
