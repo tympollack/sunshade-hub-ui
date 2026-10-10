@@ -90,3 +90,26 @@ build/**
 
 dist/
 **/dist
+
+# Kenney / Raw Game Assets (Streamed via Cloudflare R2 CDN)
+*.wav
+*.ogg
+*.png
+*.svg
+
+# Application Brand & UI Asset Exemptions
+!public/favicon.ico
+!public/brand/**
+!apps/expo/assets/**
+!apps/next/public/**
+!apps/next/app/**/icon*.png
+!apps/next/app/**/apple-icon*.png
+!apps/next/app/**/opengraph-image*.png
+!apps/next/app/**/twitter-image*.png
+!apps/next/app/**/*.svg
+!apps/next/app/**/*.png
+
+# Re-assert raw game asset exclusions across all directories including app trees
+**/assets/raw/**
+**/assets/kenney/**
+**/kenney/**
