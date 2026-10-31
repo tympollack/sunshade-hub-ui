@@ -41,6 +41,7 @@ import { MedicalVaultView } from './views/MedicalVaultView';
 import { EdgeNodesView } from './views/EdgeNodesView';
 import { NotificationsModal } from './components/NotificationsModal';
 import { ConnectedServicesGrid } from './components/ConnectedServicesGrid';
+import { SecuritySettingsDrawer } from './components/SecuritySettingsDrawer';
 import type {
   DashboardProfile,
   EdgeNode,
@@ -112,6 +113,7 @@ export default function DashboardClient({
   const [session, setSession] = useState<any>(null);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [isSecurityDrawerOpen, setIsSecurityDrawerOpen] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [submittingInvite, setSubmittingInvite] = useState(false);
@@ -751,6 +753,29 @@ export default function DashboardClient({
                       </form>
                     </div>
 
+                    {/* Deliberation Security Architecture */}
+                    <div className="p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:items-center justify-between gap-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-1 flex items-center gap-2">
+                            <ShieldCheck className="text-orange-500 w-5 h-5 shrink-0" />
+                            <span>How We Protect Deliberation</span>
+                          </h3>
+                          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                            Learn how anti-bandwagoning lockboxes, zero-knowledge proofs, and sybil resistance preserve civic consensus.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsSecurityDrawerOpen(true)}
+                          className="px-4 py-2 bg-orange-600/10 hover:bg-orange-600/20 text-orange-600 dark:text-orange-400 border border-orange-500/30 font-semibold rounded-lg transition-colors flex items-center gap-2 text-xs shrink-0"
+                        >
+                          <ShieldCheck size={14} />
+                          <span>View Deliberation Security</span>
+                        </button>
+                      </div>
+                    </div>
+
                     {/* User Auth Code */}
                     <div className="p-6">
                       <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">User Auth Code</h3>
@@ -800,6 +825,12 @@ export default function DashboardClient({
           onMarkAllAsRead={handleMarkAllNotificationsRead}
           onDismissNotification={handleDismissNotification}
           onNavigateView={(v) => setActiveView(v)}
+        />
+
+        {/* Deliberation Security Architecture Drawer */}
+        <SecuritySettingsDrawer
+          isOpen={isSecurityDrawerOpen}
+          onClose={() => setIsSecurityDrawerOpen(false)}
         />
 
         {/* Bottom Nav Mobile */}
