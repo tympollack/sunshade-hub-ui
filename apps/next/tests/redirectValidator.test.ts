@@ -34,6 +34,9 @@ describe('Redirect Validator & Votary Cross-Domain Handshake', () => {
       expect(isTrustedRedirectHost('cozy-git-feat-test-sunshade-systems.vercel.app')).toBe(true);
       expect(isTrustedRedirectHost('votary-git-main-sunshade-systems.vercel.app')).toBe(true);
       expect(isTrustedRedirectHost('cozy.vercel.app')).toBe(true);
+      expect(isTrustedRedirectHost('cozy-git-feature.vercel.app')).toBe(true);
+      expect(isTrustedRedirectHost('chess-preview-1.vercel.app')).toBe(true);
+      expect(isTrustedRedirectHost('pukhuk-staging-branch.vercel.app')).toBe(true);
     });
 
     it('rejects unapproved external domains and arbitrary unowned vercel domains', () => {
@@ -57,7 +60,18 @@ describe('Redirect Validator & Votary Cross-Domain Handshake', () => {
       expect(isValidRedirectUrl('//evil.com')).toBe(false);
       expect(isValidRedirectUrl('//evil.com/path')).toBe(false);
       expect(isValidRedirectUrl('/\\evil.com')).toBe(false);
+      expect(isValidRedirectUrl('/foo\\evil.com')).toBe(false);
+      expect(isValidRedirectUrl('/path\\to\\resource')).toBe(false);
       expect(getValidatedRedirectUrl('//evil.com', '/dashboard')).toBe('/dashboard');
+      expect(getValidatedRedirectUrl('/foo\\evil.com', '/dashboard')).toBe('/dashboard');
+    });
+
+    it('rejects plaintext HTTP for remote hosts while permitting localhost', () => {
+      expect(isValidRedirectUrl('http://votary.app/auth/callback')).toBe(false);
+      expect(isValidRedirectUrl('http://sunshade.icu')).toBe(false);
+      expect(isValidRedirectUrl('http://localhost:3000')).toBe(true);
+      expect(isValidRedirectUrl('http://127.0.0.1:3000')).toBe(true);
+      expect(getValidatedRedirectUrl('http://votary.app', '/dashboard')).toBe('/dashboard');
     });
 
     it('validates approved external targets and returns full URL', () => {
@@ -128,6 +142,11 @@ describe('Redirect Validator & Votary Cross-Domain Handshake', () => {
       const target = 'https://votary.app/auth/callback#something';
       expect(buildTokenRedirectUrl(target, null)).toBe('https://votary.app/auth/callback');
       expect(buildTokenRedirectUrl(target, { access_token: 'abc' })).toBe('https://votary.app/auth/callback');
+    });
+
+    it('refuses to append tokens to plaintext HTTP remote targets', () => {
+      const insecureTarget = 'http://votary.app/auth/callback';
+      expect(buildTokenRedirectUrl(insecureTarget, mockSession)).toBe('http://votary.app/auth/callback');
     });
   });
 

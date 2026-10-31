@@ -46,7 +46,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, display_name, global_hub_tokens, critterverse_elo, status, wallet_address, reputation_score, created_at, role')
+      .select('id, display_name, global_hub_tokens, critterverse_elo, status, wallet_address, reputation_score, created_at, role, citizen_tier')
       .eq('id', user.id)
       .maybeSingle(),
 
@@ -123,7 +123,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
             ? 'Founder Citizen'
             : (profileRow.global_hub_tokens ?? 0) >= 1000
             ? 'Core Citizen'
-            : 'Active Citizen',
+            : profileRow.citizen_tier || 'Active Citizen',
         avatar_url: user.user_metadata?.avatar_url ?? null,
       }
     : null;

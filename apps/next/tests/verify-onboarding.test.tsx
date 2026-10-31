@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React, { act } from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import VerifyClient from '../app/(onboarding)/verify/VerifyClient';
 
 // Mock Next.js navigation
@@ -12,17 +12,64 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+const mockSelect = vi.fn();
+const mockEq = vi.fn(() => ({
+  select: mockSelect,
+}));
+const mockUpdate = vi.fn(() => ({
+  eq: mockEq,
+}));
+const mockFrom = vi.fn((_table?: string) => ({
+  update: mockUpdate,
+}));
+
+let mockSession: any = {
+  user: { id: 'test-user-id', email: 'citizen@sunshade.icu', user_metadata: { display_name: 'Test Citizen' } },
+  access_token: 'test_token',
+  refresh_token: 'test_refresh',
+};
+
+vi.mock('@digitalcanopy/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn(() => Promise.resolve({ data: { session: mockSession } })),
+      onAuthStateChange: vi.fn(() => ({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      })),
+      getUser: vi.fn(() =>
+        Promise.resolve({
+          data: mockSession?.user ? { user: mockSession.user } : null,
+          error: mockSession?.user ? null : new Error('No user session'),
+        })
+      ),
+    },
+    from: (table: string) => mockFrom(table),
+  },
+}));
+
 describe('Onboarding Citizen Verification Flow', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    mockSession = {
+      user: { id: 'test-user-id', email: 'citizen@sunshade.icu', user_metadata: { display_name: 'Test Citizen' } },
+      access_token: 'test_token',
+      refresh_token: 'test_refresh',
+    };
+    mockSelect.mockReset().mockResolvedValue({
+      data: [{ id: 'test-user-id', display_name: 'Alex_Citizen', citizen_tier: 'Verified Citizen' }],
+      error: null,
+    });
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('introduces verification with clear, single-human citizen copy', () => {
+  it('introduces verification with clear, single-human citizen copy', async () => {
     const { container } = render(<VerifyClient />);
+    await act(async () => {
+      await Promise.resolve();
+    });
     const textContent = container.textContent || '';
 
     // Must match exact user requirement
@@ -35,8 +82,11 @@ describe('Onboarding Citizen Verification Flow', () => {
     expect(textContent).not.toContain('ANTI-SYBIL');
   });
 
-  it('renders value proposition cards with accessible civic language', () => {
+  it('renders value proposition cards with accessible civic language', async () => {
     render(<VerifyClient />);
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(screen.getByText('Equal Voice')).toBeInTheDocument();
     expect(screen.getByText('Bot Protection')).toBeInTheDocument();
@@ -44,18 +94,50 @@ describe('Onboarding Citizen Verification Flow', () => {
     expect(screen.getByText('Confirm Single-Human Humanity')).toBeInTheDocument();
   });
 
-  it('progresses through verification steps', () => {
+  it('links Security Settings directly to dashboard settings and security drawer', async () => {
+    render(<VerifyClient />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const link = screen.getByRole('link', { name: /Security Settings/i });
+    expect(link).toHaveAttribute('href', '/dashboard?view=Settings&drawer=security');
+  });
+
+  it('blocks unauthenticated visitors from advancing to verification', async () => {
+    mockSession = null;
     render(<VerifyClient />);
 
-    // Step 1: Click Begin Verification
     const beginBtn = screen.getByRole('button', { name: /Begin Verification/i });
-    act(() => {
+    await act(async () => {
       fireEvent.click(beginBtn);
     });
 
-    // Advance timer for step 1 simulation
+    expect(
+      screen.getByText(/Active authenticated session required to initiate citizen verification/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Choose Your Public Citizen Alias')).not.toBeInTheDocument();
+  });
+
+  it('halts progression and displays error when profile database update fails', async () => {
+    mockSelect.mockResolvedValue({
+      data: null,
+      error: { message: 'Database RLS policy rejection: unauthorized update' },
+    });
+
+    render(<VerifyClient />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Step 1: Click Begin Verification
+    const beginBtn = screen.getByRole('button', { name: /Begin Verification/i });
+    await act(async () => {
+      fireEvent.click(beginBtn);
+    });
+
     act(() => {
-      vi.advanceTimersByTime(1500);
+      vi.advanceTimersByTime(1200);
     });
 
     // Step 2: Citizen Profile Setup
@@ -67,7 +149,45 @@ describe('Onboarding Citizen Verification Flow', () => {
     });
 
     const confirmProfileBtn = screen.getByRole('button', { name: /Confirm Citizen Profile/i });
+    await act(async () => {
+      fireEvent.click(confirmProfileBtn);
+    });
+
+    // Verify error is displayed and user remains on Step 2
+    expect(
+      screen.getByText(/Database RLS policy rejection: unauthorized update/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Citizen Profile Verified')).not.toBeInTheDocument();
+    expect(screen.getByText('Choose Your Public Citizen Alias')).toBeInTheDocument();
+  });
+
+  it('progresses through verification steps when authenticated and database update succeeds', async () => {
+    render(<VerifyClient />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Step 1: Click Begin Verification
+    const beginBtn = screen.getByRole('button', { name: /Begin Verification/i });
+    await act(async () => {
+      fireEvent.click(beginBtn);
+    });
+
+    // Advance timer for step 1 simulation
     act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    // Step 2: Citizen Profile Setup
+    expect(screen.getByText('Choose Your Public Citizen Alias')).toBeInTheDocument();
+
+    const nameInput = screen.getByPlaceholderText(/e\.g\. CivicVoice_42/i);
+    act(() => {
+      fireEvent.change(nameInput, { target: { value: 'Alex_Citizen' } });
+    });
+
+    const confirmProfileBtn = screen.getByRole('button', { name: /Confirm Citizen Profile/i });
+    await act(async () => {
       fireEvent.click(confirmProfileBtn);
     });
 

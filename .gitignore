@@ -102,12 +102,16 @@ dist/
 !public/brand/**
 !apps/expo/assets/**
 !apps/next/public/**
+!apps/next/components/**/*.svg
+!apps/next/components/**/*.png
 !apps/next/app/**/icon*.png
 !apps/next/app/**/apple-icon*.png
 !apps/next/app/**/opengraph-image*.png
 !apps/next/app/**/twitter-image*.png
 !apps/next/app/**/*.svg
 !apps/next/app/**/*.png
+!packages/**/*.svg
+!packages/**/*.png
 
 # Re-assert raw game asset exclusions across all directories including app trees
 **/assets/raw/**

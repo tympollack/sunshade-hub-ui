@@ -8,11 +8,10 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code');
   const tokenHash = requestUrl.searchParams.get('token_hash');
   const type = requestUrl.searchParams.get('type') as EmailOtpType | null;
-  const next =
+  const nextParam =
     requestUrl.searchParams.get('redirectTo') ||
     requestUrl.searchParams.get('redirect_to') ||
-    requestUrl.searchParams.get('next') ||
-    '/reset-password';
+    requestUrl.searchParams.get('next');
   const errorDescription =
     requestUrl.searchParams.get('error_description') || requestUrl.searchParams.get('error');
 
@@ -65,19 +64,30 @@ export async function GET(request: NextRequest) {
       authError = error;
       authSession = data?.session || null;
     } else if (tokenHash) {
+      const otpType = type || (nextParam?.includes('/reset-password') ? 'recovery' : 'email');
       const { data, error } = await supabase.auth.verifyOtp({
         token_hash: tokenHash,
-        type: type || 'recovery',
+        type: otpType,
       });
       authError = error;
       authSession = data?.session || null;
     }
 
     if (!authError) {
-      const isRecoveryFlow = Boolean(tokenHash || type === 'recovery');
-      // Recovery flow must strictly target the internal password reset page to protect credentials
+      // Accurately determine if this is a password recovery flow
+      const isExplicitRecoveryType = type === 'recovery';
+      const isResetPasswordTarget = Boolean(
+        nextParam && (nextParam.startsWith('/reset-password') || nextParam.includes('/reset-password'))
+      );
+      const isNonRecoveryOtp = Boolean(type && type !== 'recovery');
+
+      const isRecoveryFlow =
+        isExplicitRecoveryType || (!isNonRecoveryOtp && (isResetPasswordTarget || !nextParam));
+
+      // Recovery flow strictly targets the internal password reset page to protect credentials
       const defaultTarget = isRecoveryFlow ? '/reset-password' : '/dashboard';
-      const validatedTarget = getValidatedRedirectUrl(next, defaultTarget);
+      const candidateTarget = nextParam || defaultTarget;
+      const validatedTarget = getValidatedRedirectUrl(candidateTarget, defaultTarget);
       let finalTarget = validatedTarget;
 
       // Only allow cross-domain token handoff for standard authentication (never for password recovery)
@@ -88,9 +98,11 @@ export async function GET(request: NextRequest) {
         isVotaryTarget(validatedTarget)
       ) {
         finalTarget = buildTokenRedirectUrl(validatedTarget, authSession);
-      } else if (isRecoveryFlow && !finalTarget.startsWith('/')) {
-        // Enforce internal destination for password recovery
-        finalTarget = '/reset-password';
+      } else if (isRecoveryFlow) {
+        // Enforce internal /reset-password destination for password recovery to prevent credential theft
+        if (!finalTarget.startsWith('/') || !finalTarget.startsWith('/reset-password')) {
+          finalTarget = '/reset-password';
+        }
       }
 
       const redirectUrl = finalTarget.startsWith('/')
@@ -111,7 +123,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Fallback if no code/tokenHash present - validate next URL to prevent open redirects
-  const validatedFallback = getValidatedRedirectUrl(next, '/dashboard');
+  const validatedFallback = getValidatedRedirectUrl(nextParam, '/dashboard');
   const fallbackUrl = validatedFallback.startsWith('/')
     ? new URL(validatedFallback, requestUrl.origin)
     : new URL(validatedFallback);
