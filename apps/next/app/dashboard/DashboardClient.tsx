@@ -40,6 +40,15 @@ import { ProfileView } from './views/ProfileView';
 import { MedicalVaultView } from './views/MedicalVaultView';
 import { EdgeNodesView } from './views/EdgeNodesView';
 import { NotificationsModal } from './components/NotificationsModal';
+import { ConnectedServicesGrid } from './components/ConnectedServicesGrid';
+import { SecuritySettingsDrawer } from './components/SecuritySettingsDrawer';
+import {
+  SkeletonTable,
+  GameLibraryCard,
+  MobileNavItem,
+  NavItem,
+  MetricCard,
+} from './components/DashboardUiPrimitives';
 import type {
   DashboardProfile,
   EdgeNode,
@@ -111,6 +120,7 @@ export default function DashboardClient({
   const [session, setSession] = useState<any>(null);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [isSecurityDrawerOpen, setIsSecurityDrawerOpen] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [submittingInvite, setSubmittingInvite] = useState(false);
@@ -147,6 +157,19 @@ export default function DashboardClient({
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const viewParam = params.get('view') || params.get('tab');
+      if (viewParam) {
+        const views = ['Overview', 'Game Library', 'Medical Vault', 'Edge Nodes', 'Profile', 'Settings'];
+        const matched = views.find((v) => v.toLowerCase() === viewParam.toLowerCase());
+        if (matched) setActiveView(matched);
+      }
+      if (params.get('drawer') === 'security') {
+        setIsSecurityDrawerOpen(true);
+      }
+    }
   }, []);
 
   const handleMarkAllNotificationsRead = () => {
@@ -525,6 +548,9 @@ export default function DashboardClient({
                     />
                   </div>
 
+                  {/* Connected SunShade Services Directory */}
+                  <ConnectedServicesGrid />
+
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
                       {chessWidget}
@@ -747,6 +773,29 @@ export default function DashboardClient({
                       </form>
                     </div>
 
+                    {/* Deliberation Security Architecture */}
+                    <div className="p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:items-center justify-between gap-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-1 flex items-center gap-2">
+                            <ShieldCheck className="text-orange-500 w-5 h-5 shrink-0" />
+                            <span>How We Protect Deliberation</span>
+                          </h3>
+                          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                            Learn how anti-bandwagoning lockboxes, zero-knowledge proofs, and sybil resistance preserve civic consensus.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsSecurityDrawerOpen(true)}
+                          className="px-4 py-2 bg-orange-600/10 hover:bg-orange-600/20 text-orange-600 dark:text-orange-400 border border-orange-500/30 font-semibold rounded-lg transition-colors flex items-center gap-2 text-xs shrink-0"
+                        >
+                          <ShieldCheck size={14} />
+                          <span>View Deliberation Security</span>
+                        </button>
+                      </div>
+                    </div>
+
                     {/* User Auth Code */}
                     <div className="p-6">
                       <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">User Auth Code</h3>
@@ -798,6 +847,12 @@ export default function DashboardClient({
           onNavigateView={(v) => setActiveView(v)}
         />
 
+        {/* Deliberation Security Architecture Drawer */}
+        <SecuritySettingsDrawer
+          isOpen={isSecurityDrawerOpen}
+          onClose={() => setIsSecurityDrawerOpen(false)}
+        />
+
         {/* Bottom Nav Mobile */}
         <nav className="md:hidden flex items-center justify-between bg-white dark:bg-[#161616] border-t border-zinc-200 dark:border-zinc-800/60 pb-[env(safe-area-inset-bottom)] px-2 pt-2 z-30">
           <MobileNavItem
@@ -841,61 +896,5 @@ export default function DashboardClient({
         <OTAManager />
       </div>
     </AuthGate>
-  );
-}
-
-function SkeletonTable() {
-  return (
-    <div className="space-y-2">
-      {[1, 2, 3].map((i) => (
-        <Skeleton key={i} height={40} className="rounded" />
-      ))}
-    </div>
-  );
-}
-
-function GameLibraryCard({ game, onSelect }: { game: any; onSelect: () => void }) {
-  return (
-    <button onClick={onSelect} className="group flex flex-col items-center gap-2 outline-none">
-      <div className="w-full aspect-square bg-zinc-100 dark:bg-zinc-800/50 rounded-2xl flex items-center justify-center border border-zinc-200 dark:border-zinc-700/50 overflow-hidden transition-all duration-200 group-hover:border-orange-500/50 group-hover:shadow-[0_0_15px_rgba(249,115,22,0.1)] group-focus-visible:ring-2 group-focus-visible:ring-orange-500">
-        {game.image_url ? (
-          <img src={game.image_url} alt={game.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-        ) : (
-          <Swords size={32} className="text-zinc-400 dark:text-zinc-500" />
-        )}
-      </div>
-      <h3 className="text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 text-center leading-tight">{game.title}</h3>
-    </button>
-  );
-}
-
-function MobileNavItem({ icon, label, active = false, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }) {
-  return (
-    <button onClick={onClick} className={`flex flex-col items-center gap-1 p-1.5 min-w-[50px] transition-colors ${active ? 'text-orange-600 dark:text-orange-400 font-bold' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}>
-      {icon}
-      <span className="text-[9px] font-medium">{label}</span>
-    </button>
-  );
-}
-
-function NavItem({ icon, label, active = false, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }) {
-  return (
-    <a href="#" onClick={(e) => { e.preventDefault(); onClick?.(); }} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${active ? 'bg-orange-50 dark:bg-orange-600/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 border border-transparent'}`}>
-      {icon}
-      <span className="text-sm font-medium">{label}</span>
-    </a>
-  );
-}
-
-function MetricCard({ title, value, trend, icon }: { title: string; value: string; trend: string; icon: React.ReactNode }) {
-  return (
-    <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-4 sm:p-5 shadow-sm dark:shadow-none hover:border-zinc-300 dark:hover:border-zinc-700/80 transition-colors">
-      <div className="flex justify-between items-start mb-3 sm:mb-4">
-        <p className="text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-tight pr-2">{title}</p>
-        <div className="p-1.5 sm:p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg transition-colors duration-200 shrink-0">{icon}</div>
-      </div>
-      <h4 className="text-lg sm:text-2xl font-bold text-zinc-900 dark:text-white mb-1">{value}</h4>
-      <p className="text-[10px] sm:text-xs text-zinc-500">{trend}</p>
-    </div>
   );
 }

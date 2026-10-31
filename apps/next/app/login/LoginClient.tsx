@@ -6,13 +6,17 @@ import { supabase } from '@digitalcanopy/supabase';
 import { LoginForm } from '@digitalcanopy/ui';
 import { Sparkles, Compass, Key, ExternalLink, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import { getValidatedRedirectUrl } from '../../lib/env';
+import { getValidatedRedirectUrl, isVotaryTarget, buildTokenRedirectUrl } from '../../lib/env';
 
 function getAppNameFromUrl(url: string): string | null {
   try {
     if (url.startsWith('/')) return null;
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase();
+
+    if (host === 'votary.app' || host.endsWith('.votary.app')) {
+      return 'The Votary';
+    }
 
     if (host.endsWith('.sunshade.icu')) {
       const parts = host.split('.');
@@ -38,8 +42,9 @@ export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Inspect all common SSO handshake query parameter names
+  // Inspect all common SSO handshake query parameter names (including redirectTo)
   const rawTargetUrl =
+    searchParams.get('redirectTo') ||
     searchParams.get('redirect_to') ||
     searchParams.get('redirect') ||
     searchParams.get('returnTo') ||
@@ -67,6 +72,17 @@ export default function LoginClient() {
       const parsed = new URL(target);
       const host = parsed.hostname.toLowerCase();
 
+      // For The Votary, append tokens via URL hash fragment:
+      // ${redirectTo}#access_token=${session.access_token}&refresh_token=${session.refresh_token}
+      if (isVotaryTarget(target) || host === 'votary.app' || host.endsWith('.votary.app')) {
+        if (session?.access_token && session?.refresh_token) {
+          window.location.href = buildTokenRedirectUrl(target, session);
+          return;
+        }
+        window.location.href = target;
+        return;
+      }
+
       // If on sunshade.icu, shared cookie works natively
       if (host === 'sunshade.icu' || host.endsWith('.sunshade.icu')) {
         window.location.href = parsed.toString();
@@ -74,15 +90,17 @@ export default function LoginClient() {
       }
 
       // For cross-domain preview environments (e.g. *.vercel.app, localhost),
-      // pass tokens to the target app's /auth/callback to establish cookies on that origin!
+      // pass tokens to the target app's /auth/callback via hash or param to establish cookies
       if (session?.access_token && session?.refresh_token) {
         const callbackUrl = new URL('/auth/callback', parsed.origin);
-        callbackUrl.searchParams.set('access_token', session.access_token);
-        callbackUrl.searchParams.set('refresh_token', session.refresh_token);
+        const hashParams = new URLSearchParams();
+        hashParams.set('access_token', session.access_token);
+        hashParams.set('refresh_token', session.refresh_token);
         const nextPath = parsed.pathname + parsed.search;
         if (nextPath && nextPath !== '/') {
-          callbackUrl.searchParams.set('next', nextPath);
+          hashParams.set('next', nextPath);
         }
+        callbackUrl.hash = hashParams.toString();
         window.location.href = callbackUrl.toString();
         return;
       }
