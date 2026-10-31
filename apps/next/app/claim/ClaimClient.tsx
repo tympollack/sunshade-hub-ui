@@ -18,7 +18,7 @@ import {
   Compass,
 } from 'lucide-react';
 import { supabase } from '@digitalcanopy/supabase';
-import { getValidatedRedirectUrl } from '../../lib/env';
+import { getValidatedRedirectUrl, isVotaryTarget, buildTokenRedirectUrl } from '../../lib/env';
 
 export default function ClaimClient() {
   const searchParams = useSearchParams();
@@ -49,6 +49,16 @@ export default function ClaimClient() {
     try {
       const parsed = new URL(target);
       const host = parsed.hostname.toLowerCase();
+
+      // For The Votary, append tokens via URL hash fragment
+      if (isVotaryTarget(target) || host === 'votary.app' || host.endsWith('.votary.app')) {
+        if (session?.access_token && session?.refresh_token) {
+          window.location.href = buildTokenRedirectUrl(target, session);
+          return;
+        }
+        window.location.href = target;
+        return;
+      }
 
       // If on sunshade.icu, shared cookie works natively
       if (host === 'sunshade.icu' || host.endsWith('.sunshade.icu')) {
@@ -153,6 +163,7 @@ export default function ClaimClient() {
 
     try {
       const rawRedirect =
+        searchParams.get('redirectTo') ||
         searchParams.get('redirect_to') ||
         searchParams.get('redirect') ||
         searchParams.get('returnTo') ||
