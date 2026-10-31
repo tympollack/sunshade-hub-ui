@@ -45,10 +45,8 @@ export function isTrustedRedirectHost(rawHost: string): boolean {
     return true;
   }
 
-  // 5. Official known production/staging aliases and preview deployments under vercel.app
-  if (
-    /^(cozy|chess|pukhuk|critterverse|sunshade)(-[a-z0-9-]+)?\.vercel\.app$/.test(host)
-  ) {
+  // 5. Official known production/staging aliases under vercel.app
+  if (/^(cozy|chess|pukhuk|critterverse|sunshade)\.vercel\.app$/.test(host)) {
     return true;
   }
 
@@ -130,12 +128,18 @@ export function buildTokenRedirectUrl(
     return cleanTarget;
   }
 
-  // Guard against token handoff over insecure plaintext HTTP (unless local development)
+  // Guard against token handoff over insecure or unsupported protocol schemes
   try {
     const parsed = new URL(cleanTarget);
     const host = parsed.hostname.toLowerCase();
     const isLocalhost = host === 'localhost' || host === '127.0.0.1';
-    if (parsed.protocol !== 'https:' && !isLocalhost) {
+
+    // Strictly enforce https: everywhere, only permitting http: on localhost/127.0.0.1
+    if (parsed.protocol === 'http:') {
+      if (!isLocalhost) {
+        return cleanTarget;
+      }
+    } else if (parsed.protocol !== 'https:') {
       return cleanTarget;
     }
   } catch {

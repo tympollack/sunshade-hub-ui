@@ -64,7 +64,8 @@ export async function GET(request: NextRequest) {
       authError = error;
       authSession = data?.session || null;
     } else if (tokenHash) {
-      const otpType = type || (nextParam?.includes('/reset-password') ? 'recovery' : 'email');
+      // Default to recovery when type is absent unless target explicitly identifies a non-recovery flow
+      const otpType = type || (nextParam && !nextParam.includes('/reset-password') ? 'email' : 'recovery');
       const { data, error } = await supabase.auth.verifyOtp({
         token_hash: tokenHash,
         type: otpType,
@@ -74,15 +75,15 @@ export async function GET(request: NextRequest) {
     }
 
     if (!authError) {
-      // Accurately determine if this is a password recovery flow
-      const isExplicitRecoveryType = type === 'recovery';
-      const isResetPasswordTarget = Boolean(
-        nextParam && (nextParam.startsWith('/reset-password') || nextParam.includes('/reset-password'))
+      // Strictly classify as non-recovery only when explicitly verified as email/signup/invite OTP
+      const isExplicitNonRecoveryOtp = Boolean(
+        type && ['email', 'signup', 'invite', 'magiclink', 'email_change'].includes(type)
       );
-      const isNonRecoveryOtp = Boolean(type && type !== 'recovery');
 
+      // Any recovery OTP, password reset target, or untyped PKCE code exchange must be treated as recovery
       const isRecoveryFlow =
-        isExplicitRecoveryType || (!isNonRecoveryOtp && (isResetPasswordTarget || !nextParam));
+        !isExplicitNonRecoveryOtp ||
+        Boolean(nextParam && (nextParam.startsWith('/reset-password') || nextParam.includes('/reset-password')));
 
       // Recovery flow strictly targets the internal password reset page to protect credentials
       const defaultTarget = isRecoveryFlow ? '/reset-password' : '/dashboard';
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
       ) {
         finalTarget = buildTokenRedirectUrl(validatedTarget, authSession);
       } else if (isRecoveryFlow) {
-        // Enforce internal /reset-password destination for password recovery to prevent credential theft
+        // Enforce internal destination for password recovery to prevent credential theft
         if (!finalTarget.startsWith('/') || !finalTarget.startsWith('/reset-password')) {
           finalTarget = '/reset-password';
         }
