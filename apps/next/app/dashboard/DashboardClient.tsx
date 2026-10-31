@@ -40,6 +40,7 @@ import { ProfileView } from './views/ProfileView';
 import { MedicalVaultView } from './views/MedicalVaultView';
 import { EdgeNodesView } from './views/EdgeNodesView';
 import { NotificationsModal } from './components/NotificationsModal';
+import { ConnectedServicesGrid } from './components/ConnectedServicesGrid';
 import type {
   DashboardProfile,
   EdgeNode,
@@ -524,6 +525,9 @@ export default function DashboardClient({
                       icon={<Server className="text-blue-500 dark:text-blue-400" size={20} />}
                     />
                   </div>
+
+                  {/* Connected SunShade Services Directory */}
+                  <ConnectedServicesGrid />
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
