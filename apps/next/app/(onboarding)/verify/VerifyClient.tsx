@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ShieldCheck,
@@ -12,8 +12,10 @@ import {
   Compass,
   Fingerprint,
   Users,
+  AlertCircle,
 } from 'lucide-react';
 import Link from 'next/link';
+import { supabase } from '@digitalcanopy/supabase';
 import { getValidatedRedirectUrl, isVotaryTarget, buildTokenRedirectUrl } from '../../../lib/env';
 
 export default function VerifyClient() {
@@ -32,6 +34,25 @@ export default function VerifyClient() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [verificationComplete, setVerificationComplete] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      if (data.session?.user?.user_metadata?.display_name) {
+        setDisplayName(data.session.user.user_metadata.display_name);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      setSession(currentSession);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleStartVerification = () => {
     setIsVerifying(true);
@@ -41,19 +62,49 @@ export default function VerifyClient() {
     }, 1200);
   };
 
-  const handleCompleteProfile = (e: React.FormEvent) => {
+  const handleCompleteProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!displayName.trim()) return;
+
     setIsVerifying(true);
-    setTimeout(() => {
-      setIsVerifying(false);
+    setErrorMsg(null);
+
+    try {
+      if (session?.user) {
+        // Persist verified citizen profile status to database
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            display_name: displayName.trim(),
+            citizen_tier: 'Verified Citizen',
+          })
+          .eq('id', session.user.id);
+
+        if (error) {
+          console.warn('[VerifyClient] Profile persistence note:', error.message);
+        }
+      }
+
       setVerificationComplete(true);
       setStep(3);
-    }, 1000);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Failed to persist citizen profile.');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleProceed = () => {
+    // If target is The Votary, transfer authenticated tokens via URL fragment
     if (isVotaryTarget(validatedRedirect)) {
-      window.location.href = validatedRedirect;
+      if (session?.access_token && session?.refresh_token) {
+        window.location.href = buildTokenRedirectUrl(validatedRedirect, session);
+        return;
+      }
+      // If session is absent, route to central login to complete SSO handoff
+      const loginUrl = new URL('/login', typeof window !== 'undefined' ? window.location.origin : 'https://hub.sunshade.icu');
+      loginUrl.searchParams.set('redirectTo', validatedRedirect);
+      window.location.href = loginUrl.toString();
       return;
     }
 
@@ -160,6 +211,14 @@ export default function VerifyClient() {
             </p>
           </div>
         </div>
+
+        {/* Error notification if any */}
+        {errorMsg && (
+          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
         {/* Step 1: Humanity Check */}
         {step === 1 && (

@@ -30,15 +30,16 @@ describe('Redirect Validator & Votary Cross-Domain Handshake', () => {
       expect(isTrustedRedirectHost('127.0.0.1')).toBe(true);
     });
 
-    it('whitelists approved vercel preview deployments', () => {
+    it('whitelists approved vercel preview deployments under sunshade-systems org', () => {
       expect(isTrustedRedirectHost('cozy-git-feat-test-sunshade-systems.vercel.app')).toBe(true);
       expect(isTrustedRedirectHost('votary-git-main-sunshade-systems.vercel.app')).toBe(true);
-      expect(isTrustedRedirectHost('votary.vercel.app')).toBe(true);
+      expect(isTrustedRedirectHost('cozy.vercel.app')).toBe(true);
     });
 
-    it('rejects unapproved external domains', () => {
+    it('rejects unapproved external domains and arbitrary unowned vercel domains', () => {
       expect(isTrustedRedirectHost('evil.com')).toBe(false);
       expect(isTrustedRedirectHost('notvotary.app')).toBe(false);
+      expect(isTrustedRedirectHost('votary-attacker.vercel.app')).toBe(false);
       expect(isTrustedRedirectHost('fake-sunshade.icu.malicious.com')).toBe(false);
       expect(isTrustedRedirectHost('votary.app.attacker.com')).toBe(false);
       expect(isTrustedRedirectHost('')).toBe(false);
@@ -99,6 +100,18 @@ describe('Redirect Validator & Votary Cross-Domain Handshake', () => {
 
       expect(result).toBe(
         'https://votary.app/auth/callback#access_token=test_access_jwt_123&refresh_token=test_refresh_token_456'
+      );
+    });
+
+    it('safely URL-encodes tokens with special characters to prevent parameter injection', () => {
+      const specialSession = {
+        access_token: 'jwt.with&special=chars#fragment',
+        refresh_token: 'refresh+token/with space and &',
+      };
+      const result = buildTokenRedirectUrl('https://votary.app/auth/callback', specialSession);
+
+      expect(result).toBe(
+        'https://votary.app/auth/callback#access_token=jwt.with%26special%3Dchars%23fragment&refresh_token=refresh%2Btoken%2Fwith%20space%20and%20%26'
       );
     });
 

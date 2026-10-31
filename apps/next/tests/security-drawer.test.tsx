@@ -48,5 +48,9 @@ describe('SecuritySettingsDrawer Component (How We Protect Deliberation)', () =>
     const closeDocBtn = screen.getByRole('button', { name: /Close Documentation/i });
     fireEvent.click(closeDocBtn);
     expect(handleClose).toHaveBeenCalledTimes(2);
+
+    // Escape key press closes drawer
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(handleClose).toHaveBeenCalledTimes(3);
   });
 });

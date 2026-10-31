@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   ShieldCheck,
   Lock,
@@ -22,17 +22,30 @@ export function SecuritySettingsDrawer({
   isOpen,
   onClose,
 }: SecuritySettingsDrawerProps) {
-  // Lock background scroll when drawer is open
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Lock background scroll and handle Escape key
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      // Focus close button on open
+      setTimeout(() => closeBtnRef.current?.focus(), 50);
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          onClose();
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
     } else {
       document.body.style.overflow = '';
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -73,6 +86,7 @@ export function SecuritySettingsDrawer({
           </div>
 
           <button
+            ref={closeBtnRef}
             onClick={onClose}
             title="Close drawer"
             aria-label="Close drawer"

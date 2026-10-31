@@ -15,8 +15,7 @@ export interface AuthSessionTokens {
  * - The Votary: votary.app and all subdomains (*.votary.app)
  * - SunShade root domain and all subdomains: sunshade.icu and *.sunshade.icu
  * - Local development: localhost, 127.0.0.1
- * - SunShade Systems Vercel preview deployments (*-sunshade-systems.vercel.app, *.sunshade-systems.vercel.app)
- * - Ecosystem preview deployments (cozy, chess, pukhuk, critterverse, sunshade, votary)
+ * - SunShade Systems Vercel Organization preview deployments (*-sunshade-systems.vercel.app, *.sunshade-systems.vercel.app)
  */
 export function isTrustedRedirectHost(rawHost: string): boolean {
   if (!rawHost || typeof rawHost !== 'string') return false;
@@ -37,7 +36,7 @@ export function isTrustedRedirectHost(rawHost: string): boolean {
     return true;
   }
 
-  // 4. SunShade Vercel Organization preview deployments
+  // 4. SunShade Vercel Organization preview deployments (strictly scoped to sunshade-systems org)
   if (
     host.endsWith('-sunshade-systems.vercel.app') ||
     host.endsWith('.sunshade-systems.vercel.app') ||
@@ -46,11 +45,8 @@ export function isTrustedRedirectHost(rawHost: string): boolean {
     return true;
   }
 
-  // 5. Known SunShade ecosystem app Vercel preview deployment patterns
-  if (
-    /^(cozy|chess|pukhuk|critterverse|sunshade|votary)-[a-z0-9-]+\.vercel\.app$/.test(host) ||
-    /^(cozy|chess|pukhuk|critterverse|sunshade|votary)\.vercel\.app$/.test(host)
-  ) {
+  // 5. Official known production/staging aliases under vercel.app
+  if (/^(cozy|chess|pukhuk|critterverse|sunshade)\.vercel\.app$/.test(host)) {
     return true;
   }
 
@@ -65,7 +61,7 @@ export function isValidRedirectUrl(rawUrl: unknown): boolean {
   if (!rawUrl || typeof rawUrl !== 'string') return false;
   const cleanUrl = rawUrl.trim();
 
-  // Relative path: must start with single '/' and not '//' to prevent protocol-relative redirects
+  // Relative path: must start with single '/' and not '//' or '/\' to prevent protocol-relative redirects
   if (cleanUrl.startsWith('/')) {
     return !cleanUrl.startsWith('//') && !cleanUrl.startsWith('/\\');
   }
@@ -93,11 +89,11 @@ export function getValidatedRedirectUrl(rawUrl: unknown, fallbackUrl = '/dashboa
 }
 
 /**
- * Checks whether a URL target belongs to The Votary (votary.app or *.votary.app).
+ * Checks whether a URL target belongs strictly to The Votary (votary.app or *.votary.app).
  */
 export function isVotaryTarget(targetUrl: string): boolean {
   try {
-    if (targetUrl.startsWith('/')) return false;
+    if (!targetUrl || typeof targetUrl !== 'string' || targetUrl.startsWith('/')) return false;
     const parsed = new URL(targetUrl);
     const host = parsed.hostname.toLowerCase();
     return host === 'votary.app' || host.endsWith('.votary.app');
@@ -108,8 +104,9 @@ export function isVotaryTarget(targetUrl: string): boolean {
 
 /**
  * Appends authenticated session tokens (access_token & refresh_token) to the redirect URL
- * via hash fragment: `${redirectTo}#access_token=${session.access_token}&refresh_token=${session.refresh_token}`.
+ * via hash fragment: `${redirectTo}#access_token=${encoded}&refresh_token=${encoded}`.
  * Using the hash fragment prevents token leakage in server logs, referrer headers, and intermediary proxies.
+ * Both tokens are strictly URL-encoded to prevent parameter injection or parsing corruption.
  */
 export function buildTokenRedirectUrl(
   targetUrl: string,
@@ -121,7 +118,10 @@ export function buildTokenRedirectUrl(
     return cleanTarget;
   }
 
-  return `${cleanTarget}#access_token=${session.access_token}&refresh_token=${session.refresh_token}`;
+  const encodedAccess = encodeURIComponent(session.access_token);
+  const encodedRefresh = encodeURIComponent(session.refresh_token);
+
+  return `${cleanTarget}#access_token=${encodedAccess}&refresh_token=${encodedRefresh}`;
 }
 
 /**

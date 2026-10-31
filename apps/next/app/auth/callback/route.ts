@@ -74,16 +74,23 @@ export async function GET(request: NextRequest) {
     }
 
     if (!authError) {
-      const validatedTarget = getValidatedRedirectUrl(next, '/reset-password');
+      const isRecoveryFlow = Boolean(tokenHash || type === 'recovery');
+      // Recovery flow must strictly target the internal password reset page to protect credentials
+      const defaultTarget = isRecoveryFlow ? '/reset-password' : '/dashboard';
+      const validatedTarget = getValidatedRedirectUrl(next, defaultTarget);
       let finalTarget = validatedTarget;
 
-      // When redirectTo specifies votary.app (or cross-domain callback), append tokens via URL hash fragment
+      // Only allow cross-domain token handoff for standard authentication (never for password recovery)
       if (
+        !isRecoveryFlow &&
         authSession?.access_token &&
         authSession?.refresh_token &&
-        (isVotaryTarget(validatedTarget) || validatedTarget.includes('votary.app'))
+        isVotaryTarget(validatedTarget)
       ) {
         finalTarget = buildTokenRedirectUrl(validatedTarget, authSession);
+      } else if (isRecoveryFlow && !finalTarget.startsWith('/')) {
+        // Enforce internal destination for password recovery
+        finalTarget = '/reset-password';
       }
 
       const redirectUrl = finalTarget.startsWith('/')
