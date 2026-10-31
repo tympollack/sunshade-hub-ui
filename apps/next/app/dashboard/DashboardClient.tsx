@@ -157,6 +157,19 @@ export default function DashboardClient({
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const viewParam = params.get('view') || params.get('tab');
+      if (viewParam) {
+        const views = ['Overview', 'Game Library', 'Medical Vault', 'Edge Nodes', 'Profile', 'Settings'];
+        const matched = views.find((v) => v.toLowerCase() === viewParam.toLowerCase());
+        if (matched) setActiveView(matched);
+      }
+      if (params.get('drawer') === 'security') {
+        setIsSecurityDrawerOpen(true);
+      }
+    }
   }, []);
 
   const handleMarkAllNotificationsRead = () => {

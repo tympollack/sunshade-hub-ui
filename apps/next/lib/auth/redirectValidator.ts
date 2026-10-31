@@ -55,23 +55,33 @@ export function isTrustedRedirectHost(rawHost: string): boolean {
 
 /**
  * Checks if a candidate URL string is safe to redirect to.
- * Relative URLs (starting with '/' but not '//') and URLs with trusted hosts are valid.
+ * Relative URLs (starting with '/' but not '//' or containing '\') and URLs with trusted hosts are valid.
+ * Remote external URLs must strictly use https:; plaintext http: is only permitted for local development.
  */
 export function isValidRedirectUrl(rawUrl: unknown): boolean {
   if (!rawUrl || typeof rawUrl !== 'string') return false;
   const cleanUrl = rawUrl.trim();
 
-  // Relative path: must start with single '/' and not '//' or '/\' to prevent protocol-relative redirects
+  // Relative path: must start with single '/' and cannot contain backslashes or leading double slashes
   if (cleanUrl.startsWith('/')) {
-    return !cleanUrl.startsWith('//') && !cleanUrl.startsWith('/\\');
+    return !cleanUrl.startsWith('//') && !cleanUrl.includes('\\');
   }
 
   try {
     const parsed = new URL(cleanUrl);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    const host = parsed.hostname.toLowerCase();
+    const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+
+    // Disallow plaintext HTTP for remote hosts to prevent credential leakage
+    if (parsed.protocol === 'http:') {
+      if (!isLocalhost) {
+        return false;
+      }
+    } else if (parsed.protocol !== 'https:') {
       return false;
     }
-    return isTrustedRedirectHost(parsed.hostname);
+
+    return isTrustedRedirectHost(host);
   } catch {
     return false;
   }
@@ -115,6 +125,24 @@ export function buildTokenRedirectUrl(
   const cleanTarget = targetUrl.split('#')[0];
 
   if (!session?.access_token || !session?.refresh_token) {
+    return cleanTarget;
+  }
+
+  // Guard against token handoff over insecure or unsupported protocol schemes
+  try {
+    const parsed = new URL(cleanTarget);
+    const host = parsed.hostname.toLowerCase();
+    const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+
+    // Strictly enforce https: everywhere, only permitting http: on localhost/127.0.0.1
+    if (parsed.protocol === 'http:') {
+      if (!isLocalhost) {
+        return cleanTarget;
+      }
+    } else if (parsed.protocol !== 'https:') {
+      return cleanTarget;
+    }
+  } catch {
     return cleanTarget;
   }
 
