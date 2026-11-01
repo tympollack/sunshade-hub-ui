@@ -153,7 +153,14 @@ export default function ResetPasswordClient() {
         if (codeParam) {
           const { data: exchangeData, error: exchangeError } =
             await supabase.auth.exchangeCodeForSession(codeParam);
-          if (!exchangeError && exchangeData?.session && isMounted) {
+          if (exchangeError) {
+            console.warn('[ResetPassword] exchangeCode notice:', exchangeError.message);
+            if (isMounted) {
+              setError(exchangeError.message);
+              setHasSession(false);
+            }
+            return;
+          } else if (exchangeData?.session && isMounted) {
             setError(null);
             setHasSession(true);
             setSessionData(exchangeData.session);
@@ -180,8 +187,10 @@ export default function ResetPasswordClient() {
             console.warn('[ResetPassword] verifyOtp notice:', otpError.message);
             if (isMounted) {
               setError(otpError.message);
+              setHasSession(false);
             }
-          } else if (!otpError && otpData?.session && isMounted) {
+            return;
+          } else if (otpData?.session && isMounted) {
             setError(null);
             setHasSession(true);
             setSessionData(otpData.session);
@@ -436,7 +445,7 @@ export default function ResetPasswordClient() {
             </h1>
             <p className="text-xs text-zinc-400 max-w-xs mx-auto mt-1 leading-relaxed">
               {hasSession
-                ? 'Choose a strong, secure password for your SunShade account.'
+                ? `Choose a strong, secure password${sessionData?.user?.email ? ` for ${sessionData.user.email}` : ''}.`
                 : 'Session expired or recovery link is invalid.'}
             </p>
           </div>

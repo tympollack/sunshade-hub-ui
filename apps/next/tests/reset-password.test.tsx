@@ -77,44 +77,68 @@ describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
       type: 'recovery',
     });
 
-    // Validates that history.replaceState was called to sanitize URL
-    expect(window.history.replaceState).toHaveBeenCalled();
+    // Validates that history.replaceState was called to sanitize URL and stripped the token
+    expect(window.history.replaceState).toHaveBeenCalledWith(
+      null,
+      '',
+      expect.not.stringMatching(/token_hash|type/)
+    );
   });
 
-  it('clears token-verification error when fallback getSession returns an active session on refresh', async () => {
-    // Simulates a user refreshing the page after token consumption
-    mockSearchParams = new URLSearchParams({
-      token_hash: 'already_consumed_token',
-      type: 'recovery',
-    });
+  it('restores active recovery session on page refresh when token parameters were already stripped from URL', async () => {
+    // Simulates a user refreshing the page after URL was sanitized
+    mockSearchParams = new URLSearchParams();
 
     const activeSession = {
       user: { id: 'user_123', email: 'citizen@sunshade.icu' },
       access_token: 'existing_jwt_token',
     };
 
-    // verifyOtp fails because token was already consumed
-    mockVerifyOtp.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'Token has expired or is invalid' },
-    });
-
-    // but getSession restores the valid session
     mockGetSession.mockResolvedValueOnce({
       data: { session: activeSession },
     });
 
     render(<ResetPasswordClient />);
 
-    await act(async () => {
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Enter new password/i)).toBeInTheDocument();
     });
 
-    // Form inputs should be visible and ready
-    expect(screen.getByPlaceholderText(/Enter new password/i)).toBeInTheDocument();
-
-    // Expired token error should NOT be displayed
+    // Displays target account email and no error alert
+    expect(screen.getByText(/citizen@sunshade\.icu/i)).toBeInTheDocument();
     expect(screen.queryByText(/Token has expired or is invalid/i)).not.toBeInTheDocument();
+  });
+
+  it('shows error and rejects recovery when token verification fails, preventing account mismatch even if an existing session exists', async () => {
+    // Simulates Alice being signed in, but opening Bob's invalid/expired recovery token
+    mockSearchParams = new URLSearchParams({
+      token_hash: 'bobs_expired_token',
+      type: 'recovery',
+    });
+
+    const alicesSession = {
+      user: { id: 'alice_123', email: 'alice@sunshade.icu' },
+      access_token: 'alices_jwt_token',
+    };
+
+    mockVerifyOtp.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Token has expired or is invalid' },
+    });
+
+    mockGetSession.mockResolvedValueOnce({
+      data: { session: alicesSession },
+    });
+
+    render(<ResetPasswordClient />);
+
+    await waitFor(() => {
+      // Must display the error and NOT show the password change form for Alice
+      expect(screen.getByText(/Token has expired or is invalid/i)).toBeInTheDocument();
+      expect(screen.getByText(/No Recovery Session Active/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByPlaceholderText(/Enter new password/i)).not.toBeInTheDocument();
   });
 
   it('displays error and shows recovery notice when OTP fails and no session exists', async () => {
@@ -165,6 +189,10 @@ describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
     });
 
     expect(mockExchangeCode).toHaveBeenCalledWith('pkce_auth_code_xyz');
-    expect(window.history.replaceState).toHaveBeenCalled();
+    expect(window.history.replaceState).toHaveBeenCalledWith(
+      null,
+      '',
+      expect.not.stringMatching(/code=/)
+    );
   });
 });

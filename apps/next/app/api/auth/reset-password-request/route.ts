@@ -169,16 +169,15 @@ export async function POST(req: NextRequest) {
       otpCode: emailOtp || null,
     });
 
-      if (!emailResult.success) {
-        console.error('[reset-password-request] Resend dispatch failed:', emailResult.error);
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Failed to dispatch recovery email.',
-          },
-          { status: 500 }
-        );
-      }
+    if (!emailResult.success) {
+      console.error('[reset-password-request] Resend dispatch failed:', emailResult.error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Failed to dispatch recovery email.',
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
