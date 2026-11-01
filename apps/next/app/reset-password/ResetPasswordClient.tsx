@@ -92,6 +92,8 @@ export default function ResetPasswordClient() {
   const handshakeTargetUrlRef = useRef<string>(handshakeTargetUrl);
   handshakeTargetUrlRef.current = handshakeTargetUrl;
 
+  const recoveryFailedRef = useRef(false);
+
   // Check auth recovery session on mount (supports hash tokens, auth code params, and existing sessions)
   useEffect(() => {
     let isMounted = true;
@@ -102,6 +104,7 @@ export default function ResetPasswordClient() {
         const queryError =
           searchParams.get('error_description') || searchParams.get('error');
         if (queryError && isMounted) {
+          recoveryFailedRef.current = true;
           setError(decodeURIComponent(queryError.replace(/\+/g, ' ')));
           setHasSession(false);
           return;
@@ -118,6 +121,7 @@ export default function ResetPasswordClient() {
             hashParams.get('error_description') ||
             hashParams.get('error');
           if (hashError && isMounted) {
+            recoveryFailedRef.current = true;
             setError(decodeURIComponent(hashError.replace(/\+/g, ' ')));
             setHasSession(false);
             return;
@@ -136,6 +140,7 @@ export default function ResetPasswordClient() {
             if (setSessionError) {
               console.warn('[ResetPassword] setSession notice:', setSessionError.message);
               if (isMounted) {
+                recoveryFailedRef.current = true;
                 setError(setSessionError.message);
                 setHasSession(false);
               }
@@ -168,6 +173,7 @@ export default function ResetPasswordClient() {
           if (exchangeError) {
             console.warn('[ResetPassword] exchangeCode notice:', exchangeError.message);
             if (isMounted) {
+              recoveryFailedRef.current = true;
               setError(exchangeError.message);
               setHasSession(false);
             }
@@ -198,6 +204,7 @@ export default function ResetPasswordClient() {
           if (otpError) {
             console.warn('[ResetPassword] verifyOtp notice:', otpError.message);
             if (isMounted) {
+              recoveryFailedRef.current = true;
               setError(otpError.message);
               setHasSession(false);
             }
@@ -245,7 +252,7 @@ export default function ResetPasswordClient() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (isMounted) {
-        if (session) {
+        if (session && !recoveryFailedRef.current) {
           setHasSession(true);
           setSessionData(session);
         } else if (event === 'SIGNED_OUT') {
@@ -386,6 +393,7 @@ export default function ResetPasswordClient() {
         throw otpError;
       }
       if (otpData?.session) {
+        recoveryFailedRef.current = false;
         setHasSession(true);
         setSessionData(otpData.session);
       }

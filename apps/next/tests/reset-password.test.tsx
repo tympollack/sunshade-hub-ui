@@ -3,14 +3,14 @@ import React, { act } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import ResetPasswordClient from '../app/reset-password/ResetPasswordClient';
 
-let mockSearchParams = new URLSearchParams();
+let mockSearchParams: URLSearchParams | null = null;
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: vi.fn(),
     replace: vi.fn(),
   }),
-  useSearchParams: () => mockSearchParams,
+  useSearchParams: () => mockSearchParams || new URLSearchParams(window.location.search),
 }));
 
 let mockSession: any = null;
@@ -18,6 +18,7 @@ const mockVerifyOtp = vi.fn();
 const mockExchangeCode = vi.fn();
 const mockGetSession = vi.fn();
 const mockSetSession = vi.fn();
+let authStateListener: ((event: string, session: any) => void) | null = null;
 
 vi.mock('@digitalcanopy/supabase', () => ({
   supabase: {
@@ -26,29 +27,37 @@ vi.mock('@digitalcanopy/supabase', () => ({
       exchangeCodeForSession: (...args: any[]) => mockExchangeCode(...args),
       setSession: (...args: any[]) => mockSetSession(...args),
       getSession: () => mockGetSession(),
-      onAuthStateChange: vi.fn(() => ({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      })),
+      onAuthStateChange: vi.fn((cb) => {
+        authStateListener = cb;
+        return {
+          data: { subscription: { unsubscribe: vi.fn() } },
+        };
+      }),
       updateUser: vi.fn().mockResolvedValue({ data: {}, error: null }),
     },
   },
 }));
 
 describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
+  let replaceStateSpy: any;
+
   beforeEach(() => {
-    mockSearchParams = new URLSearchParams();
+    mockSearchParams = null;
     mockSession = null;
     mockVerifyOtp.mockReset();
     mockExchangeCode.mockReset();
     mockGetSession.mockReset();
     mockSetSession.mockReset();
+
+    mockVerifyOtp.mockResolvedValue({ data: null, error: null });
+    mockExchangeCode.mockResolvedValue({ data: null, error: null });
+    mockSetSession.mockResolvedValue({ data: null, error: null });
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+
+    authStateListener = null;
     window.location.hash = '';
-    vi.spyOn(window.history, 'replaceState').mockImplementation((_state, _title, url) => {
-      if (url) {
-        const fullUrl = new URL(url.toString(), 'http://localhost');
-        mockSearchParams = fullUrl.searchParams;
-      }
-    });
+    window.history.replaceState(null, '', '/reset-password');
+    replaceStateSpy = vi.spyOn(window.history, 'replaceState');
   });
 
   afterEach(() => {
@@ -56,10 +65,11 @@ describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
   });
 
   it('strips token_hash and type from URL after successful OTP verification', async () => {
-    mockSearchParams = new URLSearchParams({
-      token_hash: 'valid_recovery_token_123',
-      type: 'recovery',
-    });
+    window.history.replaceState(
+      null,
+      '',
+      '/reset-password?token_hash=valid_recovery_token_123&type=recovery'
+    );
 
     const sessionObj = {
       user: { id: 'user_123', email: 'citizen@sunshade.icu' },
@@ -86,21 +96,19 @@ describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
     });
 
     // Validates that history.replaceState was called to sanitize URL and stripped the token
-    expect(window.history.replaceState).toHaveBeenCalledWith(
-      null,
-      '',
-      expect.not.stringMatching(/token_hash|type/)
-    );
-    expect(mockSearchParams.has('token_hash')).toBe(false);
-    expect(mockSearchParams.has('type')).toBe(false);
+    expect(replaceStateSpy).toHaveBeenCalledWith(null, '', '/reset-password');
+    expect(window.location.search).toBe('');
+    expect(window.location.href).not.toContain('token_hash');
+    expect(window.location.href).not.toContain('type');
   });
 
   it('retains error and rejects recovery when URL query contains error parameters, even if an active session exists', async () => {
     // Simulates an expired link redirect from Supabase to /reset-password?error=otp_expired
-    mockSearchParams = new URLSearchParams({
-      error: 'otp_expired',
-      error_description: 'Email link is invalid or has expired',
-    });
+    window.history.replaceState(
+      null,
+      '',
+      '/reset-password?error=otp_expired&error_description=Email+link+is+invalid+or+has+expired'
+    );
 
     const activeSession = {
       user: { id: 'alice_123', email: 'alice@sunshade.icu' },
@@ -118,6 +126,40 @@ describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
       expect(screen.getByText(/No Recovery Session Active/i)).toBeInTheDocument();
     });
 
+    expect(screen.queryByPlaceholderText(/Enter new password/i)).not.toBeInTheDocument();
+  });
+
+  it('prevents background onAuthStateChange events from reviving hasSession after recovery fails', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/reset-password?error=otp_expired&error_description=Email+link+is+invalid+or+has+expired'
+    );
+
+    const activeSession = {
+      user: { id: 'alice_123', email: 'alice@sunshade.icu' },
+      access_token: 'alices_jwt_token',
+    };
+
+    mockGetSession.mockResolvedValueOnce({
+      data: { session: null },
+    });
+
+    render(<ResetPasswordClient />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Email link is invalid or has expired/i)).toBeInTheDocument();
+      expect(screen.getByText(/No Recovery Session Active/i)).toBeInTheDocument();
+    });
+
+    // Simulate Supabase emitting a background session event (e.g. from cookies or tab sync)
+    act(() => {
+      authStateListener?.('INITIAL_SESSION', activeSession);
+    });
+
+    // Verify hasSession remains false and password form is NOT rendered
+    expect(screen.getByText(/Email link is invalid or has expired/i)).toBeInTheDocument();
+    expect(screen.getByText(/No Recovery Session Active/i)).toBeInTheDocument();
     expect(screen.queryByPlaceholderText(/Enter new password/i)).not.toBeInTheDocument();
   });
 
@@ -172,8 +214,8 @@ describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
   });
 
   it('restores active recovery session on page refresh when token parameters were already stripped from URL', async () => {
-    // Simulates a user refreshing the page after URL was sanitized
-    mockSearchParams = new URLSearchParams();
+    // Simulates a user refreshing the page after URL was sanitized (clean path, no query params)
+    window.history.replaceState(null, '', '/reset-password');
 
     const activeSession = {
       user: { id: 'user_123', email: 'citizen@sunshade.icu' },
@@ -197,10 +239,11 @@ describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
 
   it('shows error and rejects recovery when token verification fails, preventing account mismatch even if an existing session exists', async () => {
     // Simulates Alice being signed in, but opening Bob's invalid/expired recovery token
-    mockSearchParams = new URLSearchParams({
-      token_hash: 'bobs_expired_token',
-      type: 'recovery',
-    });
+    window.history.replaceState(
+      null,
+      '',
+      '/reset-password?token_hash=bobs_expired_token&type=recovery'
+    );
 
     const alicesSession = {
       user: { id: 'alice_123', email: 'alice@sunshade.icu' },
@@ -228,10 +271,11 @@ describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
   });
 
   it('displays error and shows recovery notice when OTP fails and no session exists', async () => {
-    mockSearchParams = new URLSearchParams({
-      token_hash: 'invalid_token_999',
-      type: 'recovery',
-    });
+    window.history.replaceState(
+      null,
+      '',
+      '/reset-password?token_hash=invalid_token_999&type=recovery'
+    );
 
     mockVerifyOtp.mockResolvedValueOnce({
       data: null,
@@ -251,9 +295,11 @@ describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
   });
 
   it('exchanges code for session and removes code parameter from URL', async () => {
-    mockSearchParams = new URLSearchParams({
-      code: 'pkce_auth_code_xyz',
-    });
+    window.history.replaceState(
+      null,
+      '',
+      '/reset-password?code=pkce_auth_code_xyz'
+    );
 
     const codeSession = {
       user: { id: 'user_123', email: 'citizen@sunshade.icu' },
@@ -275,11 +321,8 @@ describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
     });
 
     expect(mockExchangeCode).toHaveBeenCalledWith('pkce_auth_code_xyz');
-    expect(window.history.replaceState).toHaveBeenCalledWith(
-      null,
-      '',
-      expect.not.stringMatching(/code=/)
-    );
-    expect(mockSearchParams.has('code')).toBe(false);
+    expect(replaceStateSpy).toHaveBeenCalledWith(null, '', '/reset-password');
+    expect(window.location.search).toBe('');
+    expect(window.location.href).not.toContain('code=');
   });
 });
