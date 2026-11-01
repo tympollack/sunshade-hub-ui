@@ -85,6 +85,29 @@ module.exports = {
   },
   reactStrictMode: false, // reanimated doesn't support this on web
 
+  async headers() {
+    return [
+      {
+        source: '/reset-password',
+        headers: [
+          {
+            key: 'Referrer-Policy',
+            value: 'no-referrer',
+          },
+        ],
+      },
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+        ],
+      },
+    ]
+  },
+
   ...withWebpack,
   ...withTurpopack,
 }

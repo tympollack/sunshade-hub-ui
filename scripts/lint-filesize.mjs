@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT_DIR = process.cwd();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT_DIR = path.resolve(__dirname, '..');
 const SCAN_DIRS = ['apps', 'packages'];
 
 // Grandfathered file size limits (ratchet mechanism).
@@ -65,6 +68,11 @@ function checkFiles() {
   for (const subDir of SCAN_DIRS) {
     const dirPath = path.join(ROOT_DIR, subDir);
     getAllFiles(dirPath, files);
+  }
+
+  if (files.length === 0) {
+    console.error(`\n❌ Error: No source files were found to scan in [${SCAN_DIRS.join(', ')}] under ${ROOT_DIR}\n`);
+    process.exit(1);
   }
 
   let hasErrors = false;

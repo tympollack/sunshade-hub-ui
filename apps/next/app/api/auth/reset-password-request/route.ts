@@ -148,16 +148,26 @@ export async function POST(req: NextRequest) {
         }`
       : rawActionLink
       ? formatRecoveryActionLink(rawActionLink, callbackRedirectUrl)
-      : callbackRedirectUrl;
+      : null;
 
-    if (finalActionLink) {
-      // Dispatch branded email via Resend SDK
-      const emailResult = await sendPasswordResetEmail({
-        to: cleanEmail,
-        resetUrl: finalActionLink,
-        targetAppName,
-        otpCode: emailOtp || null,
-      });
+    if (!finalActionLink) {
+      console.error('[reset-password-request] generateLink produced neither hashed_token nor action_link');
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Failed to generate a valid password recovery link.',
+        },
+        { status: 500 }
+      );
+    }
+
+    // Dispatch branded email via Resend SDK
+    const emailResult = await sendPasswordResetEmail({
+      to: cleanEmail,
+      resetUrl: finalActionLink,
+      targetAppName,
+      otpCode: emailOtp || null,
+    });
 
       if (!emailResult.success) {
         console.error('[reset-password-request] Resend dispatch failed:', emailResult.error);

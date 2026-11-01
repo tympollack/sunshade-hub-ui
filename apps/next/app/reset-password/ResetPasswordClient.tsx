@@ -154,8 +154,16 @@ export default function ResetPasswordClient() {
           const { data: exchangeData, error: exchangeError } =
             await supabase.auth.exchangeCodeForSession(codeParam);
           if (!exchangeError && exchangeData?.session && isMounted) {
+            setError(null);
             setHasSession(true);
             setSessionData(exchangeData.session);
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('code');
+              window.history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
+            } catch {
+              // Ignore history rewrite errors in sandboxed environments
+            }
             return;
           }
         }
@@ -174,8 +182,17 @@ export default function ResetPasswordClient() {
               setError(otpError.message);
             }
           } else if (!otpError && otpData?.session && isMounted) {
+            setError(null);
             setHasSession(true);
             setSessionData(otpData.session);
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('token_hash');
+              url.searchParams.delete('type');
+              window.history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
+            } catch {
+              // Ignore history rewrite errors in sandboxed environments
+            }
             return;
           }
         }
@@ -187,6 +204,7 @@ export default function ResetPasswordClient() {
 
         if (isMounted) {
           if (session) {
+            setError(null);
             setHasSession(true);
             setSessionData(session);
           } else {
