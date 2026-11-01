@@ -17,12 +17,14 @@ let mockSession: any = null;
 const mockVerifyOtp = vi.fn();
 const mockExchangeCode = vi.fn();
 const mockGetSession = vi.fn();
+const mockSetSession = vi.fn();
 
 vi.mock('@digitalcanopy/supabase', () => ({
   supabase: {
     auth: {
       verifyOtp: (...args: any[]) => mockVerifyOtp(...args),
       exchangeCodeForSession: (...args: any[]) => mockExchangeCode(...args),
+      setSession: (...args: any[]) => mockSetSession(...args),
       getSession: () => mockGetSession(),
       onAuthStateChange: vi.fn(() => ({
         data: { subscription: { unsubscribe: vi.fn() } },
@@ -39,8 +41,14 @@ describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
     mockVerifyOtp.mockReset();
     mockExchangeCode.mockReset();
     mockGetSession.mockReset();
+    mockSetSession.mockReset();
     window.location.hash = '';
-    vi.spyOn(window.history, 'replaceState').mockImplementation(() => {});
+    vi.spyOn(window.history, 'replaceState').mockImplementation((_state, _title, url) => {
+      if (url) {
+        const fullUrl = new URL(url.toString(), 'http://localhost');
+        mockSearchParams = fullUrl.searchParams;
+      }
+    });
   });
 
   afterEach(() => {
@@ -83,6 +91,84 @@ describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
       '',
       expect.not.stringMatching(/token_hash|type/)
     );
+    expect(mockSearchParams.has('token_hash')).toBe(false);
+    expect(mockSearchParams.has('type')).toBe(false);
+  });
+
+  it('retains error and rejects recovery when URL query contains error parameters, even if an active session exists', async () => {
+    // Simulates an expired link redirect from Supabase to /reset-password?error=otp_expired
+    mockSearchParams = new URLSearchParams({
+      error: 'otp_expired',
+      error_description: 'Email link is invalid or has expired',
+    });
+
+    const activeSession = {
+      user: { id: 'alice_123', email: 'alice@sunshade.icu' },
+      access_token: 'alices_jwt_token',
+    };
+
+    mockGetSession.mockResolvedValueOnce({
+      data: { session: activeSession },
+    });
+
+    render(<ResetPasswordClient />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Email link is invalid or has expired/i)).toBeInTheDocument();
+      expect(screen.getByText(/No Recovery Session Active/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByPlaceholderText(/Enter new password/i)).not.toBeInTheDocument();
+  });
+
+  it('retains error and rejects recovery when URL hash contains error fragment, even if an active session exists', async () => {
+    // Simulates an error passed via URL hash fragment
+    window.location.hash = '#error=access_denied&error_description=Recovery+token+has+expired';
+
+    const activeSession = {
+      user: { id: 'alice_123', email: 'alice@sunshade.icu' },
+      access_token: 'alices_jwt_token',
+    };
+
+    mockGetSession.mockResolvedValueOnce({
+      data: { session: activeSession },
+    });
+
+    render(<ResetPasswordClient />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Recovery token has expired/i)).toBeInTheDocument();
+      expect(screen.getByText(/No Recovery Session Active/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByPlaceholderText(/Enter new password/i)).not.toBeInTheDocument();
+  });
+
+  it('retains error and rejects recovery when hash tokens fail setSession, even if an active session exists', async () => {
+    window.location.hash = '#access_token=corrupt_tok&refresh_token=corrupt_ref';
+
+    const activeSession = {
+      user: { id: 'alice_123', email: 'alice@sunshade.icu' },
+      access_token: 'alices_jwt_token',
+    };
+
+    mockSetSession.mockResolvedValueOnce({
+      data: { session: null },
+      error: { message: 'Invalid or revoked recovery session tokens' },
+    });
+
+    mockGetSession.mockResolvedValueOnce({
+      data: { session: activeSession },
+    });
+
+    render(<ResetPasswordClient />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Invalid or revoked recovery session tokens/i)).toBeInTheDocument();
+      expect(screen.getByText(/No Recovery Session Active/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByPlaceholderText(/Enter new password/i)).not.toBeInTheDocument();
   });
 
   it('restores active recovery session on page refresh when token parameters were already stripped from URL', async () => {
@@ -194,5 +280,6 @@ describe('ResetPasswordClient Session Recovery & OTP Handling', () => {
       '',
       expect.not.stringMatching(/code=/)
     );
+    expect(mockSearchParams.has('code')).toBe(false);
   });
 });

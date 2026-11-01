@@ -103,6 +103,8 @@ export default function ResetPasswordClient() {
           searchParams.get('error_description') || searchParams.get('error');
         if (queryError && isMounted) {
           setError(decodeURIComponent(queryError.replace(/\+/g, ' ')));
+          setHasSession(false);
+          return;
         }
 
         // 2. Inspect URL hash fragment (common in Supabase recovery redirects)
@@ -117,6 +119,8 @@ export default function ResetPasswordClient() {
             hashParams.get('error');
           if (hashError && isMounted) {
             setError(decodeURIComponent(hashError.replace(/\+/g, ' ')));
+            setHasSession(false);
+            return;
           }
 
           const accessToken = hashParams.get('access_token');
@@ -129,7 +133,15 @@ export default function ResetPasswordClient() {
                 refresh_token: refreshToken,
               });
 
-            if (!setSessionError && sessionRes?.session && isMounted) {
+            if (setSessionError) {
+              console.warn('[ResetPassword] setSession notice:', setSessionError.message);
+              if (isMounted) {
+                setError(setSessionError.message);
+                setHasSession(false);
+              }
+              return;
+            } else if (sessionRes?.session && isMounted) {
+              setError(null);
               setHasSession(true);
               setSessionData(sessionRes.session);
 
@@ -213,7 +225,6 @@ export default function ResetPasswordClient() {
 
         if (isMounted) {
           if (session) {
-            setError(null);
             setHasSession(true);
             setSessionData(session);
           } else {
