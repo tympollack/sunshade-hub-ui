@@ -5,6 +5,7 @@ import ResetPasswordClient from './ResetPasswordClient';
 export const metadata: Metadata = {
   title: 'Set New Password | SunShade Ecosystem',
   description: 'Set a new password for your SunShade Ecosystem account.',
+  referrer: 'no-referrer',
 };
 
 export default function ResetPasswordPage() {
