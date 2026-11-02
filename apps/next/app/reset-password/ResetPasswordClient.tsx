@@ -92,6 +92,8 @@ export default function ResetPasswordClient() {
   const handshakeTargetUrlRef = useRef<string>(handshakeTargetUrl);
   handshakeTargetUrlRef.current = handshakeTargetUrl;
 
+  const recoveryFailedRef = useRef(false);
+
   // Check auth recovery session on mount (supports hash tokens, auth code params, and existing sessions)
   useEffect(() => {
     let isMounted = true;
@@ -102,7 +104,10 @@ export default function ResetPasswordClient() {
         const queryError =
           searchParams.get('error_description') || searchParams.get('error');
         if (queryError && isMounted) {
+          recoveryFailedRef.current = true;
           setError(decodeURIComponent(queryError.replace(/\+/g, ' ')));
+          setHasSession(false);
+          return;
         }
 
         // 2. Inspect URL hash fragment (common in Supabase recovery redirects)
@@ -116,7 +121,10 @@ export default function ResetPasswordClient() {
             hashParams.get('error_description') ||
             hashParams.get('error');
           if (hashError && isMounted) {
+            recoveryFailedRef.current = true;
             setError(decodeURIComponent(hashError.replace(/\+/g, ' ')));
+            setHasSession(false);
+            return;
           }
 
           const accessToken = hashParams.get('access_token');
@@ -129,7 +137,16 @@ export default function ResetPasswordClient() {
                 refresh_token: refreshToken,
               });
 
-            if (!setSessionError && sessionRes?.session && isMounted) {
+            if (setSessionError) {
+              console.warn('[ResetPassword] setSession notice:', setSessionError.message);
+              if (isMounted) {
+                recoveryFailedRef.current = true;
+                setError(setSessionError.message);
+                setHasSession(false);
+              }
+              return;
+            } else if (sessionRes?.session && isMounted) {
+              setError(null);
               setHasSession(true);
               setSessionData(sessionRes.session);
 
@@ -153,9 +170,25 @@ export default function ResetPasswordClient() {
         if (codeParam) {
           const { data: exchangeData, error: exchangeError } =
             await supabase.auth.exchangeCodeForSession(codeParam);
-          if (!exchangeError && exchangeData?.session && isMounted) {
+          if (exchangeError) {
+            console.warn('[ResetPassword] exchangeCode notice:', exchangeError.message);
+            if (isMounted) {
+              recoveryFailedRef.current = true;
+              setError(exchangeError.message);
+              setHasSession(false);
+            }
+            return;
+          } else if (exchangeData?.session && isMounted) {
+            setError(null);
             setHasSession(true);
             setSessionData(exchangeData.session);
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('code');
+              window.history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
+            } catch {
+              // Ignore history rewrite errors in sandboxed environments
+            }
             return;
           }
         }
@@ -171,11 +204,23 @@ export default function ResetPasswordClient() {
           if (otpError) {
             console.warn('[ResetPassword] verifyOtp notice:', otpError.message);
             if (isMounted) {
+              recoveryFailedRef.current = true;
               setError(otpError.message);
+              setHasSession(false);
             }
-          } else if (!otpError && otpData?.session && isMounted) {
+            return;
+          } else if (otpData?.session && isMounted) {
+            setError(null);
             setHasSession(true);
             setSessionData(otpData.session);
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('token_hash');
+              url.searchParams.delete('type');
+              window.history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
+            } catch {
+              // Ignore history rewrite errors in sandboxed environments
+            }
             return;
           }
         }
@@ -207,7 +252,7 @@ export default function ResetPasswordClient() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (isMounted) {
-        if (session) {
+        if (session && !recoveryFailedRef.current) {
           setHasSession(true);
           setSessionData(session);
         } else if (event === 'SIGNED_OUT') {
@@ -348,6 +393,7 @@ export default function ResetPasswordClient() {
         throw otpError;
       }
       if (otpData?.session) {
+        recoveryFailedRef.current = false;
         setHasSession(true);
         setSessionData(otpData.session);
       }
@@ -418,7 +464,7 @@ export default function ResetPasswordClient() {
             </h1>
             <p className="text-xs text-zinc-400 max-w-xs mx-auto mt-1 leading-relaxed">
               {hasSession
-                ? 'Choose a strong, secure password for your SunShade account.'
+                ? `Choose a strong, secure password${sessionData?.user?.email ? ` for ${sessionData.user.email}` : ''}.`
                 : 'Session expired or recovery link is invalid.'}
             </p>
           </div>
