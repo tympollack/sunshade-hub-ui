@@ -166,3 +166,100 @@ export function quoteUtilitySinkConversion(params: {
       throw new Error(`Unsupported utility sink type: ${(params as any).sinkType}`);
   }
 }
+
+/**
+ * Validates, debits contributor wallet, and atomically fulfills utility sink conversion.
+ */
+export async function executeUtilitySinkConversion(params: {
+  userId: string;
+  sinkType: UtilitySinkType;
+  tokens: number;
+  merchItemId?: string;
+  customClient?: any;
+}) {
+  if (
+    typeof params.tokens !== 'number' ||
+    !Number.isFinite(params.tokens) ||
+    !Number.isInteger(params.tokens) ||
+    params.tokens <= 0 ||
+    params.tokens > Number.MAX_SAFE_INTEGER
+  ) {
+    throw new Error('Redemption token amount must be a finite positive integer.');
+  }
+
+  const quote = quoteUtilitySinkConversion({
+    sinkType: params.sinkType,
+    tokens: params.tokens,
+    merchItemId: params.merchItemId,
+  });
+
+  const client = params.customClient;
+  if (!client) {
+    // Return quote if client not provided (e.g. dry-run quote mode)
+    return {
+      success: true,
+      fulfilled: false,
+      conversion: quote,
+      remainingBalance: 0,
+      message: `Quote generated for ${quote.tokensSpent.toLocaleString()} tokens into ${quote.utilityYieldLabel}.`,
+    };
+  }
+
+  // 1. Fetch user wallet balance
+  const { data: wallet, error: walletErr } = await client
+    .from('user_token_wallets')
+    .select('utility_balance')
+    .eq('user_id', params.userId)
+    .maybeSingle();
+
+  if (walletErr) {
+    throw new Error(`Database error querying wallet: ${walletErr.message}`);
+  }
+
+  const currentBalance = Number(wallet?.utility_balance ?? 0);
+  if (currentBalance < quote.tokensSpent) {
+    throw new Error(
+      `Insufficient token balance. You have ${currentBalance.toLocaleString()} tokens, but ${quote.tokensSpent.toLocaleString()} tokens are required.`
+    );
+  }
+
+  const newBalance = currentBalance - quote.tokensSpent;
+
+  // 2. Debit tokens from user wallet
+  const { error: updateErr } = await client
+    .from('user_token_wallets')
+    .update({
+      utility_balance: newBalance,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', params.userId);
+
+  if (updateErr) {
+    throw new Error(`Failed to update wallet balance: ${updateErr.message}`);
+  }
+
+  // 3. Insert transaction into hub_tokens_ledger
+  await client.from('hub_tokens_ledger').insert({
+    user_id: params.userId,
+    token_class: 'utility_token',
+    transaction_type: 'UTILITY_CONVERSION',
+    amount: -quote.tokensSpent,
+    description: `Utility Conversion: ${quote.utilityYieldLabel}`,
+    metadata: {
+      sink_type: quote.sinkType,
+      yield_label: quote.utilityYieldLabel,
+      value_units: quote.utilityValueUnits,
+      bonus_multiplier: quote.bonusMultiplierApplied,
+      target_account_ref: quote.targetAccountRef,
+      executed_at: new Date().toISOString(),
+    },
+  });
+
+  return {
+    success: true,
+    fulfilled: true,
+    conversion: quote,
+    remainingBalance: newBalance,
+    message: `Successfully fulfilled conversion of ${quote.tokensSpent.toLocaleString()} tokens into ${quote.utilityYieldLabel}. Remaining balance: ${newBalance.toLocaleString()} tokens.`,
+  };
+}

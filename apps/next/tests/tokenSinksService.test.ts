@@ -3,6 +3,7 @@ import {
   calculateComputeCredits,
   calculatePriorityCIMinutes,
   quoteUtilitySinkConversion,
+  executeUtilitySinkConversion,
   UTILITY_BONUS_MULTIPLIER,
   DEV_MERCH_CATALOG,
 } from '../lib/services/tokenSinksService';
@@ -104,6 +105,94 @@ describe('TASK-HUB-ECOSYSTEM-TOKEN-SINKS: Native Utility Token Sinks', () => {
           merchItemId: 'non_existent_item',
         })
       ).toThrow('Invalid merch item ID: "non_existent_item"');
+    });
+  });
+
+  describe('executeUtilitySinkConversion fulfillment', () => {
+    it('rejects non-finite or non-integer token amounts', async () => {
+      await expect(
+        executeUtilitySinkConversion({
+          userId: 'u-1',
+          sinkType: 'COMPUTE_CREDITS',
+          tokens: 1e400,
+        })
+      ).rejects.toThrow('Redemption token amount must be a finite positive integer.');
+
+      await expect(
+        executeUtilitySinkConversion({
+          userId: 'u-1',
+          sinkType: 'COMPUTE_CREDITS',
+          tokens: 12.5,
+        })
+      ).rejects.toThrow('Redemption token amount must be a finite positive integer.');
+    });
+
+    it('rejects conversion when user wallet balance is insufficient', async () => {
+      const mockClient = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { utility_balance: 5000 },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+
+      await expect(
+        executeUtilitySinkConversion({
+          userId: 'u-1',
+          sinkType: 'COMPUTE_CREDITS',
+          tokens: 10000,
+          customClient: mockClient,
+        })
+      ).rejects.toThrow('Insufficient token balance. You have 5,000 tokens, but 10,000 tokens are required.');
+    });
+
+    it('debits wallet and logs transaction upon successful fulfillment', async () => {
+      const updateMock = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      });
+      const insertMock = vi.fn().mockResolvedValue({ error: null });
+
+      const mockClient = {
+        from: vi.fn((table: string) => {
+          if (table === 'user_token_wallets') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { utility_balance: 50000 },
+                    error: null,
+                  }),
+                }),
+              }),
+              update: updateMock,
+            };
+          }
+          if (table === 'hub_tokens_ledger') {
+            return {
+              insert: insertMock,
+            };
+          }
+          return {} as any;
+        }),
+      };
+
+      const result = await executeUtilitySinkConversion({
+        userId: 'u-contributor',
+        sinkType: 'COMPUTE_CREDITS',
+        tokens: 10000,
+        customClient: mockClient,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.fulfilled).toBe(true);
+      expect(result.remainingBalance).toBe(40000); // 50k - 10k
+      expect(updateMock).toHaveBeenCalled();
+      expect(insertMock).toHaveBeenCalled();
     });
   });
 });

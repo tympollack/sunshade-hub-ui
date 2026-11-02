@@ -1,12 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserFromToken } from '../../../../../lib/supabase-server';
+import { getUserFromToken, createServiceClient } from '../../../../../lib/supabase-server';
 import {
   quoteUtilitySinkConversion,
+  executeUtilitySinkConversion,
   DEV_MERCH_CATALOG,
   UtilitySinkType,
 } from '../../../../../lib/services/tokenSinksService';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const isQuote = searchParams.get('quote') === 'true';
+  const sinkType = searchParams.get('sinkType');
+  const tokensParam = searchParams.get('tokens');
+  const merchItemId = searchParams.get('merchItemId') || undefined;
+
+  if (isQuote && sinkType && tokensParam) {
+    const tokens = Number(tokensParam);
+    if (!Number.isFinite(tokens) || !Number.isInteger(tokens) || tokens <= 0 || tokens > Number.MAX_SAFE_INTEGER) {
+      return NextResponse.json(
+        { error: 'Tokens amount must be a finite positive integer.' },
+        { status: 400 }
+      );
+    }
+
+    try {
+      const quote = quoteUtilitySinkConversion({
+        sinkType: sinkType as UtilitySinkType,
+        tokens,
+        merchItemId,
+      });
+      return NextResponse.json({ success: true, quote });
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+  }
+
   return NextResponse.json({
     sinks: [
       {
@@ -59,24 +87,31 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const { sinkType, tokens, merchItemId } = body;
 
-    if (!sinkType || !tokens || typeof tokens !== 'number' || tokens <= 0) {
+    if (
+      !sinkType ||
+      typeof tokens !== 'number' ||
+      !Number.isFinite(tokens) ||
+      !Number.isInteger(tokens) ||
+      tokens <= 0 ||
+      tokens > Number.MAX_SAFE_INTEGER
+    ) {
       return NextResponse.json(
-        { error: 'Invalid parameters: sinkType and positive tokens amount required.' },
+        { error: 'Invalid parameters: sinkType and finite positive integer tokens amount required.' },
         { status: 400 }
       );
     }
 
-    const quote = quoteUtilitySinkConversion({
+    const serviceClient = typeof createServiceClient === 'function' ? createServiceClient() : null;
+
+    const result = await executeUtilitySinkConversion({
+      userId: user.id,
       sinkType: sinkType as UtilitySinkType,
       tokens,
       merchItemId,
+      customClient: serviceClient,
     });
 
-    return NextResponse.json({
-      success: true,
-      conversion: quote,
-      message: `Successfully converted ${quote.tokensSpent.toLocaleString()} tokens into ${quote.utilityYieldLabel}.`,
-    });
+    return NextResponse.json(result);
   } catch (error: any) {
     console.error('[wallet:sinks] Error executing utility conversion:', error);
     return NextResponse.json(

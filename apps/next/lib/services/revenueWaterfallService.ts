@@ -182,6 +182,20 @@ export async function getRedemptionQuote(params: {
     };
   }
 
+  // Solvency Post-Condition Guard: Verify the payout itself does not breach the mandatory buffer
+  if (solvency.netAvailableEscrowCashCents < grossPayoutCents) {
+    return {
+      tokensToRedeem: tokens,
+      effectiveRatePerToken: effectiveRate,
+      grossPayoutCents,
+      grossPayoutDollars,
+      isSolvent: false,
+      eligible: false,
+      circuitBreakerStatus: 'TREASURY_SOLVENCY_PAUSE',
+      reason: `Payout of $${(grossPayoutCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })} exceeds available escrow cash ($${(solvency.netAvailableEscrowCashCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}) above the mandatory 30-day operating buffer. Cash redemptions are paused.`,
+    };
+  }
+
   // Verify IRS 1099-NEC & cumulative tax compliance
   const compliance = await verifyRedemptionEligibility(
     params.userId,

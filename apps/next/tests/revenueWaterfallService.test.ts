@@ -136,6 +136,22 @@ describe('TASK-HUB-ESCROW-WATERFALL-CALC: Revenue Waterfall & Solvency Engine', 
       expect(quote.circuitBreakerStatus).toBe('TREASURY_SOLVENCY_PAUSE');
     });
 
+    it('rejects cash redemption when treasury cash exactly equals buffer so payout would breach buffer', async () => {
+      const quote = await getRedemptionQuote({
+        userId: 'u-1',
+        tokensToRedeem: 10000,
+        treasuryCashReserveCents: 1000000, // Exactly $10,000.00
+        mandatorySolvencyBufferCents: 1000000,
+        totalEligibleRebateTokens: 10000000,
+        customClient: mockClient,
+      });
+
+      expect(quote.eligible).toBe(false);
+      expect(quote.isSolvent).toBe(false);
+      expect(quote.circuitBreakerStatus).toBe('TREASURY_SOLVENCY_PAUSE');
+      expect(quote.reason).toContain('exceeds available escrow cash');
+    });
+
     it('enforces IRS 1099-NEC circuit breaker when unverified user approaches $599.00 limit', async () => {
       // 2,500,000 tokens @ $0.00025 = $625.00 (62,500 cents > 59,900 cents)
       const quote = await getRedemptionQuote({
