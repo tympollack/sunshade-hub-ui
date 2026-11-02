@@ -36,6 +36,7 @@ export interface RedemptionEligibilityResult {
   eligible: boolean;
   status: 'ELIGIBLE' | '403_TAX_VERIFICATION_REQUIRED' | 'INVALID_AMOUNT';
   ytdFiatRedeemedCents: number;
+  pendingFiatCents: number;
   requestedUsdCents: number;
   projectedTotalCents: number;
   taxComplianceVerified: boolean;
@@ -54,7 +55,7 @@ export interface UserWalletData {
 
 /**
  * Verifies if a contributor is eligible to disburse a fiat PayPal payout
- * based on IRS 1099-NEC safety buffers and verified tax status.
+ * based on IRS 1099-NEC safety buffers, pending queued redemptions, and verified tax status.
  */
 export async function verifyRedemptionEligibility(
   userId: string,
@@ -66,6 +67,7 @@ export async function verifyRedemptionEligibility(
       eligible: false,
       status: 'INVALID_AMOUNT',
       ytdFiatRedeemedCents: 0,
+      pendingFiatCents: 0,
       requestedUsdCents,
       projectedTotalCents: requestedUsdCents,
       taxComplianceVerified: false,
@@ -74,11 +76,13 @@ export async function verifyRedemptionEligibility(
   }
 
   let ytdFiatRedeemedCents = 0;
+  let pendingFiatCents = 0;
   let taxComplianceVerified = false;
 
   const client = customClient || (typeof createServiceClient === 'function' ? createServiceClient() : null);
 
   if (client) {
+    // 1. Fetch wallet settled YTD fiat and verification status
     const { data: wallet, error } = await client
       .from('user_token_wallets')
       .select('ytd_fiat_redeemed_cents, tax_compliance_verified')
@@ -89,18 +93,40 @@ export async function verifyRedemptionEligibility(
       ytdFiatRedeemedCents = Number(wallet.ytd_fiat_redeemed_cents || 0);
       taxComplianceVerified = Boolean(wallet.tax_compliance_verified);
     }
+
+    // 2. Query queued or in-flight redemption requests that have not yet settled,
+    // preventing concurrent/repeated sub-$599 requests from evading the cumulative gate
+    try {
+      const { data: pendingEntries } = await client
+        .from('hub_tokens_ledger')
+        .select('metadata')
+        .eq('user_id', userId)
+        .eq('transaction_type', 'REDEMPTION_QUEUED');
+
+      if (Array.isArray(pendingEntries)) {
+        for (const entry of pendingEntries) {
+          const cents = Number(entry?.metadata?.requested_usd_cents || 0);
+          if (cents > 0) {
+            pendingFiatCents += cents;
+          }
+        }
+      }
+    } catch {
+      // Table may not have queued rows yet
+    }
   }
 
-  const projectedTotalCents = ytdFiatRedeemedCents + requestedUsdCents;
+  const projectedTotalCents = ytdFiatRedeemedCents + pendingFiatCents + requestedUsdCents;
 
   // IRS 1099-NEC circuit breaker check:
-  // If the projected calendar-year redemptions meet or exceed $599.00 (59,900 cents)
+  // If the projected calendar-year redemptions (settled + pending + requested) meet or exceed $599.00 (59,900 cents)
   // without verified tax paperwork (W-9 / identity verification), halt and block payout.
   if (projectedTotalCents >= IRS_1099_SAFETY_BUFFER_CENTS && !taxComplianceVerified) {
     return {
       eligible: false,
       status: '403_TAX_VERIFICATION_REQUIRED',
       ytdFiatRedeemedCents,
+      pendingFiatCents,
       requestedUsdCents,
       projectedTotalCents,
       taxComplianceVerified: false,
@@ -114,6 +140,7 @@ export async function verifyRedemptionEligibility(
     eligible: true,
     status: 'ELIGIBLE',
     ytdFiatRedeemedCents,
+    pendingFiatCents,
     requestedUsdCents,
     projectedTotalCents,
     taxComplianceVerified,

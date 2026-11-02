@@ -25,15 +25,26 @@ describe('Compliance Gate Service & Tax Threshold Circuit-Breaker', () => {
   describe('IRS 1099-NEC Threshold Verification (verifyRedemptionEligibility)', () => {
     it('allows redemptions strictly below $599.00 ($598.99 = 59899 cents) without verified W-9', async () => {
       const mockClient = {
-        from: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: { ytd_fiat_redeemed_cents: 0, tax_compliance_verified: false },
-                error: null,
+        from: vi.fn((table: string) => {
+          if (table === 'user_token_wallets') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { ytd_fiat_redeemed_cents: 0, tax_compliance_verified: false },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ data: [], error: null }),
               }),
             }),
-          }),
+          };
         }),
       };
 
@@ -46,15 +57,26 @@ describe('Compliance Gate Service & Tax Threshold Circuit-Breaker', () => {
 
     it('blocks redemptions at or above $599.00 ($599.00 = 59900 cents) when tax_compliance_verified is false', async () => {
       const mockClient = {
-        from: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: { ytd_fiat_redeemed_cents: 0, tax_compliance_verified: false },
-                error: null,
+        from: vi.fn((table: string) => {
+          if (table === 'user_token_wallets') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { ytd_fiat_redeemed_cents: 0, tax_compliance_verified: false },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ data: [], error: null }),
               }),
             }),
-          }),
+          };
         }),
       };
 
@@ -68,15 +90,26 @@ describe('Compliance Gate Service & Tax Threshold Circuit-Breaker', () => {
 
     it('allows redemptions above $599.00 when tax_compliance_verified is true', async () => {
       const mockClient = {
-        from: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: { ytd_fiat_redeemed_cents: 25000, tax_compliance_verified: true },
-                error: null,
+        from: vi.fn((table: string) => {
+          if (table === 'user_token_wallets') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { ytd_fiat_redeemed_cents: 25000, tax_compliance_verified: true },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ data: [], error: null }),
               }),
             }),
-          }),
+          };
         }),
       };
 
@@ -89,15 +122,26 @@ describe('Compliance Gate Service & Tax Threshold Circuit-Breaker', () => {
 
     it('blocks cumulative payouts crossing $599.00 across multiple redemptions', async () => {
       const mockClient = {
-        from: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: { ytd_fiat_redeemed_cents: 50000, tax_compliance_verified: false }, // Already redeemed $500.00
-                error: null,
+        from: vi.fn((table: string) => {
+          if (table === 'user_token_wallets') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { ytd_fiat_redeemed_cents: 50000, tax_compliance_verified: false },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ data: [], error: null }),
               }),
             }),
-          }),
+          };
         }),
       };
 
@@ -106,6 +150,51 @@ describe('Compliance Gate Service & Tax Threshold Circuit-Breaker', () => {
       expect(result.eligible).toBe(false);
       expect(result.status).toBe('403_TAX_VERIFICATION_REQUIRED');
       expect(result.projectedTotalCents).toBe(59900);
+    });
+
+    it('counts queued in-flight redemptions towards the cumulative $599 threshold to prevent evasion', async () => {
+      const mockClient = {
+        from: vi.fn((table: string) => {
+          if (table === 'user_token_wallets') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { ytd_fiat_redeemed_cents: 0, tax_compliance_verified: false },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === 'hub_tokens_ledger') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockResolvedValue({
+                    data: [{ metadata: { requested_usd_cents: 50000 } }], // $500 already queued
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+              }),
+            }),
+          };
+        }),
+      };
+
+      // In-flight $500 + new request $100 = $600 (>= $599) -> must block
+      const result = await verifyRedemptionEligibility('user-test-queued', 10000, mockClient);
+      expect(result.eligible).toBe(false);
+      expect(result.status).toBe('403_TAX_VERIFICATION_REQUIRED');
+      expect(result.pendingFiatCents).toBe(50000);
+      expect(result.projectedTotalCents).toBe(60000);
     });
 
     it('rejects invalid or non-positive redemption amounts', async () => {
