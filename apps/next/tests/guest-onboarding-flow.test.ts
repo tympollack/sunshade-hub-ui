@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { NextRequest } from 'next/server';
+import { describe, it, expect, vi } from 'vitest';
+import { NextRequest, NextResponse } from 'next/server';
 import {
   createGuestToken,
   verifyGuestToken,
@@ -10,6 +10,10 @@ import {
 } from '../lib/auth/guestTokens';
 import { GET as claimGuestRoute } from '../app/claim/guest/route';
 import { middleware } from '../middleware';
+
+vi.mock('../utils/supabase/middleware', () => ({
+  updateSession: vi.fn(async () => NextResponse.next()),
+}));
 
 describe('Zero-WAN Guest Session Generator & Onboarding Flow', () => {
   describe('Cryptographic Guest Tokens & Ledger', () => {
@@ -126,7 +130,7 @@ describe('Zero-WAN Guest Session Generator & Onboarding Flow', () => {
       expect(res.headers.get('x-guest-balance')).toBe('0.1');
     });
 
-    it('redirects guest visitors from /login directly to dashboard', async () => {
+    it('allows guest visitors to access /login to sign in or upgrade', async () => {
       const { token } = await createGuestToken();
       const req = new NextRequest('http://localhost:3000/login', {
         headers: {
@@ -135,8 +139,7 @@ describe('Zero-WAN Guest Session Generator & Onboarding Flow', () => {
       });
 
       const res = await middleware(req);
-      expect([302, 307]).toContain(res.status);
-      expect(res.headers.get('location')).toBe('http://localhost:3000/dashboard');
+      expect(res.status).not.toBe(302);
     });
   });
 });

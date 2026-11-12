@@ -11,7 +11,7 @@ export interface NodeStatusPillProps {
 }
 
 export function getStatusConfig(mode?: NetworkMode, status?: HealthStatus) {
-  if (status === 'offline' || mode === 'air-gapped') {
+  if (status === 'offline' || status === 'degraded' || mode === 'air-gapped') {
     return {
       label: 'Degraded / Air-Gapped',
       shortLabel: 'Air-Gapped',

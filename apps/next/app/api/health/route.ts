@@ -47,16 +47,15 @@ export async function GET(request: NextRequest) {
     latencyMs = 0;
   }
 
-  const clientIp =
-    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-    request.headers.get('x-real-ip') ||
-    (mode === 'local-mesh' ? '192.168.88.1' : '104.21.48.91');
+  const trustedNodeIp =
+    process.env.SUNSHADE_NODE_IP ||
+    (mode === 'local-mesh' ? '192.168.88.1' : mode === 'air-gapped' ? '127.0.0.1' : '10.240.0.1');
 
   const data: NodeHealthResponse = {
     status,
     mode,
     nodeId: process.env.SUNSHADE_NODE_ID || 'flypack-mesh-alpha-01',
-    nodeIp: clientIp,
+    nodeIp: trustedNodeIp,
     latencyMs,
     bandwidth,
     hubVersion: process.env.NEXT_PUBLIC_APP_VERSION || 'v2.4.1-mesh',

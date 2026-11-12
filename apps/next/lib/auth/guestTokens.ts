@@ -17,15 +17,50 @@ export interface EphemeralLedgerEntry {
   updatedAt: string;
 }
 
+interface StoredLedgerEntry extends EphemeralLedgerEntry {
+  expiresAt: number;
+}
+
 export const GUEST_COOKIE_NAME = 'sunshade_guest_session';
 const DEFAULT_EXPIRATION_SECONDS = 86400; // 24 hours
-const GUEST_JWT_SECRET =
-  process.env.GUEST_JWT_SECRET ||
-  process.env.NEXTAUTH_SECRET ||
-  'sunshade-zero-wan-guest-secret-mesh-2026';
+const MAX_LEDGER_ENTRIES = 5000;
 
-// Ephemeral in-memory ledger store for zero-WAN offline participation
-const ephemeralLedgerStore = new Map<string, EphemeralLedgerEntry>();
+// Ephemeral runtime-generated signing key if no environment secret is configured
+// Prevents known constant signature forgery across deployments
+const RUNTIME_GUEST_SECRET = `guest_sec_${crypto.randomUUID()}_${crypto.randomUUID()}`;
+
+export function getGuestSecret(): string {
+  return (
+    process.env.GUEST_JWT_SECRET ||
+    process.env.SUPABASE_JWT_SECRET ||
+    process.env.NEXTAUTH_SECRET ||
+    RUNTIME_GUEST_SECRET
+  );
+}
+
+// Bounded in-memory ledger store for zero-WAN offline participation with TTL eviction
+const ephemeralLedgerStore = new Map<string, StoredLedgerEntry>();
+
+function pruneExpiredLedgers() {
+  const now = Date.now();
+  ephemeralLedgerStore.forEach((entry, key) => {
+    if (entry.expiresAt < now) {
+      ephemeralLedgerStore.delete(key);
+    }
+  });
+
+  // Evict oldest entries if capacity exceeded
+  if (ephemeralLedgerStore.size > MAX_LEDGER_ENTRIES) {
+    const toRemove = ephemeralLedgerStore.size - MAX_LEDGER_ENTRIES;
+    let count = 0;
+    ephemeralLedgerStore.forEach((_, key) => {
+      if (count < toRemove) {
+        ephemeralLedgerStore.delete(key);
+        count++;
+      }
+    });
+  }
+}
 
 function base64UrlEncodeBytes(bytes: Uint8Array): string {
   let binary = '';
@@ -124,12 +159,12 @@ export async function createGuestToken(options?: {
   const header = { alg: 'HS256', typ: 'JWT' };
   const encodedHeader = base64UrlEncode(JSON.stringify(header));
   const encodedPayload = base64UrlEncode(JSON.stringify(session));
-  const signature = await signHmac(`${encodedHeader}.${encodedPayload}`, GUEST_JWT_SECRET);
+  const signature = await signHmac(`${encodedHeader}.${encodedPayload}`, getGuestSecret());
 
   const token = `${encodedHeader}.${encodedPayload}.${signature}`;
 
   // Automatically provision the initial ephemeral ledger entry
-  provisionGuestLedger(guestUuid, session.starterBalance, session.starterTokens);
+  provisionGuestLedger(guestUuid, session.starterBalance, session.starterTokens, ttl);
 
   return { token, session };
 }
@@ -145,7 +180,7 @@ export async function verifyGuestToken(token?: string | null): Promise<GuestSess
   if (parts.length !== 3) return null;
 
   const [headerB64, payloadB64, signature] = parts;
-  const isValid = await verifyHmac(`${headerB64}.${payloadB64}`, signature, GUEST_JWT_SECRET);
+  const isValid = await verifyHmac(`${headerB64}.${payloadB64}`, signature, getGuestSecret());
   if (!isValid) {
     return null;
   }
@@ -171,26 +206,30 @@ export async function verifyGuestToken(token?: string | null): Promise<GuestSess
 }
 
 /**
- * Provisions or updates an anonymous starter ledger account.
+ * Provisions or updates an anonymous starter ledger account with TTL eviction.
  */
 export function provisionGuestLedger(
   guestId: string,
   balanceUsd = 0.10,
-  tokens = 10
+  tokens = 10,
+  ttlSeconds = DEFAULT_EXPIRATION_SECONDS
 ): EphemeralLedgerEntry {
+  pruneExpiredLedgers();
+
   const existing = ephemeralLedgerStore.get(guestId);
   if (existing) {
     return existing;
   }
 
   const nowIso = new Date().toISOString();
-  const entry: EphemeralLedgerEntry = {
+  const entry: StoredLedgerEntry = {
     guestId,
     balanceUsd,
     tokens,
     allowedApps: ['pukhuk', 'cozy', 'wsw', 'patchwork', 'valerie', 'makerverse'],
     createdAt: nowIso,
     updatedAt: nowIso,
+    expiresAt: Date.now() + ttlSeconds * 1000,
   };
 
   ephemeralLedgerStore.set(guestId, entry);
@@ -201,6 +240,7 @@ export function provisionGuestLedger(
  * Retrieves the ephemeral ledger account for a guest.
  */
 export function getGuestLedger(guestId: string): EphemeralLedgerEntry | null {
+  pruneExpiredLedgers();
   return ephemeralLedgerStore.get(guestId) || null;
 }
 

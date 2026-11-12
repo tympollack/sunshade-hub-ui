@@ -6,12 +6,6 @@ export async function middleware(request: NextRequest) {
   const guestCookie = request.cookies.get(GUEST_COOKIE_NAME);
   const guestSession = guestCookie ? await verifyGuestToken(guestCookie.value) : null;
 
-  // If user visits /login with an active valid guest session and no specific override, redirect to dashboard
-  if (guestSession && request.nextUrl.pathname === '/login') {
-    const returnTo = request.nextUrl.searchParams.get('redirectTo') || '/dashboard';
-    return NextResponse.redirect(new URL(returnTo, request.url), 302);
-  }
-
   // Sub-app routes bypass login prompts when guest session is active
   if (guestSession && request.nextUrl.pathname.startsWith('/games')) {
     const response = NextResponse.next({

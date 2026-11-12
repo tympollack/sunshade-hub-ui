@@ -82,8 +82,16 @@ export function AppCard({ app, onLaunch, priority = false }: AppCardProps) {
     e.preventDefault();
     setIsLaunching(true);
 
+    const targetBase = resolveLaunchUrl(app.launchRoute);
+    const isExternal = !targetBase.startsWith('/') && typeof window !== 'undefined';
+    let newTab: Window | null = null;
+
+    // Retain synchronous user gesture for external links to bypass browser popup blockers
+    if (isExternal && !onLaunch) {
+      newTab = window.open('about:blank', '_blank', 'noopener,noreferrer');
+    }
+
     try {
-      const targetBase = resolveLaunchUrl(app.launchRoute);
       let finalUrl = targetBase;
 
       if (app.ssoSupported) {
@@ -97,17 +105,18 @@ export function AppCard({ app, onLaunch, priority = false }: AppCardProps) {
       }
 
       if (onLaunch) {
+        if (newTab) newTab.close();
         onLaunch(app, finalUrl);
-      } else {
-        if (finalUrl.startsWith('/') && typeof window !== 'undefined') {
-          window.location.href = finalUrl;
-        } else if (typeof window !== 'undefined') {
-          window.open(finalUrl, '_blank', 'noopener,noreferrer');
-        }
+      } else if (newTab) {
+        newTab.location.href = finalUrl;
+      } else if (typeof window !== 'undefined') {
+        window.location.href = finalUrl;
       }
     } catch (err) {
       console.error('Launch failed:', err);
-      if (typeof window !== 'undefined') {
+      if (newTab) {
+        newTab.location.href = app.launchRoute;
+      } else if (typeof window !== 'undefined') {
         window.location.href = app.launchRoute;
       }
     } finally {
