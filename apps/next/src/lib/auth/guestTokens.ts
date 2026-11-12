@@ -1,1 +1,1 @@
-export * from '../../../../lib/auth/guestTokens';
+export * from '../../../lib/auth/guestTokens';

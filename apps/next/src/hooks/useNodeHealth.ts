@@ -1,1 +1,1 @@
-export * from '../../../hooks/useNodeHealth';
+export * from '../../hooks/useNodeHealth';

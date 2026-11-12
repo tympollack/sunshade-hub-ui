@@ -4,7 +4,7 @@ import { verifyGuestToken, GUEST_COOKIE_NAME } from './lib/auth/guestTokens';
 
 export async function middleware(request: NextRequest) {
   const guestCookie = request.cookies.get(GUEST_COOKIE_NAME);
-  const guestSession = guestCookie ? verifyGuestToken(guestCookie.value) : null;
+  const guestSession = guestCookie ? await verifyGuestToken(guestCookie.value) : null;
 
   // If user visits /login with an active valid guest session and no specific override, redirect to dashboard
   if (guestSession && request.nextUrl.pathname === '/login') {

@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const meshNodeId = searchParams.get('mesh_node') || request.headers.get('x-mesh-node') || undefined;
 
   // 1. Generate Instant Cryptographic Guest Token & Session
-  const { token, session } = createGuestToken({
+  const { token, session } = await createGuestToken({
     meshNodeId,
     starterBalance: 0.10, // $0.10 starter balance for instant Puk Huk & Cozy participation
     starterTokens: 10,

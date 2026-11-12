@@ -11,7 +11,7 @@ export default async function SubAppGamePage({ params }: GameRouteParams) {
   const { gameId } = await params;
   const cookieStore = await cookies();
   const guestCookie = cookieStore.get(GUEST_COOKIE_NAME);
-  const guestSession = guestCookie ? verifyGuestToken(guestCookie.value) : null;
+  const guestSession = guestCookie ? await verifyGuestToken(guestCookie.value) : null;
 
   const supabase = await createSSRClient();
   const { data: { user } } = await supabase.auth.getUser();

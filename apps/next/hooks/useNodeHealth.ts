@@ -27,7 +27,7 @@ export function useNodeHealth({
   const [error, setError] = useState<Error | null>(null);
   const [measuredPingMs, setMeasuredPingMs] = useState<number | null>(null);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isMountedRef = useRef<boolean>(true);
 
   const fetchHealth = useCallback(async () => {

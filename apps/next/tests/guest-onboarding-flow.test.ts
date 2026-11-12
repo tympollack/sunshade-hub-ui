@@ -13,8 +13,8 @@ import { middleware } from '../middleware';
 
 describe('Zero-WAN Guest Session Generator & Onboarding Flow', () => {
   describe('Cryptographic Guest Tokens & Ledger', () => {
-    it('generates a cryptographically valid signed JWT with ephemeral UUID and $0.10 starter balance', () => {
-      const { token, session } = createGuestToken({
+    it('generates a cryptographically valid signed JWT with ephemeral UUID and $0.10 starter balance', async () => {
+      const { token, session } = await createGuestToken({
         meshNodeId: 'flypack-mesh-alpha-01',
       });
 
@@ -29,9 +29,9 @@ describe('Zero-WAN Guest Session Generator & Onboarding Flow', () => {
       expect(session.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
     });
 
-    it('verifies a valid token and successfully retrieves session payload', () => {
-      const { token, session } = createGuestToken();
-      const decoded = verifyGuestToken(token);
+    it('verifies a valid token and successfully retrieves session payload', async () => {
+      const { token, session } = await createGuestToken();
+      const decoded = await verifyGuestToken(token);
 
       expect(decoded).not.toBeNull();
       expect(decoded!.sub).toBe(session.sub);
@@ -39,21 +39,21 @@ describe('Zero-WAN Guest Session Generator & Onboarding Flow', () => {
       expect(decoded!.starterBalance).toBe(0.10);
     });
 
-    it('rejects tampered or forged JWT tokens', () => {
-      const { token } = createGuestToken();
-      const [h, p, sig] = token.split('.');
+    it('rejects tampered or forged JWT tokens', async () => {
+      const { token } = await createGuestToken();
+      const [h, p] = token.split('.');
       const forgedToken = `${h}.${p}.forgedSignature1234567890`;
 
-      expect(verifyGuestToken(forgedToken)).toBeNull();
+      expect(await verifyGuestToken(forgedToken)).toBeNull();
     });
 
-    it('rejects expired guest tokens', () => {
-      const { token } = createGuestToken({ ttlSeconds: -10 });
-      expect(verifyGuestToken(token)).toBeNull();
+    it('rejects expired guest tokens', async () => {
+      const { token } = await createGuestToken({ ttlSeconds: -10 });
+      expect(await verifyGuestToken(token)).toBeNull();
     });
 
-    it('provisions and retrieves anonymous ledger account for instant app participation', () => {
-      const { session } = createGuestToken();
+    it('provisions and retrieves anonymous ledger account for instant app participation', async () => {
+      const { session } = await createGuestToken();
       const ledger = getGuestLedger(session.sub);
 
       expect(ledger).not.toBeNull();
@@ -94,7 +94,7 @@ describe('Zero-WAN Guest Session Generator & Onboarding Flow', () => {
       expect(cookie).toBeDefined();
       expect(cookie!.value).toBeTruthy();
 
-      const decoded = verifyGuestToken(cookie!.value);
+      const decoded = await verifyGuestToken(cookie!.value);
       expect(decoded).not.toBeNull();
       expect(decoded!.role).toBe('guest');
       expect(decoded!.starterBalance).toBe(0.10);
@@ -112,7 +112,7 @@ describe('Zero-WAN Guest Session Generator & Onboarding Flow', () => {
 
   describe('Middleware Sub-App & Guest Access Routing', () => {
     it('recognizes guest session cookie on sub-app routes without secondary login prompts', async () => {
-      const { token, session } = createGuestToken();
+      const { token, session } = await createGuestToken();
       const req = new NextRequest('http://localhost:3000/games/pukhuk', {
         headers: {
           cookie: `${GUEST_COOKIE_NAME}=${token}`,
@@ -127,7 +127,7 @@ describe('Zero-WAN Guest Session Generator & Onboarding Flow', () => {
     });
 
     it('redirects guest visitors from /login directly to dashboard', async () => {
-      const { token } = createGuestToken();
+      const { token } = await createGuestToken();
       const req = new NextRequest('http://localhost:3000/login', {
         headers: {
           cookie: `${GUEST_COOKIE_NAME}=${token}`,
