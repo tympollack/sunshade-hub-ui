@@ -42,6 +42,8 @@ import { EdgeNodesView } from './views/EdgeNodesView';
 import { NotificationsModal } from './components/NotificationsModal';
 import { ConnectedServicesGrid } from './components/ConnectedServicesGrid';
 import { SecuritySettingsDrawer } from './components/SecuritySettingsDrawer';
+import { AppRegistryGrid } from '../../components/launchpad/AppCard';
+import { ECOSYSTEM_APPS } from '../../data/ecosystemApps';
 import {
   SkeletonTable,
   GameLibraryCard,
@@ -550,6 +552,22 @@ export default function DashboardClient({
 
                   {/* Connected SunShade Services Directory */}
                   <ConnectedServicesGrid />
+
+                  {/* SunShade Launchpad & Dynamic App Registry */}
+                  <div className="space-y-4" data-testid="launchpad-ecosystem-showcase">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h2 className="text-xl font-bold text-zinc-900 dark:text-white tracking-tight flex items-center gap-2">
+                          <Sparkles className="w-5 h-5 text-orange-500" />
+                          <span>SunShade Ecosystem Launchpad</span>
+                        </h2>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                          High-res directory of offline mesh games, sovereign civic tools, and collaborative creative suites.
+                        </p>
+                      </div>
+                    </div>
+                    <AppRegistryGrid apps={ECOSYSTEM_APPS} />
+                  </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
