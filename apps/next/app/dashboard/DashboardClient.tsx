@@ -42,6 +42,9 @@ import { EdgeNodesView } from './views/EdgeNodesView';
 import { NotificationsModal } from './components/NotificationsModal';
 import { ConnectedServicesGrid } from './components/ConnectedServicesGrid';
 import { SecuritySettingsDrawer } from './components/SecuritySettingsDrawer';
+import { LaunchpadShowcase } from './components/LaunchpadShowcase';
+import { DashboardAchievements } from './components/DashboardAchievements';
+import { NodeStatusPill } from '../../components/header/NodeStatusPill';
 import {
   SkeletonTable,
   GameLibraryCard,
@@ -430,7 +433,9 @@ export default function DashboardClient({
               <img src="/logo-icon.png" alt="Icon" className="w-8 h-8 object-contain md:hidden" />
               <img src="/logo.png" alt="SunShade Systems" className="h-5 object-contain mt-1 hidden sm:block md:hidden" />
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <NodeStatusPill />
+
               <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 hidden lg:block">
                 Welcome back, {currentProfile?.display_name || currentProfile?.email || session?.user?.email || 'Citizen'}
               </span>
@@ -551,6 +556,9 @@ export default function DashboardClient({
                   {/* Connected SunShade Services Directory */}
                   <ConnectedServicesGrid />
 
+                  {/* SunShade Launchpad & Dynamic App Registry */}
+                  <LaunchpadShowcase />
+
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
                       {chessWidget}
@@ -560,71 +568,16 @@ export default function DashboardClient({
                     </div>
                   </div>
 
-                  {/* Hub Achievements table */}
-                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none transition-colors duration-200">
-                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">Global Hub Achievements</h3>
-                    {isLoading ? <SkeletonTable /> : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Status</th>
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Name</th>
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Description</th>
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Reward (HT)</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {hubAchievements.map((ach) => (
-                              <tr key={ach.id} className={`border-b border-zinc-100 dark:border-zinc-800/50 transition-all duration-200 ${userHubUnlocks[ach.id] ? 'opacity-100' : 'opacity-60'}`}>
-                                <td className="p-3">
-                                  <button onClick={() => toggleHubAchievement(ach.id, !!userHubUnlocks[ach.id])} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${userHubUnlocks[ach.id] ? 'bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'}`}>
-                                    {userHubUnlocks[ach.id] ? 'Unlocked' : 'Locked'}
-                                  </button>
-                                </td>
-                                <td className="p-3 font-semibold text-zinc-800 dark:text-zinc-200">{ach.name}</td>
-                                <td className="p-3 text-zinc-600 dark:text-zinc-400">{ach.description}</td>
-                                <td className="p-3 text-orange-600 dark:text-orange-400 font-mono">+{ach.reward_tokens}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Chess Achievements table */}
-                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none transition-colors duration-200">
-                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">SunShade Chess Achievements (Local)</h3>
-                    {isLoading ? <SkeletonTable /> : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Status</th>
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Name</th>
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Description</th>
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Reward (CP)</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {chessAchievements.map((ach) => (
-                              <tr key={ach.id} className={`border-b border-zinc-100 dark:border-zinc-800/50 transition-all duration-200 ${userChessUnlocks[ach.id] ? 'opacity-100' : 'opacity-60'}`}>
-                                <td className="p-3">
-                                  <button onClick={() => toggleChessAchievement(ach.id, !!userChessUnlocks[ach.id])} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${userChessUnlocks[ach.id] ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'}`}>
-                                    {userChessUnlocks[ach.id] ? 'Unlocked' : 'Locked'}
-                                  </button>
-                                </td>
-                                <td className="p-3 font-semibold text-zinc-800 dark:text-zinc-200">{ach.name}</td>
-                                <td className="p-3 text-zinc-600 dark:text-zinc-400">{ach.description}</td>
-                                <td className="p-3 text-blue-600 dark:text-blue-400 font-mono">+{ach.reward_points}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+                  {/* Achievements Tables */}
+                  <DashboardAchievements
+                    isLoading={isLoading}
+                    hubAchievements={hubAchievements}
+                    chessAchievements={chessAchievements}
+                    userHubUnlocks={userHubUnlocks}
+                    userChessUnlocks={userChessUnlocks}
+                    onToggleHubAchievement={toggleHubAchievement}
+                    onToggleChessAchievement={toggleChessAchievement}
+                  />
                 </>
               )}
 
