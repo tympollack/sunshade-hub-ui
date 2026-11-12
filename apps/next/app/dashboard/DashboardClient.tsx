@@ -44,6 +44,7 @@ import { ConnectedServicesGrid } from './components/ConnectedServicesGrid';
 import { SecuritySettingsDrawer } from './components/SecuritySettingsDrawer';
 import { AppRegistryGrid } from '../../components/launchpad/AppCard';
 import { ECOSYSTEM_APPS } from '../../data/ecosystemApps';
+import { NodeStatusPill } from '../../components/header/NodeStatusPill';
 import {
   SkeletonTable,
   GameLibraryCard,
@@ -432,7 +433,9 @@ export default function DashboardClient({
               <img src="/logo-icon.png" alt="Icon" className="w-8 h-8 object-contain md:hidden" />
               <img src="/logo.png" alt="SunShade Systems" className="h-5 object-contain mt-1 hidden sm:block md:hidden" />
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <NodeStatusPill />
+
               <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 hidden lg:block">
                 Welcome back, {currentProfile?.display_name || currentProfile?.email || session?.user?.email || 'Citizen'}
               </span>
