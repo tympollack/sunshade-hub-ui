@@ -41,6 +41,15 @@ describe('Local Node Status & Network Mode Telemetry', () => {
       expect(json.mode).toBe('air-gapped');
       expect(json.status).toBe('degraded');
     });
+
+    it('returns offline status when node is unreachable or force offline is set', async () => {
+      const req = new NextRequest('http://localhost:3000/api/health?offline=true');
+      const res = await healthRoute(req);
+      const json = await res.json();
+      expect(json.status).toBe('offline');
+      expect(json.latencyMs).toBe(0);
+      expect(json.bandwidth).toBe('0 Mbps');
+    });
   });
 
   describe('NodeStatusPill UI Component & Popover', () => {

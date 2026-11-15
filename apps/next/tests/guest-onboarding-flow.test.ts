@@ -112,6 +112,14 @@ describe('Zero-WAN Guest Session Generator & Onboarding Flow', () => {
       expect(res.headers.get('location')).toBe('http://localhost:3000/games/pukhuk');
       expect(res.headers.get('X-Mesh-Node')).toBe('flypack-north-02');
     });
+
+    it('defaults anonymous guest onboarding to /games/pukhuk when no redirect specified', async () => {
+      const req = new NextRequest('http://localhost:3000/claim/guest');
+      const res = await claimGuestRoute(req);
+
+      expect(res.status).toBe(302);
+      expect(res.headers.get('location')).toBe('http://localhost:3000/games/pukhuk');
+    });
   });
 
   describe('Middleware Sub-App & Guest Access Routing', () => {
