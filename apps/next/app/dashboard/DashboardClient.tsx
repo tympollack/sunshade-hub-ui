@@ -33,6 +33,7 @@ import {
   Lock,
   LogOut,
   Sparkles,
+  Share2,
 } from 'lucide-react';
 import { GameDetailsDrawer } from './GameDetailsDrawer';
 import { useHubPresence } from '../../hooks/useHubPresence';
@@ -42,6 +43,7 @@ import { EdgeNodesView } from './views/EdgeNodesView';
 import { NotificationsModal } from './components/NotificationsModal';
 import { ConnectedServicesGrid } from './components/ConnectedServicesGrid';
 import { SecuritySettingsDrawer } from './components/SecuritySettingsDrawer';
+import { BroadcastPreviewDrawer, type BroadcastPostData } from './components/BroadcastPreviewDrawer';
 import {
   SkeletonTable,
   GameLibraryCard,
@@ -121,6 +123,14 @@ export default function DashboardClient({
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [isSecurityDrawerOpen, setIsSecurityDrawerOpen] = useState(false);
+  const [isBroadcastDrawerOpen, setIsBroadcastDrawerOpen] = useState(false);
+  const defaultBroadcastPost: BroadcastPostData = {
+    id: 'hub-staging-preview',
+    title: 'SunShade Network Deliberation Staging',
+    body: 'Reviewing cross-channel broadcasts across Bluesky, LinkedIn, X, and Meta.',
+    canonicalUrl: 'https://hub.sunshade.icu',
+    targetPlatforms: ['bluesky', 'x', 'linkedin', 'meta'],
+  };
   const [inviteCode, setInviteCode] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [submittingInvite, setSubmittingInvite] = useState(false);
@@ -168,6 +178,9 @@ export default function DashboardClient({
       }
       if (params.get('drawer') === 'security') {
         setIsSecurityDrawerOpen(true);
+      }
+      if (params.get('drawer') === 'broadcast' || params.get('drawer') === 'syndication') {
+        setIsBroadcastDrawerOpen(true);
       }
     }
   }, []);
@@ -785,14 +798,25 @@ export default function DashboardClient({
                             Learn how anti-bandwagoning lockboxes, zero-knowledge proofs, and sybil resistance preserve civic consensus.
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setIsSecurityDrawerOpen(true)}
-                          className="px-4 py-2 bg-orange-600/10 hover:bg-orange-600/20 text-orange-600 dark:text-orange-400 border border-orange-500/30 font-semibold rounded-lg transition-colors flex items-center gap-2 text-xs shrink-0"
-                        >
-                          <ShieldCheck size={14} />
-                          <span>View Deliberation Security</span>
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setIsSecurityDrawerOpen(true)}
+                            className="px-4 py-2 bg-orange-600/10 hover:bg-orange-600/20 text-orange-600 dark:text-orange-400 border border-orange-500/30 font-semibold rounded-lg transition-colors flex items-center gap-2 text-xs shrink-0"
+                          >
+                            <ShieldCheck size={14} />
+                            <span>View Deliberation Security</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsBroadcastDrawerOpen(true)}
+                            className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-semibold rounded-lg transition-colors flex items-center gap-2 text-xs shrink-0 shadow-sm shadow-orange-600/20"
+                            data-testid="btn-open-broadcast-drawer"
+                          >
+                            <Share2 size={14} />
+                            <span>Social Broadcast Preview</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -851,6 +875,13 @@ export default function DashboardClient({
         <SecuritySettingsDrawer
           isOpen={isSecurityDrawerOpen}
           onClose={() => setIsSecurityDrawerOpen(false)}
+        />
+
+        {/* Social Broadcast Preview & Override Drawer */}
+        <BroadcastPreviewDrawer
+          isOpen={isBroadcastDrawerOpen}
+          onClose={() => setIsBroadcastDrawerOpen(false)}
+          post={defaultBroadcastPost}
         />
 
         {/* Bottom Nav Mobile */}
