@@ -134,10 +134,12 @@ describe('Onboarding Citizen Verification Flow', () => {
     const beginBtn = screen.getByRole('button', { name: /Begin Verification/i });
     await act(async () => {
       fireEvent.click(beginBtn);
+      await Promise.resolve();
     });
 
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(1200);
+      await Promise.resolve();
     });
 
     // Step 2: Citizen Profile Setup
