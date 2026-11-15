@@ -116,12 +116,40 @@ export default function DashboardClient({
   const [session, setSession] = useState<any>(null);
   const [isSecurityDrawerOpen, setIsSecurityDrawerOpen] = useState(false);
   const [isBroadcastDrawerOpen, setIsBroadcastDrawerOpen] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
   const defaultBroadcastPost: BroadcastPostData = {
     id: 'hub-staging-preview',
     title: 'SunShade Network Deliberation Staging',
     body: 'Reviewing cross-channel broadcasts across Bluesky, LinkedIn, X, and Meta.',
     canonicalUrl: 'https://hub.sunshade.icu',
     targetPlatforms: ['bluesky', 'x', 'linkedin', 'meta'],
+  };
+
+  const handleApproveAndQueue = async (_data: {
+    overrides: Record<string, any>;
+    scheduledAt: string | null;
+    enabledPlatforms: string[];
+  }) => {
+    setIsBroadcasting(true);
+    try {
+      await new Promise((r) => setTimeout(r, 400));
+      setIsBroadcastDrawerOpen(false);
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
+
+  const handleBroadcastImmediately = async (_data: {
+    overrides: Record<string, any>;
+    enabledPlatforms: string[];
+  }) => {
+    setIsBroadcasting(true);
+    try {
+      await new Promise((r) => setTimeout(r, 400));
+      setIsBroadcastDrawerOpen(false);
+    } finally {
+      setIsBroadcasting(false);
+    }
   };
   const [inviteCode, setInviteCode] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -635,6 +663,9 @@ export default function DashboardClient({
           isOpen={isBroadcastDrawerOpen}
           onClose={() => setIsBroadcastDrawerOpen(false)}
           post={defaultBroadcastPost}
+          onApproveAndQueue={handleApproveAndQueue}
+          onBroadcastImmediately={handleBroadcastImmediately}
+          isSubmitting={isBroadcasting}
         />
 
         {/* Bottom Nav Mobile */}

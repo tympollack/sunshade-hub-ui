@@ -9,15 +9,15 @@ import { getValidatedRedirectUrl } from '../../../lib/env';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
-  // Extract redirect target; defaults to /dashboard or /
+  // Extract redirect target; defaults to /games/pukhuk (zero-WAN guest accessible arena)
   const rawTarget =
     searchParams.get('redirectTo') ||
     searchParams.get('redirect_to') ||
     searchParams.get('next') ||
     searchParams.get('returnTo') ||
-    '/dashboard';
+    '/games/pukhuk';
 
-  const validatedTarget = getValidatedRedirectUrl(rawTarget, '/dashboard');
+  const validatedTarget = getValidatedRedirectUrl(rawTarget, '/games/pukhuk');
   const meshNodeId = searchParams.get('mesh_node') || request.headers.get('x-mesh-node') || undefined;
 
   // 1. Generate Instant Cryptographic Guest Token & Session

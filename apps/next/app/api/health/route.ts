@@ -18,7 +18,9 @@ export interface NodeHealthResponse {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const requestedMode = searchParams.get('mode') as NetworkMode | null;
+  const requestedStatus = searchParams.get('status') as HealthStatus | null;
   const forceDegraded = searchParams.get('degraded') === 'true';
+  const forceOffline = searchParams.get('offline') === 'true';
 
   // Determine network mode
   const urlObj = new URL(request.url);
@@ -42,9 +44,35 @@ export async function GET(request: NextRequest) {
   let latencyMs = mode === 'local-mesh' ? 4 : mode === 'wan-gateway' ? 38 : 0;
   let bandwidth = mode === 'local-mesh' ? '120 Mbps (Mesh Peer)' : mode === 'wan-gateway' ? '1 Gbps (WAN Fiber)' : '0 Mbps (Air-Gapped)';
 
-  if (forceDegraded || mode === 'air-gapped') {
+  if (forceOffline) {
+    status = 'offline';
+    latencyMs = 0;
+    bandwidth = '0 Mbps';
+  } else if (requestedStatus && ['healthy', 'degraded', 'offline'].includes(requestedStatus)) {
+    status = requestedStatus;
+    if (status === 'offline') {
+      latencyMs = 0;
+      bandwidth = '0 Mbps';
+    }
+  } else if (forceDegraded || mode === 'air-gapped') {
     status = 'degraded';
     latencyMs = 0;
+  }
+
+  // Active node probe if a telemetry URL is configured
+  if (status === 'healthy' && process.env.SUNSHADE_NODE_HEALTH_URL) {
+    try {
+      const probeRes = await fetch(process.env.SUNSHADE_NODE_HEALTH_URL, {
+        signal: AbortSignal.timeout(1000),
+      });
+      if (!probeRes.ok) {
+        status = 'degraded';
+      }
+    } catch {
+      status = 'offline';
+      latencyMs = 0;
+      bandwidth = '0 Mbps (Unreachable Node)';
+    }
   }
 
   const trustedNodeIp =

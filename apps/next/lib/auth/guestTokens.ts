@@ -34,6 +34,7 @@ export function getGuestSecret(): string {
     process.env.GUEST_JWT_SECRET ||
     process.env.SUPABASE_JWT_SECRET ||
     process.env.NEXTAUTH_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
     RUNTIME_GUEST_SECRET
   );
 }

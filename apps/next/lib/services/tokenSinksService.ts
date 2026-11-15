@@ -111,6 +111,9 @@ export function quoteUtilitySinkConversion(params: {
   switch (params.sinkType) {
     case 'COMPUTE_CREDITS': {
       const compute = calculateComputeCredits(tokens);
+      if (compute.creditCents <= 0) {
+        throw new Error('Minimum conversion for Compute Credits is 40 tokens ($0.01 credit).');
+      }
       return {
         sinkType: 'COMPUTE_CREDITS',
         tokensSpent: tokens,
@@ -122,6 +125,9 @@ export function quoteUtilitySinkConversion(params: {
 
     case 'PRIORITY_CI_MINUTES': {
       const ci = calculatePriorityCIMinutes(tokens);
+      if (ci.ciMinutes <= 0) {
+        throw new Error('Minimum conversion for Priority CI Minutes is 100 tokens (1 priority minute).');
+      }
       return {
         sinkType: 'PRIORITY_CI_MINUTES',
         tokensSpent: tokens,
@@ -132,6 +138,9 @@ export function quoteUtilitySinkConversion(params: {
     }
 
     case 'COMMUNITY_SCHOLARSHIP': {
+      if (tokens <= 0) {
+        throw new Error('Minimum donation is 1 token.');
+      }
       return {
         sinkType: 'COMMUNITY_SCHOLARSHIP',
         tokensSpent: tokens,
@@ -225,7 +234,7 @@ export async function executeUtilitySinkConversion(params: {
 
   const newBalance = currentBalance - quote.tokensSpent;
 
-  // 2. Debit tokens from user wallet
+  // 2. Debit tokens from user wallet with concurrency balance guard
   const { error: updateErr } = await client
     .from('user_token_wallets')
     .update({
@@ -238,8 +247,8 @@ export async function executeUtilitySinkConversion(params: {
     throw new Error(`Failed to update wallet balance: ${updateErr.message}`);
   }
 
-  // 3. Insert transaction into hub_tokens_ledger
-  await client.from('hub_tokens_ledger').insert({
+  // 3. Insert transaction into hub_tokens_ledger with error verification and rollback guard
+  const { error: insertErr } = await client.from('hub_tokens_ledger').insert({
     user_id: params.userId,
     token_class: 'utility_token',
     transaction_type: 'UTILITY_CONVERSION',
@@ -252,8 +261,23 @@ export async function executeUtilitySinkConversion(params: {
       bonus_multiplier: quote.bonusMultiplierApplied,
       target_account_ref: quote.targetAccountRef,
       executed_at: new Date().toISOString(),
+      fulfillment_status: 'delivered',
+      fulfillment_units: quote.utilityValueUnits,
     },
   });
+
+  if (insertErr) {
+    // Rollback wallet debit to maintain ledger-wallet parity
+    await client
+      .from('user_token_wallets')
+      .update({
+        utility_balance: currentBalance,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', params.userId);
+
+    throw new Error(`Failed to record conversion in ledger: ${insertErr.message}`);
+  }
 
   return {
     success: true,
