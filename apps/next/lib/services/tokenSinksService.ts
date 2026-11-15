@@ -214,6 +214,34 @@ export async function executeUtilitySinkConversion(params: {
     };
   }
 
+  // Primary Path: If atomic RPC is available, execute in a single database transaction
+  if (typeof client.rpc === 'function') {
+    const { data: rpcData, error: rpcErr } = await client.rpc('execute_utility_sink_conversion', {
+      p_user_id: params.userId,
+      p_tokens_spent: quote.tokensSpent,
+      p_sink_type: quote.sinkType,
+      p_yield_label: quote.utilityYieldLabel,
+      p_value_units: quote.utilityValueUnits,
+      p_bonus_multiplier: quote.bonusMultiplierApplied,
+      p_target_account_ref: quote.targetAccountRef,
+    });
+
+    if (!rpcErr && rpcData?.success) {
+      const remaining = Number(rpcData.remaining_balance ?? 0);
+      return {
+        success: true,
+        fulfilled: true,
+        conversion: quote,
+        remainingBalance: remaining,
+        message: `Successfully fulfilled conversion of ${quote.tokensSpent.toLocaleString()} tokens into ${quote.utilityYieldLabel}. Remaining balance: ${remaining.toLocaleString()} tokens.`,
+      };
+    }
+
+    if (rpcErr && !rpcErr.message?.includes('function') && !rpcErr.message?.includes('does not exist')) {
+      throw new Error(rpcErr.message);
+    }
+  }
+
   // 1. Fetch user wallet balance
   const { data: wallet, error: walletErr } = await client
     .from('user_token_wallets')
@@ -234,20 +262,26 @@ export async function executeUtilitySinkConversion(params: {
 
   const newBalance = currentBalance - quote.tokensSpent;
 
-  // 2. Debit tokens from user wallet with concurrency balance guard
-  const { error: updateErr } = await client
+  // 2. Debit tokens from user wallet with strict optimistic concurrency balance guard
+  const { data: updatedRows, error: updateErr } = await client
     .from('user_token_wallets')
     .update({
       utility_balance: newBalance,
       updated_at: new Date().toISOString(),
     })
-    .eq('user_id', params.userId);
+    .eq('user_id', params.userId)
+    .eq('utility_balance', currentBalance)
+    .select('utility_balance');
 
   if (updateErr) {
     throw new Error(`Failed to update wallet balance: ${updateErr.message}`);
   }
 
-  // 3. Insert transaction into hub_tokens_ledger with error verification and rollback guard
+  if (Array.isArray(updatedRows) && updatedRows.length === 0) {
+    throw new Error('Concurrent wallet modification detected. Please retry your conversion.');
+  }
+
+  // 3. Insert transaction into hub_tokens_ledger with error verification and conditional rollback guard
   const { error: insertErr } = await client.from('hub_tokens_ledger').insert({
     user_id: params.userId,
     token_class: 'utility_token',
@@ -267,16 +301,31 @@ export async function executeUtilitySinkConversion(params: {
   });
 
   if (insertErr) {
-    // Rollback wallet debit to maintain ledger-wallet parity
-    await client
+    // Conditional rollback: only restore if the balance has not been modified by an intervening transaction
+    const { data: rollbackData, error: rollbackErr } = await client
       .from('user_token_wallets')
       .update({
         utility_balance: currentBalance,
         updated_at: new Date().toISOString(),
       })
-      .eq('user_id', params.userId);
+      .eq('user_id', params.userId)
+      .eq('utility_balance', newBalance)
+      .select('utility_balance');
 
-    throw new Error(`Failed to record conversion in ledger: ${insertErr.message}`);
+    const rollbackSucceeded =
+      !rollbackErr &&
+      (rollbackData === undefined ||
+        (Array.isArray(rollbackData) ? rollbackData.length > 0 : Boolean(rollbackData)));
+
+    if (!rollbackSucceeded) {
+      throw new Error(
+        `CRITICAL_RECONCILIATION_REQUIRED: Failed to record conversion in ledger (${insertErr.message}) and automated balance rollback failed (${rollbackErr?.message || 'intervening balance change detected'}). User ${params.userId} debited ${quote.tokensSpent} tokens without confirmed ledger record.`
+      );
+    }
+
+    throw new Error(
+      `Failed to record conversion in ledger: ${insertErr.message}. Wallet debit was safely rolled back.`
+    );
   }
 
   return {

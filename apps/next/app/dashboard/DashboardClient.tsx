@@ -125,28 +125,74 @@ export default function DashboardClient({
     targetPlatforms: ['bluesky', 'x', 'linkedin', 'meta'],
   };
 
-  const handleApproveAndQueue = async (_data: {
+  const handleApproveAndQueue = async (data: {
     overrides: Record<string, any>;
     scheduledAt: string | null;
     enabledPlatforms: string[];
   }) => {
     setIsBroadcasting(true);
     try {
-      await new Promise((r) => setTimeout(r, 400));
+      const res = await fetch('/api/broadcast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          postId: defaultBroadcastPost.id,
+          action: 'queue',
+          title: defaultBroadcastPost.title,
+          body: defaultBroadcastPost.body,
+          canonicalUrl: defaultBroadcastPost.canonicalUrl,
+          overrides: data.overrides,
+          scheduledAt: data.scheduledAt,
+          enabledPlatforms: data.enabledPlatforms,
+        }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Failed to queue broadcast post');
+      }
       setIsBroadcastDrawerOpen(false);
+    } catch (err: any) {
+      console.error('[Broadcast] Queue failed:', err);
+      alert(`Broadcast queue error: ${err.message || 'Submission failed'}`);
     } finally {
       setIsBroadcasting(false);
     }
   };
 
-  const handleBroadcastImmediately = async (_data: {
+  const handleBroadcastImmediately = async (data: {
     overrides: Record<string, any>;
     enabledPlatforms: string[];
   }) => {
     setIsBroadcasting(true);
     try {
-      await new Promise((r) => setTimeout(r, 400));
+      const res = await fetch('/api/broadcast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          postId: defaultBroadcastPost.id,
+          action: 'broadcast_now',
+          title: defaultBroadcastPost.title,
+          body: defaultBroadcastPost.body,
+          canonicalUrl: defaultBroadcastPost.canonicalUrl,
+          overrides: data.overrides,
+          scheduledAt: null,
+          enabledPlatforms: data.enabledPlatforms,
+        }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Failed to dispatch broadcast');
+      }
       setIsBroadcastDrawerOpen(false);
+    } catch (err: any) {
+      console.error('[Broadcast] Immediate dispatch failed:', err);
+      alert(`Broadcast dispatch error: ${err.message || 'Submission failed'}`);
     } finally {
       setIsBroadcasting(false);
     }
