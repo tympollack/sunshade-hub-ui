@@ -10,7 +10,6 @@ import {
   TokenBalanceBadge,
   PrimaryButton, Skeleton,
 } from '@digitalcanopy/ui';
-import { useTheme } from 'next-themes';
 import { OTAManager } from './OTAManager';
 import {
   LayoutDashboard,
@@ -23,15 +22,7 @@ import {
   TrendingUp,
   Shield,
   History,
-  Sun,
-  Moon,
-  Key,
-  Copy,
-  Check,
   User,
-  ShieldCheck,
-  Lock,
-  LogOut,
   Sparkles,
 } from 'lucide-react';
 import { GameDetailsDrawer } from './GameDetailsDrawer';
@@ -39,9 +30,14 @@ import { useHubPresence } from '../../hooks/useHubPresence';
 import { ProfileView } from './views/ProfileView';
 import { MedicalVaultView } from './views/MedicalVaultView';
 import { EdgeNodesView } from './views/EdgeNodesView';
+import { SettingsView } from './views/SettingsView';
 import { NotificationsModal } from './components/NotificationsModal';
 import { ConnectedServicesGrid } from './components/ConnectedServicesGrid';
 import { SecuritySettingsDrawer } from './components/SecuritySettingsDrawer';
+import { BroadcastPreviewDrawer, type BroadcastPostData } from './components/BroadcastPreviewDrawer';
+import { LaunchpadShowcase } from './components/LaunchpadShowcase';
+import { DashboardAchievements } from './components/DashboardAchievements';
+import { NodeStatusPill } from '../../components/header/NodeStatusPill';
 import {
   SkeletonTable,
   GameLibraryCard,
@@ -118,9 +114,89 @@ export default function DashboardClient({
   const [userHubUnlocks, setUserHubUnlocks] = useState<Record<string, boolean>>(initialUserHubUnlocks);
   const [isLoading, setIsLoading] = useState(false);
   const [session, setSession] = useState<any>(null);
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [isSecurityDrawerOpen, setIsSecurityDrawerOpen] = useState(false);
+  const [isBroadcastDrawerOpen, setIsBroadcastDrawerOpen] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const defaultBroadcastPost: BroadcastPostData = {
+    id: 'hub-staging-preview',
+    title: 'SunShade Network Deliberation Staging',
+    body: 'Reviewing cross-channel broadcasts across Bluesky, LinkedIn, X, and Meta.',
+    canonicalUrl: 'https://hub.sunshade.icu',
+    targetPlatforms: ['bluesky', 'x', 'linkedin', 'meta'],
+  };
+
+  const handleApproveAndQueue = async (data: {
+    overrides: Record<string, any>;
+    scheduledAt: string | null;
+    enabledPlatforms: string[];
+  }) => {
+    setIsBroadcasting(true);
+    try {
+      const res = await fetch('/api/broadcast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          postId: defaultBroadcastPost.id,
+          action: 'queue',
+          title: defaultBroadcastPost.title,
+          body: defaultBroadcastPost.body,
+          canonicalUrl: defaultBroadcastPost.canonicalUrl,
+          overrides: data.overrides,
+          scheduledAt: data.scheduledAt,
+          enabledPlatforms: data.enabledPlatforms,
+        }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Failed to queue broadcast post');
+      }
+      setIsBroadcastDrawerOpen(false);
+    } catch (err: any) {
+      console.error('[Broadcast] Queue failed:', err);
+      alert(`Broadcast queue error: ${err.message || 'Submission failed'}`);
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
+
+  const handleBroadcastImmediately = async (data: {
+    overrides: Record<string, any>;
+    enabledPlatforms: string[];
+  }) => {
+    setIsBroadcasting(true);
+    try {
+      const res = await fetch('/api/broadcast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          postId: defaultBroadcastPost.id,
+          action: 'broadcast_now',
+          title: defaultBroadcastPost.title,
+          body: defaultBroadcastPost.body,
+          canonicalUrl: defaultBroadcastPost.canonicalUrl,
+          overrides: data.overrides,
+          scheduledAt: null,
+          enabledPlatforms: data.enabledPlatforms,
+        }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Failed to dispatch broadcast');
+      }
+      setIsBroadcastDrawerOpen(false);
+    } catch (err: any) {
+      console.error('[Broadcast] Immediate dispatch failed:', err);
+      alert(`Broadcast dispatch error: ${err.message || 'Submission failed'}`);
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
   const [inviteCode, setInviteCode] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [submittingInvite, setSubmittingInvite] = useState(false);
@@ -138,22 +214,11 @@ export default function DashboardClient({
     }
   });
 
-  // Auth Code State
-  const [requestCodeSubmitted, setRequestCodeSubmitted] = useState(false);
-  const [isGeneratingUserCode, setIsGeneratingUserCode] = useState(false);
-
-  // In-portal Password Update State
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordStatus, setPasswordStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [updatingPassword, setUpdatingPassword] = useState(false);
-
   useEffect(() => {
     setCurrentProfile(profile);
   }, [profile]);
 
   useEffect(() => {
-    setMounted(true);
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
@@ -168,6 +233,9 @@ export default function DashboardClient({
       }
       if (params.get('drawer') === 'security') {
         setIsSecurityDrawerOpen(true);
+      }
+      if (params.get('drawer') === 'broadcast' || params.get('drawer') === 'syndication') {
+        setIsBroadcastDrawerOpen(true);
       }
     }
   }, []);
@@ -191,60 +259,6 @@ export default function DashboardClient({
   };
 
   const unreadNotificationsCount = notificationsList.filter((n) => !readNotificationIds.has(n.id)).length;
-
-  const handleRequestUserCode = async () => {
-    const userEmail = session?.user?.email;
-    if (!userEmail) {
-      alert('Your account email could not be found. Please sign in again.');
-      return;
-    }
-
-    setIsGeneratingUserCode(true);
-    try {
-      const res = await fetch('/api/auth/request-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: userEmail, note: 'Requested from Dashboard Settings' }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        throw new Error(data.error || 'Failed to submit code request');
-      }
-      setRequestCodeSubmitted(true);
-    } catch (err: any) {
-      alert(err.message || 'Error submitting code request');
-    } finally {
-      setIsGeneratingUserCode(false);
-    }
-  };
-
-  const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordStatus(null);
-
-    if (newPassword.length < 8) {
-      setPasswordStatus({ type: 'error', text: 'Password must be at least 8 characters long.' });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordStatus({ type: 'error', text: 'Passwords do not match.' });
-      return;
-    }
-
-    setUpdatingPassword(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      setPasswordStatus({ type: 'success', text: 'Password updated successfully!' });
-      setNewPassword('');
-      setConfirmPassword('');
-      setTimeout(() => setPasswordStatus(null), 5000);
-    } catch (err: any) {
-      setPasswordStatus({ type: 'error', text: err.message || 'Failed to update password.' });
-    } finally {
-      setUpdatingPassword(false);
-    }
-  };
 
   const { onlineCount } = useHubPresence(session?.user?.id);
 
@@ -430,7 +444,9 @@ export default function DashboardClient({
               <img src="/logo-icon.png" alt="Icon" className="w-8 h-8 object-contain md:hidden" />
               <img src="/logo.png" alt="SunShade Systems" className="h-5 object-contain mt-1 hidden sm:block md:hidden" />
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <NodeStatusPill />
+
               <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 hidden lg:block">
                 Welcome back, {currentProfile?.display_name || currentProfile?.email || session?.user?.email || 'Citizen'}
               </span>
@@ -551,6 +567,9 @@ export default function DashboardClient({
                   {/* Connected SunShade Services Directory */}
                   <ConnectedServicesGrid />
 
+                  {/* SunShade Launchpad & Dynamic App Registry */}
+                  <LaunchpadShowcase />
+
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
                       {chessWidget}
@@ -560,71 +579,16 @@ export default function DashboardClient({
                     </div>
                   </div>
 
-                  {/* Hub Achievements table */}
-                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none transition-colors duration-200">
-                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">Global Hub Achievements</h3>
-                    {isLoading ? <SkeletonTable /> : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Status</th>
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Name</th>
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Description</th>
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Reward (HT)</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {hubAchievements.map((ach) => (
-                              <tr key={ach.id} className={`border-b border-zinc-100 dark:border-zinc-800/50 transition-all duration-200 ${userHubUnlocks[ach.id] ? 'opacity-100' : 'opacity-60'}`}>
-                                <td className="p-3">
-                                  <button onClick={() => toggleHubAchievement(ach.id, !!userHubUnlocks[ach.id])} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${userHubUnlocks[ach.id] ? 'bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'}`}>
-                                    {userHubUnlocks[ach.id] ? 'Unlocked' : 'Locked'}
-                                  </button>
-                                </td>
-                                <td className="p-3 font-semibold text-zinc-800 dark:text-zinc-200">{ach.name}</td>
-                                <td className="p-3 text-zinc-600 dark:text-zinc-400">{ach.description}</td>
-                                <td className="p-3 text-orange-600 dark:text-orange-400 font-mono">+{ach.reward_tokens}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Chess Achievements table */}
-                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-6 shadow-sm dark:shadow-none transition-colors duration-200">
-                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">SunShade Chess Achievements (Local)</h3>
-                    {isLoading ? <SkeletonTable /> : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Status</th>
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Name</th>
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Description</th>
-                              <th className="p-3 text-zinc-500 dark:text-zinc-400 font-medium">Reward (CP)</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {chessAchievements.map((ach) => (
-                              <tr key={ach.id} className={`border-b border-zinc-100 dark:border-zinc-800/50 transition-all duration-200 ${userChessUnlocks[ach.id] ? 'opacity-100' : 'opacity-60'}`}>
-                                <td className="p-3">
-                                  <button onClick={() => toggleChessAchievement(ach.id, !!userChessUnlocks[ach.id])} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${userChessUnlocks[ach.id] ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'}`}>
-                                    {userChessUnlocks[ach.id] ? 'Unlocked' : 'Locked'}
-                                  </button>
-                                </td>
-                                <td className="p-3 font-semibold text-zinc-800 dark:text-zinc-200">{ach.name}</td>
-                                <td className="p-3 text-zinc-600 dark:text-zinc-400">{ach.description}</td>
-                                <td className="p-3 text-blue-600 dark:text-blue-400 font-mono">+{ach.reward_points}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+                  {/* Achievements Tables */}
+                  <DashboardAchievements
+                    isLoading={isLoading}
+                    hubAchievements={hubAchievements}
+                    chessAchievements={chessAchievements}
+                    userHubUnlocks={userHubUnlocks}
+                    userChessUnlocks={userChessUnlocks}
+                    onToggleHubAchievement={toggleHubAchievement}
+                    onToggleChessAchievement={toggleChessAchievement}
+                  />
                 </>
               )}
 
@@ -712,124 +676,11 @@ export default function DashboardClient({
 
               {/* SETTINGS VIEW */}
               {activeView === 'Settings' && (
-                <div className="max-w-2xl mx-auto w-full space-y-6 pb-12">
-                  <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Account Settings & Security</h2>
-
-                  <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl overflow-hidden shadow-sm dark:shadow-none divide-y divide-zinc-200 dark:divide-zinc-800/60">
-                    {/* Appearance */}
-                    <div className="p-6">
-                      <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Appearance</h3>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-zinc-800 dark:text-zinc-200">Theme</p>
-                          <p className="text-sm text-zinc-500 dark:text-zinc-400">Toggle light or dark mode</p>
-                        </div>
-                        {mounted && (
-                          <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium rounded-lg transition-colors flex items-center gap-2">
-                            {theme === 'dark' ? <><Sun size={16} /> Light Mode</> : <><Moon size={16} /> Dark Mode</>}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Change Password in Settings */}
-                    <div className="p-6 space-y-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-1">Security & Password</h3>
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400">Update your citizen account password securely.</p>
-                      </div>
-
-                      {passwordStatus && (
-                        <div className={`p-3 rounded-lg text-xs font-semibold ${passwordStatus.type === 'success' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
-                          {passwordStatus.text}
-                        </div>
-                      )}
-
-                      <form onSubmit={handleUpdatePassword} className="space-y-3 max-w-md">
-                        <input
-                          type="password"
-                          placeholder="New Password (min 8 chars)"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          required
-                          className="w-full px-3.5 py-2 text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg outline-none focus:border-orange-500 text-zinc-900 dark:text-zinc-100 transition-colors"
-                        />
-                        <input
-                          type="password"
-                          placeholder="Confirm New Password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          required
-                          className="w-full px-3.5 py-2 text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg outline-none focus:border-orange-500 text-zinc-900 dark:text-zinc-100 transition-colors"
-                        />
-                        <button
-                          type="submit"
-                          disabled={updatingPassword}
-                          className="px-4 py-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5"
-                        >
-                          <Lock size={14} />
-                          {updatingPassword ? 'Updating Password...' : 'Update Password'}
-                        </button>
-                      </form>
-                    </div>
-
-                    {/* Deliberation Security Architecture */}
-                    <div className="p-6">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:items-center justify-between gap-4">
-                        <div>
-                          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-1 flex items-center gap-2">
-                            <ShieldCheck className="text-orange-500 w-5 h-5 shrink-0" />
-                            <span>How We Protect Deliberation</span>
-                          </h3>
-                          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                            Learn how anti-bandwagoning lockboxes, zero-knowledge proofs, and sybil resistance preserve civic consensus.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setIsSecurityDrawerOpen(true)}
-                          className="px-4 py-2 bg-orange-600/10 hover:bg-orange-600/20 text-orange-600 dark:text-orange-400 border border-orange-500/30 font-semibold rounded-lg transition-colors flex items-center gap-2 text-xs shrink-0"
-                        >
-                          <ShieldCheck size={14} />
-                          <span>View Deliberation Security</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* User Auth Code */}
-                    <div className="p-6">
-                      <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">User Auth Code</h3>
-                      <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Request an 8-character auth code from admins to sign in on another device or grant Hub access.</p>
-
-                      {requestCodeSubmitted ? (
-                        <div className="bg-emerald-500/10 border border-emerald-500/40 rounded-xl p-4 flex items-center gap-3">
-                          <Check className="text-emerald-400 shrink-0" size={20} />
-                          <div>
-                            <span className="text-sm font-semibold text-emerald-400 block">Request Submitted</span>
-                            <span className="text-xs text-zinc-400 block">An admin will review your request and issue an 8-character auth code.</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={handleRequestUserCode}
-                          disabled={isGeneratingUserCode}
-                          className="px-4 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-lg transition-colors flex items-center gap-2 text-sm disabled:opacity-50"
-                        >
-                          <Key size={16} />
-                          {isGeneratingUserCode ? 'Submitting Request...' : 'Request User Code'}
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Account Actions */}
-                    <div className="p-6">
-                      <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Account Actions</h3>
-                      <button onClick={() => supabase.auth.signOut()} className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-medium rounded-lg transition-colors flex items-center gap-2 text-sm">
-                        <LogOut size={16} /> Sign Out
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <SettingsView
+                  session={session}
+                  onOpenSecurityDrawer={() => setIsSecurityDrawerOpen(true)}
+                  onOpenBroadcastDrawer={() => setIsBroadcastDrawerOpen(true)}
+                />
               )}
 
             </div>
@@ -851,6 +702,16 @@ export default function DashboardClient({
         <SecuritySettingsDrawer
           isOpen={isSecurityDrawerOpen}
           onClose={() => setIsSecurityDrawerOpen(false)}
+        />
+
+        {/* Social Broadcast Preview & Override Drawer */}
+        <BroadcastPreviewDrawer
+          isOpen={isBroadcastDrawerOpen}
+          onClose={() => setIsBroadcastDrawerOpen(false)}
+          post={defaultBroadcastPost}
+          onApproveAndQueue={handleApproveAndQueue}
+          onBroadcastImmediately={handleBroadcastImmediately}
+          isSubmitting={isBroadcasting}
         />
 
         {/* Bottom Nav Mobile */}

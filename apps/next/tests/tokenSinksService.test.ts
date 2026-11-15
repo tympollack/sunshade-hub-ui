@@ -1,0 +1,393 @@
+import { describe, it, expect, vi } from 'vitest';
+import {
+  calculateComputeCredits,
+  calculatePriorityCIMinutes,
+  quoteUtilitySinkConversion,
+  executeUtilitySinkConversion,
+  UTILITY_BONUS_MULTIPLIER,
+  DEV_MERCH_CATALOG,
+} from '../lib/services/tokenSinksService';
+
+describe('TASK-HUB-ECOSYSTEM-TOKEN-SINKS: Native Utility Token Sinks', () => {
+  describe('calculateComputeCredits (1.25x internal bonus value)', () => {
+    it('applies a 1.25x value multiplier giving $1.25 of AI compute for 10,000 tokens', () => {
+      expect(UTILITY_BONUS_MULTIPLIER).toBe(1.25);
+
+      const res = calculateComputeCredits(10000);
+      expect(res.tokensSpent).toBe(10000);
+      expect(res.creditDollars).toBe(1.25);
+      expect(res.creditCents).toBe(125);
+      expect(res.bonusPercent).toBe('+25%');
+    });
+
+    it('accurately scales compute credits for 100,000 tokens ($12.50)', () => {
+      const res = calculateComputeCredits(100000);
+      expect(res.creditDollars).toBe(12.5);
+      expect(res.creditCents).toBe(1250);
+    });
+  });
+
+  describe('calculatePriorityCIMinutes', () => {
+    it('awards 1 priority runner minute per 100 tokens spent', () => {
+      const res1 = calculatePriorityCIMinutes(10000);
+      expect(res1.ciMinutes).toBe(100);
+
+      const res2 = calculatePriorityCIMinutes(50000);
+      expect(res2.ciMinutes).toBe(500);
+    });
+  });
+
+  describe('quoteUtilitySinkConversion', () => {
+    it('quotes COMPUTE_CREDITS conversion accurately', () => {
+      const quote = quoteUtilitySinkConversion({
+        sinkType: 'COMPUTE_CREDITS',
+        tokens: 50000,
+      });
+
+      expect(quote.sinkType).toBe('COMPUTE_CREDITS');
+      expect(quote.tokensSpent).toBe(50000);
+      expect(quote.utilityYieldLabel).toContain('$6.25');
+      expect(quote.bonusMultiplierApplied).toBe(1.25);
+    });
+
+    it('quotes PRIORITY_CI_MINUTES conversion accurately', () => {
+      const quote = quoteUtilitySinkConversion({
+        sinkType: 'PRIORITY_CI_MINUTES',
+        tokens: 25000,
+      });
+
+      expect(quote.sinkType).toBe('PRIORITY_CI_MINUTES');
+      expect(quote.utilityYieldLabel).toBe('250 Priority CI Minutes');
+      expect(quote.utilityValueUnits).toBe(250);
+    });
+
+    it('quotes COMMUNITY_SCHOLARSHIP donation to the ecosystem scholarship pool', () => {
+      const quote = quoteUtilitySinkConversion({
+        sinkType: 'COMMUNITY_SCHOLARSHIP',
+        tokens: 100000,
+      });
+
+      expect(quote.sinkType).toBe('COMMUNITY_SCHOLARSHIP');
+      expect(quote.targetAccountRef).toBe('00000000-0000-0000-0000-000000000000');
+      expect(quote.utilityYieldLabel).toContain('100,000 Tokens Donated to Community Scholarship & Bounty Pool');
+    });
+
+    it('validates and quotes physical DEV_MERCHANDISE redemptions', () => {
+      const hoodie = DEV_MERCH_CATALOG.find((i) => i.id === 'sunshade_heavyweight_hoodie')!;
+      expect(hoodie).toBeDefined();
+
+      const quote = quoteUtilitySinkConversion({
+        sinkType: 'DEV_MERCHANDISE',
+        tokens: 300000,
+        merchItemId: hoodie.id,
+      });
+
+      expect(quote.sinkType).toBe('DEV_MERCHANDISE');
+      expect(quote.tokensSpent).toBe(hoodie.tokenPrice);
+      expect(quote.utilityYieldLabel).toBe(hoodie.name);
+    });
+
+    it('throws error when contributor tokens are insufficient for merchandise item', () => {
+      expect(() =>
+        quoteUtilitySinkConversion({
+          sinkType: 'DEV_MERCHANDISE',
+          tokens: 50000, // Hoodie requires 250,000 tokens
+          merchItemId: 'sunshade_heavyweight_hoodie',
+        })
+      ).toThrow('Insufficient tokens for SunShade Contributor Heavyweight Hoodie');
+    });
+
+    it('throws error for invalid merchandise item id', () => {
+      expect(() =>
+        quoteUtilitySinkConversion({
+          sinkType: 'DEV_MERCHANDISE',
+          tokens: 500000,
+          merchItemId: 'non_existent_item',
+        })
+      ).toThrow('Invalid merch item ID: "non_existent_item"');
+    });
+  });
+
+  describe('executeUtilitySinkConversion fulfillment', () => {
+    it('rejects non-finite or non-integer token amounts', async () => {
+      await expect(
+        executeUtilitySinkConversion({
+          userId: 'u-1',
+          sinkType: 'COMPUTE_CREDITS',
+          tokens: 1e400,
+        })
+      ).rejects.toThrow('Redemption token amount must be a finite positive integer.');
+
+      await expect(
+        executeUtilitySinkConversion({
+          userId: 'u-1',
+          sinkType: 'COMPUTE_CREDITS',
+          tokens: 12.5,
+        })
+      ).rejects.toThrow('Redemption token amount must be a finite positive integer.');
+    });
+
+    it('rejects conversion when user wallet balance is insufficient', async () => {
+      const mockClient = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { utility_balance: 5000 },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+
+      await expect(
+        executeUtilitySinkConversion({
+          userId: 'u-1',
+          sinkType: 'COMPUTE_CREDITS',
+          tokens: 10000,
+          customClient: mockClient,
+        })
+      ).rejects.toThrow('Insufficient token balance. You have 5,000 tokens, but 10,000 tokens are required.');
+    });
+
+    it('debits wallet and logs transaction upon successful fulfillment', async () => {
+      const updateChain = {
+        eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        then: vi.fn().mockImplementation((resolve) =>
+          Promise.resolve({ data: [{ utility_balance: 40000 }], error: null }).then(resolve)
+        ),
+      };
+      const updateMock = vi.fn().mockReturnValue(updateChain);
+      const insertMock = vi.fn().mockResolvedValue({ error: null });
+
+      const mockClient = {
+        from: vi.fn((table: string) => {
+          if (table === 'user_token_wallets') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { utility_balance: 50000 },
+                    error: null,
+                  }),
+                }),
+              }),
+              update: updateMock,
+            };
+          }
+          if (table === 'hub_tokens_ledger') {
+            return {
+              insert: insertMock,
+            };
+          }
+          return {} as any;
+        }),
+      };
+
+      const result = await executeUtilitySinkConversion({
+        userId: 'u-contributor',
+        sinkType: 'COMPUTE_CREDITS',
+        tokens: 10000,
+        customClient: mockClient,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.fulfilled).toBe(true);
+      expect(result.remainingBalance).toBe(40000); // 50k - 10k
+      expect(updateMock).toHaveBeenCalled();
+      expect(insertMock).toHaveBeenCalled();
+    });
+
+    it('rejects conversions that yield 0 units (minimum spend guard)', () => {
+      expect(() =>
+        quoteUtilitySinkConversion({
+          sinkType: 'COMPUTE_CREDITS',
+          tokens: 20, // Less than 40 tokens yields $0.00
+        })
+      ).toThrow('Minimum conversion for Compute Credits is 40 tokens ($0.01 credit).');
+
+      expect(() =>
+        quoteUtilitySinkConversion({
+          sinkType: 'PRIORITY_CI_MINUTES',
+          tokens: 50, // Less than 100 tokens yields 0 minutes
+        })
+      ).toThrow('Minimum conversion for Priority CI Minutes is 100 tokens (1 priority minute).');
+    });
+
+    it('rolls back wallet debit when ledger insertion fails', async () => {
+      const updateChain = {
+        eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        then: vi.fn().mockImplementation((resolve) =>
+          Promise.resolve({ data: [{ utility_balance: 50000 }], error: null }).then(resolve)
+        ),
+      };
+      const updateMock = vi.fn().mockReturnValue(updateChain);
+      const insertMock = vi.fn().mockResolvedValue({ error: { message: 'DB Constraint Violation' } });
+
+      const mockClient = {
+        from: vi.fn((table: string) => {
+          if (table === 'user_token_wallets') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { utility_balance: 50000 },
+                    error: null,
+                  }),
+                }),
+              }),
+              update: updateMock,
+            };
+          }
+          if (table === 'hub_tokens_ledger') {
+            return {
+              insert: insertMock,
+            };
+          }
+          return {} as any;
+        }),
+      };
+
+      await expect(
+        executeUtilitySinkConversion({
+          userId: 'u-contributor',
+          sinkType: 'COMPUTE_CREDITS',
+          tokens: 10000,
+          customClient: mockClient,
+        })
+      ).rejects.toThrow('Failed to record conversion in ledger: DB Constraint Violation');
+
+      // Verify rollback update was called to restore original balance (50000)
+      expect(updateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          utility_balance: 50000,
+        })
+      );
+    });
+
+    it('aborts conversion when concurrent wallet modification is detected', async () => {
+      // Return empty array for update data, simulating 0 rows updated due to balance mismatch
+      const updateChain = {
+        eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        then: vi.fn().mockImplementation((resolve) =>
+          Promise.resolve({ data: [], error: null }).then(resolve)
+        ),
+      };
+      const updateMock = vi.fn().mockReturnValue(updateChain);
+
+      const mockClient = {
+        from: vi.fn((table: string) => {
+          if (table === 'user_token_wallets') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { utility_balance: 50000 },
+                    error: null,
+                  }),
+                }),
+              }),
+              update: updateMock,
+            };
+          }
+          return {} as any;
+        }),
+      };
+
+      await expect(
+        executeUtilitySinkConversion({
+          userId: 'u-contributor',
+          sinkType: 'COMPUTE_CREDITS',
+          tokens: 10000,
+          customClient: mockClient,
+        })
+      ).rejects.toThrow('Concurrent wallet modification detected. Please retry your conversion.');
+    });
+
+    it('raises actionable reconciliation error when ledger insert and rollback both fail', async () => {
+      let callCount = 0;
+      const updateMock = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          // First call: initial debit succeeds
+          return {
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            then: (resolve: any) =>
+              Promise.resolve({ data: [{ utility_balance: 40000 }], error: null }).then(resolve),
+          };
+        }
+        // Second call: rollback fails (e.g. balance changed concurrently)
+        return {
+          eq: vi.fn().mockReturnThis(),
+          select: vi.fn().mockReturnThis(),
+          then: (resolve: any) =>
+            Promise.resolve({ data: [], error: null }).then(resolve),
+        };
+      });
+
+      const mockClient = {
+        from: vi.fn((table: string) => {
+          if (table === 'user_token_wallets') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { utility_balance: 50000 },
+                    error: null,
+                  }),
+                }),
+              }),
+              update: updateMock,
+            };
+          }
+          if (table === 'hub_tokens_ledger') {
+            return {
+              insert: vi.fn().mockResolvedValue({ error: { message: 'Ledger table deadlock' } }),
+            };
+          }
+          return {} as any;
+        }),
+      };
+
+      await expect(
+        executeUtilitySinkConversion({
+          userId: 'u-contributor',
+          sinkType: 'COMPUTE_CREDITS',
+          tokens: 10000,
+          customClient: mockClient,
+        })
+      ).rejects.toThrow(/CRITICAL_RECONCILIATION_REQUIRED/);
+    });
+
+    it('executes atomic conversion via database RPC when client.rpc is available', async () => {
+      const rpcMock = vi.fn().mockResolvedValue({
+        data: { success: true, remaining_balance: 40000 },
+        error: null,
+      });
+
+      const mockClient = {
+        rpc: rpcMock,
+      };
+
+      const result = await executeUtilitySinkConversion({
+        userId: 'u-contributor',
+        sinkType: 'COMPUTE_CREDITS',
+        tokens: 10000,
+        customClient: mockClient,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.remainingBalance).toBe(40000);
+      expect(rpcMock).toHaveBeenCalledWith('execute_utility_sink_conversion', expect.objectContaining({
+        p_user_id: 'u-contributor',
+        p_tokens_spent: 10000,
+        p_sink_type: 'COMPUTE_CREDITS',
+      }));
+    });
+  });
+});
