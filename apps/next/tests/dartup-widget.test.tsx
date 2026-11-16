@@ -3,6 +3,10 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WidgetErrorBoundary } from '../components/WidgetErrorBoundary';
 
+const refresh = vi.fn();
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
+vi.mock('next/headers', () => ({ headers: async () => new Headers({ host: 'hub.sunshade.icu' }) }));
+
 vi.mock('@digitalcanopy/supabase', () => ({
   supabase: { auth: { getSession: vi.fn() } },
 }));
@@ -83,5 +87,6 @@ describe('WidgetErrorBoundary isolation', () => {
     expect(screen.getByText('sibling widget')).toBeTruthy();
     expect(screen.getByText('Retry Connection')).toBeTruthy();
     fireEvent.click(screen.getByText('Retry Connection'));
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Crosshair } from 'lucide-react';
+import { headers } from 'next/headers';
 import { createSSRClient } from '../../../utils/supabase/server';
 import { isStagingEnvironment } from '../../../lib/env';
 import { DartUpLaunchButton } from './DartUpLaunchButton';
@@ -57,7 +58,8 @@ export async function DartUpWidget({ userId }: { userId: string | null }) {
     rank = (count ?? 0) + 1;
   }
 
-  const gameUrl = isStagingEnvironment()
+  const requestHost = (await headers()).get('host') ?? undefined;
+  const gameUrl = isStagingEnvironment(requestHost)
     ? 'https://dartup-stag.sunshade.icu'
     : 'https://dartup.sunshade.icu';
 
