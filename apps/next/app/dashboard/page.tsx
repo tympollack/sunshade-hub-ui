@@ -4,6 +4,7 @@ import { getDashboardData } from './data';
 import DashboardClient from './DashboardClient';
 import { WidgetErrorBoundary } from '../../components/WidgetErrorBoundary';
 import { ChessWidget } from './widgets/ChessWidget';
+import { DartUpWidget } from './widgets/DartUpWidget';
 import { EcosystemLogWidget } from './widgets/EcosystemLogWidget';
 import type { Metadata } from 'next';
 
@@ -30,6 +31,13 @@ export default async function DashboardPage() {
           <WidgetErrorBoundary gameName="SunShade Chess">
             <Suspense fallback={<WidgetSkeleton />}>
               <ChessWidget userId={data.userId} />
+            </Suspense>
+          </WidgetErrorBoundary>
+        }
+        dartUpWidget={
+          <WidgetErrorBoundary gameName="Dart Up!">
+            <Suspense fallback={<WidgetSkeleton />}>
+              <DartUpWidget userId={data.userId} />
             </Suspense>
           </WidgetErrorBoundary>
         }

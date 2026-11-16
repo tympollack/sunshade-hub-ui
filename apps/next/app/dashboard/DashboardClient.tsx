@@ -87,6 +87,7 @@ interface DashboardClientProps {
   notifications?: HubNotification[];
   chessWidget: React.ReactNode;
   ecosystemWidget: React.ReactNode;
+  dartUpWidget?: React.ReactNode;
 }
 
 export default function DashboardClient({
@@ -103,6 +104,7 @@ export default function DashboardClient({
   notifications: initialNotifications = [],
   chessWidget,
   ecosystemWidget,
+  dartUpWidget,
 }: DashboardClientProps) {
   const [currentProfile, setCurrentProfile] = useState<DashboardProfile | null>(profile);
   const [activeView, setActiveView] = useState('Overview');
@@ -569,6 +571,8 @@ export default function DashboardClient({
 
                   {/* SunShade Launchpad & Dynamic App Registry */}
                   <LaunchpadShowcase />
+
+                  {dartUpWidget}
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
