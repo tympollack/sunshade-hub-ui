@@ -20,8 +20,13 @@ interface PilotRow {
  * surrounding <WidgetErrorBoundary> renders its localized Retry fallback
  * without affecting sibling Hub widgets.
  */
-export async function DartUpWidget({ userId }: { userId: string | null }) {
-  if (!userId) return null;
+export async function DartUpWidget({
+  userId,
+  guestLaunchEnabled = true,
+}: {
+  userId: string | null;
+  guestLaunchEnabled?: boolean;
+}) {
   const supabase = await createSSRClient();
 
   const [eraRes, pilotRes] = await Promise.all([
@@ -33,12 +38,14 @@ export async function DartUpWidget({ userId }: { userId: string | null }) {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase
-      .schema('dart_up')
-      .from('pilots')
-      .select('callsign, elo_rating')
-      .eq('user_id', userId)
-      .maybeSingle(),
+    userId
+      ? supabase
+          .schema('dart_up')
+          .from('pilots')
+          .select('callsign, elo_rating')
+          .eq('user_id', userId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
   if (eraRes.error) throw new Error(`Dart Up! era lookup failed: ${eraRes.error.message}`);
@@ -75,7 +82,7 @@ export async function DartUpWidget({ userId }: { userId: string | null }) {
           </div>
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Dart Up!</h3>
         </div>
-        <DartUpLaunchButton gameUrl={gameUrl} />
+        <DartUpLaunchButton gameUrl={gameUrl} guestLaunchEnabled={guestLaunchEnabled} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -88,7 +95,9 @@ export async function DartUpWidget({ userId }: { userId: string | null }) {
       </div>
       {!pilot && (
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-4">
-          No pilot profile yet — launch Dart Up! to register your callsign.
+          {userId
+            ? 'No pilot profile yet — launch Dart Up! to register your callsign.'
+            : 'Guest mode — launch Dart Up! to play or authenticate to register your callsign.'}
         </p>
       )}
     </div>

@@ -44,8 +44,13 @@ beforeEach(() => {
 });
 
 describe('DartUpWidget', () => {
-  it('renders null for signed-out users', async () => {
-    expect(await DartUpWidget({ userId: null })).toBeNull();
+  it('renders guest mode for signed-out users', async () => {
+    render(await DartUpWidget({ userId: null }));
+    expect(screen.getByTestId('dartup-widget')).toBeTruthy();
+    expect(screen.getByText('ERA-7')).toBeTruthy();
+    expect(screen.getByText('2.0×')).toBeTruthy();
+    expect(screen.getByText('Unranked')).toBeTruthy();
+    expect(screen.getByText(/Guest mode — launch Dart Up!/i)).toBeTruthy();
   });
 
   it('renders era, threat and rank', async () => {

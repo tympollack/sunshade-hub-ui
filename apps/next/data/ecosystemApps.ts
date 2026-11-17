@@ -105,4 +105,18 @@ export const ECOSYSTEM_APPS: EcosystemApp[] = [
     ctaType: 'Launch',
     ssoSupported: true,
   },
+  {
+    id: 'dartup',
+    name: 'Dart Up!',
+    slug: 'dartup',
+    bio: 'High-altitude atmospheric dogfights, kinetic skirmishes, and sovereign pilot callsign leaderboards.',
+    releaseTag: 'Beta',
+    version: 'v0.9.0',
+    bannerUrl: '/apps/dartup.webp',
+    blurDataUrl: DEFAULT_BLUR_DATA_URL,
+    launchRoute: 'https://dartup.sunshade.icu',
+    category: 'Game',
+    ctaType: 'Play Now',
+    ssoSupported: true,
+  },
 ];
