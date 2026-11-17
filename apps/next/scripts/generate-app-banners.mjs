@@ -56,6 +56,14 @@ const apps = [
     bg2: '#0f172a',
     accent: '#3b82f6',
   },
+  {
+    slug: 'dartup',
+    name: 'Dart Up!',
+    tagline: 'Atmospheric Skirmishes &amp; Dogfights',
+    bg1: '#9a3412',
+    bg2: '#18181b',
+    accent: '#f97316',
+  },
 ];
 
 async function createBanners() {

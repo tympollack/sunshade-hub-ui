@@ -25,7 +25,7 @@ describe('Dynamic App Registry & AppCard Showcase', () => {
     };
   });
 
-  it('contains valid metadata for all 6 required SunShade ecosystem applications', () => {
+  it('contains valid metadata for all 7 required SunShade ecosystem applications', () => {
     const requiredApps = [
       'War: Second Wind',
       'Puk Huk',
@@ -33,9 +33,10 @@ describe('Dynamic App Registry & AppCard Showcase', () => {
       'PatchWork',
       'Project Valerie',
       'Makerverse',
+      'Dart Up!',
     ];
 
-    expect(ECOSYSTEM_APPS.length).toBe(6);
+    expect(ECOSYSTEM_APPS.length).toBe(7);
 
     for (const appName of requiredApps) {
       const app = ECOSYSTEM_APPS.find((a) => a.name === appName);
@@ -96,6 +97,15 @@ describe('Dynamic App Registry & AppCard Showcase', () => {
     expect(grid.className).toContain('sm:grid-cols-2');
     expect(grid.className).toContain('lg:grid-cols-3');
 
-    expect(container.querySelectorAll('[data-testid^="app-card-"]').length).toBe(6);
+    expect(container.querySelectorAll('[data-testid^="app-card-"]').length).toBe(7);
+  });
+
+  it('renders Dart Up! AppCard with Play Now cta and 16:9 banner', () => {
+    const dartApp = ECOSYSTEM_APPS.find((a) => a.id === 'dartup')!;
+    render(<AppCard app={dartApp} />);
+
+    expect(screen.getByText('Dart Up!')).toBeInTheDocument();
+    expect(screen.getByText(dartApp.bio)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Play Now/i })).toBeInTheDocument();
   });
 });

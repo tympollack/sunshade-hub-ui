@@ -13,6 +13,7 @@ export interface AppCardProps {
   app: EcosystemApp;
   onLaunch?: (app: EcosystemApp, redirectUrl: string) => void;
   priority?: boolean;
+  guestLaunchEnabled?: boolean;
 }
 
 export function getAppReleaseBadge(tag: ReleaseTag) {
@@ -74,7 +75,12 @@ export function resolveLaunchUrl(rawRoute: string): string {
   return rawRoute;
 }
 
-export function AppCard({ app, onLaunch, priority = false }: AppCardProps) {
+export function AppCard({
+  app,
+  onLaunch,
+  priority = false,
+  guestLaunchEnabled = true,
+}: AppCardProps) {
   const [isLaunching, setIsLaunching] = useState(false);
   const badge = getAppReleaseBadge(app.releaseTag);
 
@@ -92,6 +98,18 @@ export function AppCard({ app, onLaunch, priority = false }: AppCardProps) {
     }
 
     try {
+      if (guestLaunchEnabled === false) {
+        const { data } = await supabase.auth.getSession();
+        if (!data?.session) {
+          if (newTab) newTab.close();
+          const loginTarget = `/login?redirect=${encodeURIComponent(targetBase)}`;
+          if (typeof window !== 'undefined') {
+            window.location.href = loginTarget;
+          }
+          return;
+        }
+      }
+
       let finalUrl = targetBase;
 
       if (app.ssoSupported) {
@@ -210,12 +228,14 @@ export interface AppRegistryGridProps {
   apps?: EcosystemApp[];
   className?: string;
   onLaunch?: (app: EcosystemApp, redirectUrl: string) => void;
+  guestLaunchEnabled?: boolean;
 }
 
 export function AppRegistryGrid({
   apps = [],
   className = '',
   onLaunch,
+  guestLaunchEnabled = true,
 }: AppRegistryGridProps) {
   return (
     <div
@@ -223,7 +243,13 @@ export function AppRegistryGrid({
       className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 ${className}`}
     >
       {apps.map((app, idx) => (
-        <AppCard key={app.id} app={app} onLaunch={onLaunch} priority={idx < 3} />
+        <AppCard
+          key={app.id}
+          app={app}
+          onLaunch={onLaunch}
+          priority={idx < 3}
+          guestLaunchEnabled={guestLaunchEnabled}
+        />
       ))}
     </div>
   );

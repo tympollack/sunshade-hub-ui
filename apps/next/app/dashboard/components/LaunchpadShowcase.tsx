@@ -8,11 +8,13 @@ import { ECOSYSTEM_APPS, type EcosystemApp } from '../../../data/ecosystemApps';
 export interface LaunchpadShowcaseProps {
   className?: string;
   apps?: EcosystemApp[];
+  guestLaunchEnabled?: boolean;
 }
 
 export function LaunchpadShowcase({
   className = '',
   apps = ECOSYSTEM_APPS,
+  guestLaunchEnabled = true,
 }: LaunchpadShowcaseProps) {
   return (
     <div className={`space-y-4 ${className}`} data-testid="launchpad-ecosystem-showcase">
@@ -27,7 +29,7 @@ export function LaunchpadShowcase({
           </p>
         </div>
       </div>
-      <AppRegistryGrid apps={apps} />
+      <AppRegistryGrid apps={apps} guestLaunchEnabled={guestLaunchEnabled} />
     </div>
   );
 }

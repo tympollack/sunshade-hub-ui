@@ -141,4 +141,5 @@ export interface DashboardData {
   userChessUnlocks: Record<string, boolean>;
   hubEvents: any[];
   notifications: HubNotification[];
+  featureFlags?: Record<string, boolean>;
 }
