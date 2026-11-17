@@ -146,7 +146,7 @@ describe('Guest Launch Feature Flag Restriction', () => {
     const originalLocation = window.location;
     const assignMock = vi.fn();
     delete (window as any).location;
-    window.location = { ...originalLocation, assign: assignMock, href: '' } as any;
+    (window as any).location = { ...originalLocation, assign: assignMock, href: '' };
 
     render(<DartUpLaunchButton gameUrl="https://dartup.sunshade.icu" guestLaunchEnabled={false} />);
     const launchBtn = screen.getByRole('button', { name: /Launch Dart Up!/i });
@@ -158,6 +158,6 @@ describe('Guest Launch Feature Flag Restriction', () => {
       );
     });
 
-    window.location = originalLocation;
+    (window as any).location = originalLocation;
   });
 });
