@@ -36,6 +36,8 @@ import { ConnectedServicesGrid } from './components/ConnectedServicesGrid';
 import { SecuritySettingsDrawer } from './components/SecuritySettingsDrawer';
 import { BroadcastPreviewDrawer, type BroadcastPostData } from './components/BroadcastPreviewDrawer';
 import { LaunchpadShowcase } from './components/LaunchpadShowcase';
+import { ECOSYSTEM_APPS } from '../../data/ecosystemApps';
+import { isFeatureEnabled, filterVisibleLaunchpadApps } from '../../lib/services/featureFlagsService';
 import { DashboardAchievements } from './components/DashboardAchievements';
 import { NodeStatusPill } from '../../components/header/NodeStatusPill';
 import {
@@ -88,6 +90,7 @@ interface DashboardClientProps {
   chessWidget: React.ReactNode;
   ecosystemWidget: React.ReactNode;
   dartUpWidget?: React.ReactNode;
+  featureFlags?: Record<string, boolean>;
 }
 
 export default function DashboardClient({
@@ -105,6 +108,7 @@ export default function DashboardClient({
   chessWidget,
   ecosystemWidget,
   dartUpWidget,
+  featureFlags,
 }: DashboardClientProps) {
   const [currentProfile, setCurrentProfile] = useState<DashboardProfile | null>(profile);
   const [activeView, setActiveView] = useState('Overview');
@@ -119,6 +123,13 @@ export default function DashboardClient({
   const [isSecurityDrawerOpen, setIsSecurityDrawerOpen] = useState(false);
   const [isBroadcastDrawerOpen, setIsBroadcastDrawerOpen] = useState(false);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
+
+  const isDartUpWidgetEnabled = isFeatureEnabled(featureFlags, 'widget_dartup', true);
+  const isChessWidgetEnabled = isFeatureEnabled(featureFlags, 'widget_chess', true);
+  const isEcosystemWidgetEnabled = isFeatureEnabled(featureFlags, 'widget_ecosystem_log', true);
+  const isLaunchpadEnabled = isFeatureEnabled(featureFlags, 'showcase_launchpad', true);
+  const isConnectedServicesEnabled = isFeatureEnabled(featureFlags, 'connected_services', true);
+  const visibleLaunchpadApps = filterVisibleLaunchpadApps(ECOSYSTEM_APPS, featureFlags);
   const defaultBroadcastPost: BroadcastPostData = {
     id: 'hub-staging-preview',
     title: 'SunShade Network Deliberation Staging',
@@ -567,21 +578,27 @@ export default function DashboardClient({
                   </div>
 
                   {/* Connected SunShade Services Directory */}
-                  <ConnectedServicesGrid />
+                  {isConnectedServicesEnabled && <ConnectedServicesGrid />}
 
                   {/* SunShade Launchpad & Dynamic App Registry */}
-                  <LaunchpadShowcase />
+                  {isLaunchpadEnabled && <LaunchpadShowcase apps={visibleLaunchpadApps} />}
 
-                  {dartUpWidget}
+                  {isDartUpWidgetEnabled && dartUpWidget}
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2">
-                      {chessWidget}
+                  {(isChessWidgetEnabled || isEcosystemWidgetEnabled) && (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {isChessWidgetEnabled && (
+                        <div className={isEcosystemWidgetEnabled ? 'lg:col-span-2' : 'lg:col-span-3'}>
+                          {chessWidget}
+                        </div>
+                      )}
+                      {isEcosystemWidgetEnabled && (
+                        <div className={isChessWidgetEnabled ? '' : 'lg:col-span-3'}>
+                          {ecosystemWidget}
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      {ecosystemWidget}
-                    </div>
-                  </div>
+                  )}
 
                   {/* Achievements Tables */}
                   <DashboardAchievements

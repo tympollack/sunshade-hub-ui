@@ -27,6 +27,7 @@ export default async function DashboardPage() {
         userChessUnlocks={data.userChessUnlocks}
         hubEvents={data.hubEvents}
         notifications={data.notifications}
+        featureFlags={data.featureFlags}
         chessWidget={
           <WidgetErrorBoundary gameName="SunShade Chess">
             <Suspense fallback={<WidgetSkeleton />}>

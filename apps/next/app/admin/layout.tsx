@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Activity, LayoutDashboard, Users, CheckSquare } from 'lucide-react';
+import { Activity, LayoutDashboard, Users, CheckSquare, Sliders } from 'lucide-react';
 
 export default function AdminLayout({
   children,
@@ -37,6 +37,10 @@ export default function AdminLayout({
           <Link href="/admin/library" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-zinc-800/50 hover:text-white transition-colors group text-sm">
             <LayoutDashboard size={16} className="text-orange-400 group-hover:text-orange-300" />
             Game Library
+          </Link>
+          <Link href="/admin/flags" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-zinc-800/50 hover:text-white transition-colors group text-sm">
+            <Sliders size={16} className="text-purple-400 group-hover:text-purple-300" />
+            Feature Flags & Cards
           </Link>
         </nav>
 

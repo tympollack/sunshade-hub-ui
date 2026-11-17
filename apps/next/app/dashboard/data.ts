@@ -1,4 +1,5 @@
 import { createSSRClient } from '../../utils/supabase/server';
+import { normalizeFeatureFlags } from '../../lib/services/featureFlagsService';
 import type {
   DashboardProfile,
   EdgeNode,
@@ -12,7 +13,15 @@ import type {
 export async function getDashboardData(): Promise<DashboardData & { userId: string | null }> {
   const supabase = await createSSRClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const [
+    { data: { user } },
+    { data: flagRows },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.from('hub_feature_flags').select('key, enabled').catch(() => ({ data: null })),
+  ]);
+
+  const featureFlags = normalizeFeatureFlags(flagRows);
 
   if (!user) {
     return {
@@ -28,6 +37,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
       userChessUnlocks: {},
       hubEvents: [],
       notifications: [],
+      featureFlags,
     };
   }
 
@@ -257,5 +267,6 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
     userChessUnlocks,
     hubEvents: (eventsRows ?? []) as any[],
     notifications,
+    featureFlags,
   };
 }
