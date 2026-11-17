@@ -20,7 +20,13 @@ interface PilotRow {
  * surrounding <WidgetErrorBoundary> renders its localized Retry fallback
  * without affecting sibling Hub widgets.
  */
-export async function DartUpWidget({ userId }: { userId: string | null }) {
+export async function DartUpWidget({
+  userId,
+  guestLaunchEnabled = true,
+}: {
+  userId: string | null;
+  guestLaunchEnabled?: boolean;
+}) {
   const supabase = await createSSRClient();
 
   const [eraRes, pilotRes] = await Promise.all([
@@ -76,7 +82,7 @@ export async function DartUpWidget({ userId }: { userId: string | null }) {
           </div>
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Dart Up!</h3>
         </div>
-        <DartUpLaunchButton gameUrl={gameUrl} />
+        <DartUpLaunchButton gameUrl={gameUrl} guestLaunchEnabled={guestLaunchEnabled} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

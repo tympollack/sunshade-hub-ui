@@ -18,7 +18,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
     { data: flagRows },
   ] = await Promise.all([
     supabase.auth.getUser(),
-    supabase.from('hub_feature_flags').select('key, enabled').catch(() => ({ data: null })),
+    supabase.from('hub_feature_flags').select('key, enabled'),
   ]);
 
   const featureFlags = normalizeFeatureFlags(flagRows);

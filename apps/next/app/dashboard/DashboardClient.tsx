@@ -129,6 +129,7 @@ export default function DashboardClient({
   const isEcosystemWidgetEnabled = isFeatureEnabled(featureFlags, 'widget_ecosystem_log', true);
   const isLaunchpadEnabled = isFeatureEnabled(featureFlags, 'showcase_launchpad', true);
   const isConnectedServicesEnabled = isFeatureEnabled(featureFlags, 'connected_services', true);
+  const isGuestLaunchEnabled = isFeatureEnabled(featureFlags, 'guest_launch', true);
   const visibleLaunchpadApps = filterVisibleLaunchpadApps(ECOSYSTEM_APPS, featureFlags);
   const defaultBroadcastPost: BroadcastPostData = {
     id: 'hub-staging-preview',
@@ -581,7 +582,7 @@ export default function DashboardClient({
                   {isConnectedServicesEnabled && <ConnectedServicesGrid />}
 
                   {/* SunShade Launchpad & Dynamic App Registry */}
-                  {isLaunchpadEnabled && <LaunchpadShowcase apps={visibleLaunchpadApps} />}
+                  {isLaunchpadEnabled && <LaunchpadShowcase apps={visibleLaunchpadApps} guestLaunchEnabled={isGuestLaunchEnabled} />}
 
                   {isDartUpWidgetEnabled && dartUpWidget}
 

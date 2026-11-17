@@ -36,7 +36,7 @@ export const DEFAULT_HUB_FEATURE_FLAGS: Record<string, boolean> = {
  * Normalizes flags from either an array of HubFeatureFlag records or a key-value record
  */
 export function normalizeFeatureFlags(
-  rawFlags?: HubFeatureFlag[] | Record<string, boolean> | null
+  rawFlags?: Array<{ key: string; enabled: boolean; [key: string]: any }> | Record<string, boolean> | null
 ): Record<string, boolean> {
   const result: Record<string, boolean> = { ...DEFAULT_HUB_FEATURE_FLAGS };
 

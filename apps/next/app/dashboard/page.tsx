@@ -6,12 +6,17 @@ import { WidgetErrorBoundary } from '../../components/WidgetErrorBoundary';
 import { ChessWidget } from './widgets/ChessWidget';
 import { DartUpWidget } from './widgets/DartUpWidget';
 import { EcosystemLogWidget } from './widgets/EcosystemLogWidget';
+import { isFeatureEnabled } from '../../lib/services/featureFlagsService';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = { title: 'Dashboard' };
 
 export default async function DashboardPage() {
   const data = await getDashboardData();
+  const showChess = isFeatureEnabled(data.featureFlags, 'widget_chess', true);
+  const showDartUp = isFeatureEnabled(data.featureFlags, 'widget_dartup', true);
+  const showEcosystemLog = isFeatureEnabled(data.featureFlags, 'widget_ecosystem_log', true);
+  const guestLaunchEnabled = isFeatureEnabled(data.featureFlags, 'guest_launch', true);
 
   return (
     <Suspense fallback={<DashboardSkeleton />}>
@@ -29,25 +34,31 @@ export default async function DashboardPage() {
         notifications={data.notifications}
         featureFlags={data.featureFlags}
         chessWidget={
-          <WidgetErrorBoundary gameName="SunShade Chess">
-            <Suspense fallback={<WidgetSkeleton />}>
-              <ChessWidget userId={data.userId} />
-            </Suspense>
-          </WidgetErrorBoundary>
+          showChess ? (
+            <WidgetErrorBoundary gameName="SunShade Chess">
+              <Suspense fallback={<WidgetSkeleton />}>
+                <ChessWidget userId={data.userId} />
+              </Suspense>
+            </WidgetErrorBoundary>
+          ) : null
         }
         dartUpWidget={
-          <WidgetErrorBoundary gameName="Dart Up!">
-            <Suspense fallback={<WidgetSkeleton />}>
-              <DartUpWidget userId={data.userId} />
-            </Suspense>
-          </WidgetErrorBoundary>
+          showDartUp ? (
+            <WidgetErrorBoundary gameName="Dart Up!">
+              <Suspense fallback={<WidgetSkeleton />}>
+                <DartUpWidget userId={data.userId} guestLaunchEnabled={guestLaunchEnabled} />
+              </Suspense>
+            </WidgetErrorBoundary>
+          ) : null
         }
         ecosystemWidget={
-          <WidgetErrorBoundary gameName="Ecosystem Log">
-            <Suspense fallback={<WidgetSkeleton />}>
-              <EcosystemLogWidget userId={data.userId} />
-            </Suspense>
-          </WidgetErrorBoundary>
+          showEcosystemLog ? (
+            <WidgetErrorBoundary gameName="Ecosystem Log">
+              <Suspense fallback={<WidgetSkeleton />}>
+                <EcosystemLogWidget userId={data.userId} />
+              </Suspense>
+            </WidgetErrorBoundary>
+          ) : null
         }
       />
     </Suspense>

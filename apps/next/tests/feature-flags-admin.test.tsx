@@ -9,13 +9,18 @@ import {
 } from '../lib/services/featureFlagsService';
 import { ECOSYSTEM_APPS } from '../data/ecosystemApps';
 import FlagsClient from '../app/admin/flags/FlagsClient';
+import { DartUpLaunchButton } from '../app/dashboard/widgets/DartUpLaunchButton';
 
 const mockUpsert = vi.fn();
+const mockGetSession = vi.fn(() => Promise.resolve({ data: { session: null }, error: null }));
 vi.mock('@digitalcanopy/supabase', () => ({
   supabase: {
     from: vi.fn(() => ({
       upsert: mockUpsert,
     })),
+    auth: {
+      getSession: () => mockGetSession(),
+    },
   },
 }));
 
@@ -133,5 +138,26 @@ describe('FlagsClient Admin Gateway UI', () => {
     });
 
     expect(mockRefresh).toHaveBeenCalled();
+  });
+});
+
+describe('Guest Launch Feature Flag Restriction', () => {
+  it('redirects signed-out users to login when guest_launch is disabled on DartUpLaunchButton', async () => {
+    const originalLocation = window.location;
+    const assignMock = vi.fn();
+    delete (window as any).location;
+    window.location = { ...originalLocation, assign: assignMock, href: '' } as any;
+
+    render(<DartUpLaunchButton gameUrl="https://dartup.sunshade.icu" guestLaunchEnabled={false} />);
+    const launchBtn = screen.getByRole('button', { name: /Launch Dart Up!/i });
+    fireEvent.click(launchBtn);
+
+    await waitFor(() => {
+      expect(assignMock).toHaveBeenCalledWith(
+        expect.stringContaining('/login?redirect=')
+      );
+    });
+
+    window.location = originalLocation;
   });
 });

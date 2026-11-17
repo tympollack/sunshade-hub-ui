@@ -10,7 +10,13 @@ import { buildTokenRedirectUrl, isValidRedirectUrl } from '../../../lib/env';
  * subdomain via URL hash fragment (never sent to servers / referrers) so the
  * pilot lands already authenticated across *.sunshade.icu / *.madeintheshade.wtf.
  */
-export function DartUpLaunchButton({ gameUrl }: { gameUrl: string }) {
+export function DartUpLaunchButton({
+  gameUrl,
+  guestLaunchEnabled = true,
+}: {
+  gameUrl: string;
+  guestLaunchEnabled?: boolean;
+}) {
   const [launching, setLaunching] = useState(false);
 
   async function handleLaunch() {
@@ -19,6 +25,12 @@ export function DartUpLaunchButton({ gameUrl }: { gameUrl: string }) {
     try {
       const { data, error } = await supabase.auth.getSession();
       if (error) console.error('[DartUpLaunch] getSession failed:', error.message);
+
+      if (!data?.session && guestLaunchEnabled === false) {
+        window.location.assign(`/login?redirect=${encodeURIComponent(gameUrl)}`);
+        return;
+      }
+
       const target = isValidRedirectUrl(gameUrl)
         ? buildTokenRedirectUrl(gameUrl, data?.session)
         : gameUrl;
