@@ -1,0 +1,9 @@
+{
+  "title": "sunshade-hub-ui",
+  "pages": [
+    "index",
+    "architecture",
+    "setup",
+    "whats-new"
+  ]
+}
