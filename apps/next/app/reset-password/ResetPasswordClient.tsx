@@ -16,7 +16,7 @@ import {
   Key,
 } from 'lucide-react';
 import Link from 'next/link';
-import { getValidatedRedirectUrl, isVotaryTarget, buildTokenRedirectUrl } from '../../lib/env';
+import { getValidatedRedirectUrl, isVotaryTarget, buildVotarySsoRedirectUrl } from '../../lib/env';
 
 function getAppNameFromUrl(url: string): string | null {
   try {
@@ -278,11 +278,7 @@ export default function ResetPasswordClient() {
       const host = parsed.hostname.toLowerCase();
 
       if (isVotaryTarget(target) || host === 'votary.app' || host.endsWith('.votary.app')) {
-        if (session?.access_token && session?.refresh_token) {
-          window.location.href = buildTokenRedirectUrl(target, session);
-          return;
-        }
-        window.location.href = target;
+        window.location.href = buildVotarySsoRedirectUrl(target, session);
         return;
       }
 

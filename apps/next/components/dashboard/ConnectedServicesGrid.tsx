@@ -11,8 +11,7 @@ import {
   ShieldCheck,
   CheckCircle2,
 } from 'lucide-react';
-import { supabase } from '@digitalcanopy/supabase';
-import { buildTokenRedirectUrl, isVotaryTarget } from '../../lib/env';
+import { isVotaryTarget } from '../../lib/env';
 
 export interface ConnectedService {
   id: string;
@@ -105,7 +104,7 @@ export function ConnectedServicesGrid({
   className = '',
   services = CONNECTED_SERVICES,
 }: ConnectedServicesGridProps) {
-  const handleServiceLaunch = async (
+  const handleServiceLaunch = (
     e: React.MouseEvent<HTMLAnchorElement>,
     service: ConnectedService
   ) => {
@@ -114,39 +113,9 @@ export function ConnectedServicesGrid({
     }
 
     e.preventDefault();
-    const newTab =
-      typeof window !== 'undefined'
-        ? window.open('about:blank', '_blank', 'noopener,noreferrer')
-        : null;
-
-    const callbackTarget = `${service.url.replace(/\/$/, '')}/auth/callback?return_to=${encodeURIComponent('/')}`;
-    let finalUrl = service.url;
-
-    try {
-      const { data } = await supabase.auth.getSession();
-      let activeSession = data?.session ?? null;
-
-      if (
-        activeSession?.expires_at &&
-        activeSession.expires_at * 1000 < Date.now() + 60_000
-      ) {
-        const { data: refreshed } = await supabase.auth.refreshSession();
-        if (refreshed?.session) {
-          activeSession = refreshed.session;
-        }
-      }
-
-      if (activeSession?.access_token && activeSession?.refresh_token) {
-        finalUrl = buildTokenRedirectUrl(callbackTarget, activeSession);
-      }
-    } catch (err) {
-      console.warn('[ConnectedServicesGrid] SSO session handoff failed, opening direct URL:', err);
-    }
-
-    if (newTab) {
-      newTab.location.href = finalUrl;
-    } else if (typeof window !== 'undefined') {
-      window.open(finalUrl, '_blank', 'noopener,noreferrer');
+    if (typeof window !== 'undefined') {
+      const launchPath = `/launch?target=${encodeURIComponent(service.url)}`;
+      window.open(launchPath, '_blank', 'noopener,noreferrer');
     }
   };
 

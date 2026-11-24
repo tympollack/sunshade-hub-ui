@@ -1,24 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { ConnectedServicesGrid, CONNECTED_SERVICES } from '../components/dashboard/ConnectedServicesGrid';
-
-const mockGetSession = vi.fn().mockResolvedValue({ data: { session: null } });
-const mockRefreshSession = vi.fn().mockResolvedValue({ data: { session: null } });
-
-vi.mock('@digitalcanopy/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: () => mockGetSession(),
-      refreshSession: () => mockRefreshSession(),
-    },
-  },
-}));
 
 describe('ConnectedServicesGrid Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetSession.mockResolvedValue({ data: { session: null } });
   });
 
   it('renders all 5 core SunShade civic services', () => {
@@ -95,19 +82,8 @@ describe('ConnectedServicesGrid Component', () => {
     expect(gridEl).toHaveClass('lg:grid-cols-3');
   });
 
-  it('transfers active SSO session tokens to votary.app/auth/callback when launching The Votary', async () => {
-    mockGetSession.mockResolvedValueOnce({
-      data: {
-        session: {
-          access_token: 'hub_access_jwt_123',
-          refresh_token: 'hub_refresh_456',
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
-        },
-      },
-    });
-
-    const mockNewTab = { location: { href: '' } };
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(mockNewTab as any);
+  it('opens same-origin /launch SSO handoff page in a single synchronous navigation when launching The Votary', () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
 
     try {
       render(<ConnectedServicesGrid />);
@@ -115,12 +91,12 @@ describe('ConnectedServicesGrid Component', () => {
       const votaryLink = votaryCard.querySelector('a')!;
       fireEvent.click(votaryLink);
 
-      await waitFor(() => {
-        expect(openSpy).toHaveBeenCalledWith('about:blank', '_blank', 'noopener,noreferrer');
-        expect(mockNewTab.location.href).toBe(
-          'https://votary.app/auth/callback?return_to=%2F#access_token=hub_access_jwt_123&refresh_token=hub_refresh_456'
-        );
-      });
+      expect(openSpy).toHaveBeenCalledTimes(1);
+      expect(openSpy).toHaveBeenCalledWith(
+        '/launch?target=https%3A%2F%2Fvotary.app',
+        '_blank',
+        'noopener,noreferrer'
+      );
     } finally {
       openSpy.mockRestore();
     }

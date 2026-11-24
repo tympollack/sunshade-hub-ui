@@ -6,7 +6,7 @@ import { supabase } from '@digitalcanopy/supabase';
 import { LoginForm } from '@digitalcanopy/ui';
 import { Sparkles, Compass, Key, ExternalLink, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import { getValidatedRedirectUrl, isVotaryTarget, buildTokenRedirectUrl } from '../../lib/env';
+import { getValidatedRedirectUrl, isVotaryTarget, buildVotarySsoRedirectUrl } from '../../lib/env';
 
 function getAppNameFromUrl(url: string): string | null {
   try {
@@ -72,18 +72,9 @@ export default function LoginClient() {
       const parsed = new URL(target);
       const host = parsed.hostname.toLowerCase();
 
-      // For The Votary, append tokens via URL hash fragment:
-      // ${redirectTo}#access_token=${session.access_token}&refresh_token=${session.refresh_token}
+      // For The Votary, route through /auth/callback and append tokens via URL hash fragment
       if (isVotaryTarget(target) || host === 'votary.app' || host.endsWith('.votary.app')) {
-        let votaryTarget = target;
-        if (parsed.pathname === '/' && !parsed.search && session?.access_token && session?.refresh_token) {
-          votaryTarget = `${parsed.origin}/auth/callback?return_to=${encodeURIComponent('/')}`;
-        }
-        if (session?.access_token && session?.refresh_token) {
-          window.location.href = buildTokenRedirectUrl(votaryTarget, session);
-          return;
-        }
-        window.location.href = votaryTarget;
+        window.location.href = buildVotarySsoRedirectUrl(target, session);
         return;
       }
 
@@ -120,18 +111,8 @@ export default function LoginClient() {
 
     const checkExistingSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      let activeSession = session;
-      if (
-        activeSession?.expires_at &&
-        activeSession.expires_at * 1000 < Date.now() + 60_000
-      ) {
-        const { data: refreshed } = await supabase.auth.refreshSession();
-        if (refreshed?.session) {
-          activeSession = refreshed.session;
-        }
-      }
-      if (activeSession && isMounted) {
-        performHandshakeRedirect(handshakeTargetUrl, activeSession);
+      if (session && isMounted) {
+        performHandshakeRedirect(handshakeTargetUrl, session);
       } else if (isMounted) {
         setCheckingAuth(false);
       }

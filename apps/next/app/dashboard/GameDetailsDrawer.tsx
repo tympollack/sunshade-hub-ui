@@ -2,8 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { X, Play, Trophy, Crosshair, Star, ExternalLink, ShieldCheck, Sparkles, Gamepad2 } from 'lucide-react';
-import { supabase } from '@digitalcanopy/supabase';
-import { buildTokenRedirectUrl, isVotaryTarget } from '../../lib/env';
+import { isVotaryTarget } from '../../lib/env';
 
 interface GameDetailsDrawerProps {
   game: any;
@@ -23,47 +22,29 @@ export function GameDetailsDrawer({ game, isOpen, onClose, isGuest = false }: Ga
     if (!isOpen) setShouldRender(false);
   };
 
-  const handleLaunch = async () => {
+  const handleLaunch = () => {
     if (typeof window !== 'undefined') {
       const fallbackUrl = game?.web_fallback_url || (game?.url_production ?? `https://${game?.slug}.sunshade.icu`);
       const launchUrl = game?.deep_link_scheme ? `${game.deep_link_scheme}://auth` : null;
 
-      const openExternalWithSso = async (targetUrl: string) => {
+      const openExternalWithSso = (targetUrl: string) => {
         if (!isVotaryTarget(targetUrl)) {
           window.open(targetUrl, '_blank');
           return;
         }
-        const newTab = window.open('about:blank', '_blank', 'noopener,noreferrer');
-        let finalUrl = targetUrl;
-        try {
-          const { data } = await supabase.auth.getSession();
-          if (data?.session?.access_token && data?.session?.refresh_token) {
-            const parsed = new URL(targetUrl);
-            const callbackTarget =
-              parsed.pathname === '/'
-                ? `${parsed.origin}/auth/callback?return_to=${encodeURIComponent('/')}`
-                : targetUrl;
-            finalUrl = buildTokenRedirectUrl(callbackTarget, data.session);
-          }
-        } catch {
-          // Fall back to direct URL
-        }
-        if (newTab) {
-          newTab.location.href = finalUrl;
-        } else {
-          window.open(finalUrl, '_blank', 'noopener,noreferrer');
-        }
+        const launchPath = `/launch?target=${encodeURIComponent(targetUrl)}`;
+        window.open(launchPath, '_blank', 'noopener,noreferrer');
       };
 
       if (launchUrl) {
         window.location.href = launchUrl;
         setTimeout(() => {
           if (!document.hidden && fallbackUrl) {
-            void openExternalWithSso(fallbackUrl);
+            openExternalWithSso(fallbackUrl);
           }
         }, 600);
       } else if (fallbackUrl) {
-        await openExternalWithSso(fallbackUrl);
+        openExternalWithSso(fallbackUrl);
       }
     }
   };

@@ -153,6 +153,42 @@ export function buildTokenRedirectUrl(
 }
 
 /**
+ * Routes a Votary target through `/auth/callback?return_to=...` (preserving any original
+ * pathname and query parameters) and attaches session tokens in the hash fragment when available.
+ * If no session tokens exist, returns the original target URL cleanly without hitting /auth/callback.
+ */
+export function buildVotarySsoRedirectUrl(
+  targetUrl: string,
+  session?: AuthSessionTokens | null
+): string {
+  const cleanTarget = targetUrl.split('#')[0];
+
+  if (!session?.access_token || !session?.refresh_token) {
+    return cleanTarget;
+  }
+
+  try {
+    const parsed = new URL(cleanTarget);
+    const host = parsed.hostname.toLowerCase();
+    if (host !== 'votary.app' && !host.endsWith('.votary.app')) {
+      return cleanTarget;
+    }
+
+    let callbackTarget = cleanTarget;
+    if (parsed.pathname !== '/auth/callback') {
+      const returnTo = `${parsed.pathname}${parsed.search}` || '/';
+      const callbackUrl = new URL('/auth/callback', parsed.origin);
+      callbackUrl.searchParams.set('return_to', returnTo);
+      callbackTarget = callbackUrl.toString();
+    }
+
+    return buildTokenRedirectUrl(callbackTarget, session);
+  } catch {
+    return cleanTarget;
+  }
+}
+
+/**
  * Helper to extract and validate redirect destination from various query parameter conventions.
  */
 export function extractRedirectTarget(

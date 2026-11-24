@@ -18,7 +18,7 @@ import {
   Compass,
 } from 'lucide-react';
 import { supabase } from '@digitalcanopy/supabase';
-import { getValidatedRedirectUrl, isVotaryTarget, buildTokenRedirectUrl } from '../../lib/env';
+import { getValidatedRedirectUrl, isVotaryTarget, buildVotarySsoRedirectUrl } from '../../lib/env';
 
 export default function ClaimClient() {
   const searchParams = useSearchParams();
@@ -50,13 +50,9 @@ export default function ClaimClient() {
       const parsed = new URL(target);
       const host = parsed.hostname.toLowerCase();
 
-      // For The Votary, append tokens via URL hash fragment
+      // For The Votary, route through /auth/callback and append tokens via URL hash fragment
       if (isVotaryTarget(target) || host === 'votary.app' || host.endsWith('.votary.app')) {
-        if (session?.access_token && session?.refresh_token) {
-          window.location.href = buildTokenRedirectUrl(target, session);
-          return;
-        }
-        window.location.href = target;
+        window.location.href = buildVotarySsoRedirectUrl(target, session);
         return;
       }
 
