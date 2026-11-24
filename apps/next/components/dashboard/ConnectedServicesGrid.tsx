@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   CheckCircle2,
 } from 'lucide-react';
+import { isVotaryTarget } from '../../lib/env';
 
 export interface ConnectedService {
   id: string;
@@ -103,6 +104,21 @@ export function ConnectedServicesGrid({
   className = '',
   services = CONNECTED_SERVICES,
 }: ConnectedServicesGridProps) {
+  const handleServiceLaunch = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    service: ConnectedService
+  ) => {
+    if (!isVotaryTarget(service.url)) {
+      return;
+    }
+
+    e.preventDefault();
+    if (typeof window !== 'undefined') {
+      const launchPath = `/launch?target=${encodeURIComponent(service.url)}`;
+      window.open(launchPath, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
     <div className={`space-y-4 ${className}`} data-testid="connected-services-section">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -169,6 +185,7 @@ export function ConnectedServicesGrid({
                 href={service.url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => handleServiceLaunch(e, service)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 hover:bg-orange-500 hover:text-white dark:bg-zinc-800/80 dark:hover:bg-orange-600 dark:hover:text-white transition-all shadow-sm group-hover:shadow"
               >
                 <span>Launch Service</span>

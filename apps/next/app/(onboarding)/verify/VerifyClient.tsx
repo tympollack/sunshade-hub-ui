@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@digitalcanopy/supabase';
-import { getValidatedRedirectUrl, isVotaryTarget, buildTokenRedirectUrl } from '../../../lib/env';
+import { getValidatedRedirectUrl, isVotaryTarget, buildVotarySsoRedirectUrl } from '../../../lib/env';
 
 export default function VerifyClient() {
   const router = useRouter();
@@ -137,10 +137,10 @@ export default function VerifyClient() {
   };
 
   const handleProceed = () => {
-    // If target is The Votary, transfer authenticated tokens via URL fragment
+    // If target is The Votary, transfer authenticated tokens via /auth/callback URL fragment
     if (isVotaryTarget(validatedRedirect)) {
       if (session?.access_token && session?.refresh_token) {
-        window.location.href = buildTokenRedirectUrl(validatedRedirect, session);
+        window.location.href = buildVotarySsoRedirectUrl(validatedRedirect, session);
         return;
       }
       // If session is absent, route to central login to complete SSO handoff

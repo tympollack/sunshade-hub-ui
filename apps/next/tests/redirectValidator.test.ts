@@ -5,6 +5,7 @@ import {
   getValidatedRedirectUrl,
   isVotaryTarget,
   buildTokenRedirectUrl,
+  buildVotarySsoRedirectUrl,
   extractRedirectTarget,
 } from '../lib/auth/redirectValidator';
 
@@ -154,6 +155,29 @@ describe('Redirect Validator & Votary Cross-Domain Handshake', () => {
       expect(buildTokenRedirectUrl('javascript:alert(1)', mockSession)).toBe('javascript:alert(1)');
       expect(buildTokenRedirectUrl('data:text/html,evil', mockSession)).toBe('data:text/html,evil');
       expect(buildTokenRedirectUrl('custom-scheme://localhost/token', mockSession)).toBe('custom-scheme://localhost/token');
+    });
+  });
+
+  describe('buildVotarySsoRedirectUrl', () => {
+    it('routes bare votary homepage and preserves query params through /auth/callback when session exists', () => {
+      const session = {
+        access_token: 'access_123',
+        refresh_token: 'refresh_456',
+      };
+      expect(buildVotarySsoRedirectUrl('https://votary.app', session)).toBe(
+        'https://votary.app/auth/callback?return_to=%2F#access_token=access_123&refresh_token=refresh_456'
+      );
+      expect(buildVotarySsoRedirectUrl('https://votary.app/?poll=abc&tab=votes', session)).toBe(
+        'https://votary.app/auth/callback?return_to=%2F%3Fpoll%3Dabc%26tab%3Dvotes#access_token=access_123&refresh_token=refresh_456'
+      );
+      expect(buildVotarySsoRedirectUrl('https://votary.app/auth/callback?return_to=%2Fsettings', session)).toBe(
+        'https://votary.app/auth/callback?return_to=%2Fsettings#access_token=access_123&refresh_token=refresh_456'
+      );
+    });
+
+    it('returns original target directly without /auth/callback when session is absent', () => {
+      expect(buildVotarySsoRedirectUrl('https://votary.app', null)).toBe('https://votary.app');
+      expect(buildVotarySsoRedirectUrl('https://votary.app/?poll=abc', null)).toBe('https://votary.app/?poll=abc');
     });
   });
 

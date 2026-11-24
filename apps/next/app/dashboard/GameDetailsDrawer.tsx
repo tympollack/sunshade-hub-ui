@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { X, Play, Trophy, Crosshair, Star, ExternalLink, ShieldCheck, Sparkles, Gamepad2 } from 'lucide-react';
+import { isVotaryTarget } from '../../lib/env';
 
 interface GameDetailsDrawerProps {
   game: any;
@@ -26,15 +27,24 @@ export function GameDetailsDrawer({ game, isOpen, onClose, isGuest = false }: Ga
       const fallbackUrl = game?.web_fallback_url || (game?.url_production ?? `https://${game?.slug}.sunshade.icu`);
       const launchUrl = game?.deep_link_scheme ? `${game.deep_link_scheme}://auth` : null;
 
+      const openExternalWithSso = (targetUrl: string) => {
+        if (!isVotaryTarget(targetUrl)) {
+          window.open(targetUrl, '_blank');
+          return;
+        }
+        const launchPath = `/launch?target=${encodeURIComponent(targetUrl)}`;
+        window.open(launchPath, '_blank', 'noopener,noreferrer');
+      };
+
       if (launchUrl) {
         window.location.href = launchUrl;
         setTimeout(() => {
           if (!document.hidden && fallbackUrl) {
-            window.open(fallbackUrl, '_blank');
+            openExternalWithSso(fallbackUrl);
           }
         }, 600);
       } else if (fallbackUrl) {
-        window.open(fallbackUrl, '_blank');
+        openExternalWithSso(fallbackUrl);
       }
     }
   };

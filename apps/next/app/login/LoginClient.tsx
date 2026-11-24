@@ -6,7 +6,7 @@ import { supabase } from '@digitalcanopy/supabase';
 import { LoginForm } from '@digitalcanopy/ui';
 import { Sparkles, Compass, Key, ExternalLink, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import { getValidatedRedirectUrl, isVotaryTarget, buildTokenRedirectUrl } from '../../lib/env';
+import { getValidatedRedirectUrl, isVotaryTarget, buildVotarySsoRedirectUrl } from '../../lib/env';
 
 function getAppNameFromUrl(url: string): string | null {
   try {
@@ -72,14 +72,9 @@ export default function LoginClient() {
       const parsed = new URL(target);
       const host = parsed.hostname.toLowerCase();
 
-      // For The Votary, append tokens via URL hash fragment:
-      // ${redirectTo}#access_token=${session.access_token}&refresh_token=${session.refresh_token}
+      // For The Votary, route through /auth/callback and append tokens via URL hash fragment
       if (isVotaryTarget(target) || host === 'votary.app' || host.endsWith('.votary.app')) {
-        if (session?.access_token && session?.refresh_token) {
-          window.location.href = buildTokenRedirectUrl(target, session);
-          return;
-        }
-        window.location.href = target;
+        window.location.href = buildVotarySsoRedirectUrl(target, session);
         return;
       }
 
