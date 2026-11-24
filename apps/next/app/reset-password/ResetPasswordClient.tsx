@@ -16,7 +16,7 @@ import {
   Key,
 } from 'lucide-react';
 import Link from 'next/link';
-import { getValidatedRedirectUrl } from '../../lib/env';
+import { getValidatedRedirectUrl, isVotaryTarget, buildTokenRedirectUrl } from '../../lib/env';
 
 function getAppNameFromUrl(url: string): string | null {
   try {
@@ -276,6 +276,15 @@ export default function ResetPasswordClient() {
     try {
       const parsed = new URL(target);
       const host = parsed.hostname.toLowerCase();
+
+      if (isVotaryTarget(target) || host === 'votary.app' || host.endsWith('.votary.app')) {
+        if (session?.access_token && session?.refresh_token) {
+          window.location.href = buildTokenRedirectUrl(target, session);
+          return;
+        }
+        window.location.href = target;
+        return;
+      }
 
       // If on sunshade.icu, shared cookie works natively
       if (host === 'sunshade.icu' || host.endsWith('.sunshade.icu')) {

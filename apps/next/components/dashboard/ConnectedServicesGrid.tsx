@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   CheckCircle2,
 } from 'lucide-react';
+import { supabase } from '@digitalcanopy/supabase';
+import { buildTokenRedirectUrl, isVotaryTarget } from '../../lib/env';
 
 export interface ConnectedService {
   id: string;
@@ -103,6 +105,51 @@ export function ConnectedServicesGrid({
   className = '',
   services = CONNECTED_SERVICES,
 }: ConnectedServicesGridProps) {
+  const handleServiceLaunch = async (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    service: ConnectedService
+  ) => {
+    if (!isVotaryTarget(service.url)) {
+      return;
+    }
+
+    e.preventDefault();
+    const newTab =
+      typeof window !== 'undefined'
+        ? window.open('about:blank', '_blank', 'noopener,noreferrer')
+        : null;
+
+    const callbackTarget = `${service.url.replace(/\/$/, '')}/auth/callback?return_to=${encodeURIComponent('/')}`;
+    let finalUrl = service.url;
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      let activeSession = data?.session ?? null;
+
+      if (
+        activeSession?.expires_at &&
+        activeSession.expires_at * 1000 < Date.now() + 60_000
+      ) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (refreshed?.session) {
+          activeSession = refreshed.session;
+        }
+      }
+
+      if (activeSession?.access_token && activeSession?.refresh_token) {
+        finalUrl = buildTokenRedirectUrl(callbackTarget, activeSession);
+      }
+    } catch (err) {
+      console.warn('[ConnectedServicesGrid] SSO session handoff failed, opening direct URL:', err);
+    }
+
+    if (newTab) {
+      newTab.location.href = finalUrl;
+    } else if (typeof window !== 'undefined') {
+      window.open(finalUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
     <div className={`space-y-4 ${className}`} data-testid="connected-services-section">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -169,6 +216,7 @@ export function ConnectedServicesGrid({
                 href={service.url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => handleServiceLaunch(e, service)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 hover:bg-orange-500 hover:text-white dark:bg-zinc-800/80 dark:hover:bg-orange-600 dark:hover:text-white transition-all shadow-sm group-hover:shadow"
               >
                 <span>Launch Service</span>

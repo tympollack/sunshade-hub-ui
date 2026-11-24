@@ -75,11 +75,15 @@ export default function LoginClient() {
       // For The Votary, append tokens via URL hash fragment:
       // ${redirectTo}#access_token=${session.access_token}&refresh_token=${session.refresh_token}
       if (isVotaryTarget(target) || host === 'votary.app' || host.endsWith('.votary.app')) {
+        let votaryTarget = target;
+        if (parsed.pathname === '/' && !parsed.search && session?.access_token && session?.refresh_token) {
+          votaryTarget = `${parsed.origin}/auth/callback?return_to=${encodeURIComponent('/')}`;
+        }
         if (session?.access_token && session?.refresh_token) {
-          window.location.href = buildTokenRedirectUrl(target, session);
+          window.location.href = buildTokenRedirectUrl(votaryTarget, session);
           return;
         }
-        window.location.href = target;
+        window.location.href = votaryTarget;
         return;
       }
 
@@ -116,8 +120,18 @@ export default function LoginClient() {
 
     const checkExistingSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session && isMounted) {
-        performHandshakeRedirect(handshakeTargetUrl, session);
+      let activeSession = session;
+      if (
+        activeSession?.expires_at &&
+        activeSession.expires_at * 1000 < Date.now() + 60_000
+      ) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (refreshed?.session) {
+          activeSession = refreshed.session;
+        }
+      }
+      if (activeSession && isMounted) {
+        performHandshakeRedirect(handshakeTargetUrl, activeSession);
       } else if (isMounted) {
         setCheckingAuth(false);
       }
