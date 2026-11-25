@@ -127,6 +127,43 @@ export default function VerifyClient() {
         return;
       }
 
+      // Complete authoritative server-side verification (updates app_metadata + profiles.is_verified)
+      let accessToken = session?.access_token;
+      if (!accessToken) {
+        const { data: sessionRes } = await supabase.auth.getSession();
+        accessToken = sessionRes?.session?.access_token;
+      }
+      if (!accessToken) {
+        setErrorMsg('Active authenticated session token missing. Please sign in again.');
+        return;
+      }
+
+      const verifyRes = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ displayName: displayName.trim() }),
+      });
+
+      const verifyData = await verifyRes.json().catch(() => ({}));
+      if (!verifyRes.ok) {
+        setErrorMsg(
+          verifyData.error ||
+            'Account verification could not be completed automatically. Please contact an administrator.'
+        );
+        return;
+      }
+
+      // Refresh Supabase session so refreshed JWT carries trusted app_metadata claims
+      if (typeof (supabase.auth as any).refreshSession === 'function') {
+        const { data: refreshed } = await (supabase.auth as any).refreshSession();
+        if (refreshed?.session) {
+          setSession(refreshed.session);
+        }
+      }
+
       setVerificationComplete(true);
       setStep(3);
     } catch (err: any) {

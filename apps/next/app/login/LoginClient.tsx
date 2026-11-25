@@ -55,6 +55,7 @@ export default function LoginClient() {
     searchParams.get('app_url') ||
     searchParams.get('url');
 
+  const wantsVerify = searchParams.get('verify') === 'true';
   const handshakeTargetUrl = useMemo(() => getValidatedRedirectUrl(rawTargetUrl, '/dashboard'), [rawTargetUrl]);
   const targetAppName = useMemo(() => getAppNameFromUrl(handshakeTargetUrl), [handshakeTargetUrl]);
 
@@ -63,6 +64,14 @@ export default function LoginClient() {
 
   const performHandshakeRedirect = (target: string, session?: any) => {
     setRedirecting(true);
+    if (wantsVerify) {
+      const verifyTarget =
+        target && target !== '/verify' && !target.startsWith('/verify?')
+          ? `/verify?redirectTo=${encodeURIComponent(target)}`
+          : '/verify';
+      router.replace(verifyTarget);
+      return;
+    }
     if (target.startsWith('/')) {
       router.replace(target);
       return;
@@ -131,7 +140,7 @@ export default function LoginClient() {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [handshakeTargetUrl, router]);
+  }, [handshakeTargetUrl, router, wantsVerify]);
 
   if (checkingAuth || redirecting) {
     return (

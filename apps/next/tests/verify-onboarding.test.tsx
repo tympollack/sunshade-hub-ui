@@ -29,10 +29,13 @@ let mockSession: any = {
   refresh_token: 'test_refresh',
 };
 
+let mockRefreshSession: any;
+
 vi.mock('@digitalcanopy/supabase', () => ({
   supabase: {
     auth: {
       getSession: vi.fn(() => Promise.resolve({ data: { session: mockSession } })),
+      refreshSession: (...args: any[]) => mockRefreshSession?.(...args),
       onAuthStateChange: vi.fn(() => ({
         data: { subscription: { unsubscribe: vi.fn() } },
       })),
@@ -55,6 +58,23 @@ describe('Onboarding Citizen Verification Flow', () => {
       access_token: 'test_token',
       refresh_token: 'test_refresh',
     };
+    mockRefreshSession = vi.fn().mockResolvedValue({
+      data: {
+        session: {
+          ...mockSession,
+          access_token: 'refreshed_verified_token',
+        },
+      },
+      error: null,
+    });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        success: true,
+        verification: { user_id: 'test-user-id', is_verified: true, method: 'self_service' },
+      }),
+    }) as any;
     mockSelect.mockReset().mockResolvedValue({
       data: [{ id: 'test-user-id', display_name: 'Alex_Citizen', citizen_tier: 'Verified Citizen' }],
       error: null,
@@ -201,5 +221,52 @@ describe('Onboarding Citizen Verification Flow', () => {
     // Step 3: Verified Badge
     expect(screen.getByText('Citizen Profile Verified')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Continue to Civic Services/i })).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/auth/verify',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test_token',
+        }),
+      })
+    );
+    expect(mockRefreshSession).toHaveBeenCalled();
+  });
+
+  it('halts progression when /api/auth/verify returns manual_queue 403', async () => {
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: async () => ({
+        error: 'Account verification is currently managed via Manual Admin Queue.',
+        mode: 'manual_queue',
+        requiresManualReview: true,
+      }),
+    });
+
+    render(<VerifyClient />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Begin Verification/i }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/e\.g\. CivicVoice_42/i), {
+      target: { value: 'Alex_Citizen' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Citizen Profile/i }));
+    });
+
+    expect(
+      screen.getByText(/Account verification is currently managed via Manual Admin Queue/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Citizen Profile Verified')).not.toBeInTheDocument();
   });
 });
