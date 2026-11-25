@@ -1,9 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { ConnectedServicesGrid, CONNECTED_SERVICES } from '../components/dashboard/ConnectedServicesGrid';
 
 describe('ConnectedServicesGrid Component', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('renders all 5 core SunShade civic services', () => {
     render(<ConnectedServicesGrid />);
 
@@ -76,5 +80,25 @@ describe('ConnectedServicesGrid Component', () => {
     expect(gridEl).toHaveClass('grid-cols-1');
     expect(gridEl).toHaveClass('md:grid-cols-2');
     expect(gridEl).toHaveClass('lg:grid-cols-3');
+  });
+
+  it('opens same-origin /launch SSO handoff page in a single synchronous navigation when launching The Votary', () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+
+    try {
+      render(<ConnectedServicesGrid />);
+      const votaryCard = screen.getByTestId('service-card-votary');
+      const votaryLink = votaryCard.querySelector('a')!;
+      fireEvent.click(votaryLink);
+
+      expect(openSpy).toHaveBeenCalledTimes(1);
+      expect(openSpy).toHaveBeenCalledWith(
+        '/launch?target=https%3A%2F%2Fvotary.app',
+        '_blank',
+        'noopener,noreferrer'
+      );
+    } finally {
+      openSpy.mockRestore();
+    }
   });
 });
