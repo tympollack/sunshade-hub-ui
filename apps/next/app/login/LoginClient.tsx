@@ -6,7 +6,10 @@ import { supabase } from '@digitalcanopy/supabase';
 import { LoginForm } from '@digitalcanopy/ui';
 import { Sparkles, Compass, Key, ExternalLink, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import { getValidatedRedirectUrl, isVotaryTarget, buildVotarySsoRedirectUrl } from '../../lib/env';
+import {
+  getValidatedRedirectUrl,
+  resolvePostAuthRedirectUrl,
+} from '../../lib/env';
 
 function getAppNameFromUrl(url: string): string | null {
   try {
@@ -55,6 +58,7 @@ export default function LoginClient() {
     searchParams.get('app_url') ||
     searchParams.get('url');
 
+  const wantsVerify = searchParams.get('verify') === 'true';
   const handshakeTargetUrl = useMemo(() => getValidatedRedirectUrl(rawTargetUrl, '/dashboard'), [rawTargetUrl]);
   const targetAppName = useMemo(() => getAppNameFromUrl(handshakeTargetUrl), [handshakeTargetUrl]);
 
@@ -63,47 +67,22 @@ export default function LoginClient() {
 
   const performHandshakeRedirect = (target: string, session?: any) => {
     setRedirecting(true);
-    if (target.startsWith('/')) {
-      router.replace(target);
+    if (wantsVerify) {
+      const verifyTarget =
+        target && target !== '/verify' && !target.startsWith('/verify?')
+          ? `/verify?redirectTo=${encodeURIComponent(target)}`
+          : target || '/verify';
+      router.replace(verifyTarget);
       return;
     }
 
-    try {
-      const parsed = new URL(target);
-      const host = parsed.hostname.toLowerCase();
-
-      // For The Votary, route through /auth/callback and append tokens via URL hash fragment
-      if (isVotaryTarget(target) || host === 'votary.app' || host.endsWith('.votary.app')) {
-        window.location.href = buildVotarySsoRedirectUrl(target, session);
-        return;
-      }
-
-      // If on sunshade.icu, shared cookie works natively
-      if (host === 'sunshade.icu' || host.endsWith('.sunshade.icu')) {
-        window.location.href = parsed.toString();
-        return;
-      }
-
-      // For cross-domain preview environments (e.g. *.vercel.app, localhost),
-      // pass tokens to the target app's /auth/callback via hash or param to establish cookies
-      if (session?.access_token && session?.refresh_token) {
-        const callbackUrl = new URL('/auth/callback', parsed.origin);
-        const hashParams = new URLSearchParams();
-        hashParams.set('access_token', session.access_token);
-        hashParams.set('refresh_token', session.refresh_token);
-        const nextPath = parsed.pathname + parsed.search;
-        if (nextPath && nextPath !== '/') {
-          hashParams.set('next', nextPath);
-        }
-        callbackUrl.hash = hashParams.toString();
-        window.location.href = callbackUrl.toString();
-        return;
-      }
-    } catch {
-      // ignore
+    const resolved = resolvePostAuthRedirectUrl(target, session);
+    if (resolved.kind === 'internal') {
+      router.replace(resolved.url);
+      return;
     }
 
-    window.location.href = target;
+    window.location.href = resolved.url;
   };
 
   useEffect(() => {
@@ -131,7 +110,7 @@ export default function LoginClient() {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [handshakeTargetUrl, router]);
+  }, [handshakeTargetUrl, router, wantsVerify]);
 
   if (checkingAuth || redirecting) {
     return (
@@ -212,7 +191,18 @@ export default function LoginClient() {
         <div className="pt-2 text-center border-t border-zinc-800/80 space-y-2.5">
           <div className="flex items-center justify-center gap-1.5">
             <Link
-              href={`/forgot-password${handshakeTargetUrl !== '/dashboard' ? `?redirect_to=${encodeURIComponent(handshakeTargetUrl)}` : ''}`}
+              href={`/forgot-password${
+                handshakeTargetUrl !== '/dashboard' || wantsVerify
+                  ? `?${[
+                      handshakeTargetUrl !== '/dashboard'
+                        ? `redirect_to=${encodeURIComponent(handshakeTargetUrl)}`
+                        : '',
+                      wantsVerify ? 'verify=true' : '',
+                    ]
+                      .filter(Boolean)
+                      .join('&')}`
+                  : ''
+              }`}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-orange-400 transition-colors"
             >
               <Key className="w-3.5 h-3.5 text-orange-500" />
@@ -222,7 +212,18 @@ export default function LoginClient() {
 
           <div>
             <Link
-              href={`/claim${handshakeTargetUrl !== '/dashboard' ? `?redirect_to=${encodeURIComponent(handshakeTargetUrl)}` : ''}`}
+              href={`/claim${
+                handshakeTargetUrl !== '/dashboard' || wantsVerify
+                  ? `?${[
+                      handshakeTargetUrl !== '/dashboard'
+                        ? `redirect_to=${encodeURIComponent(handshakeTargetUrl)}`
+                        : '',
+                      wantsVerify ? 'verify=true' : '',
+                    ]
+                      .filter(Boolean)
+                      .join('&')}`
+                  : ''
+              }`}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors"
             >
               <Key className="w-3.5 h-3.5" />

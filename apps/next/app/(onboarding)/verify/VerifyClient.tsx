@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@digitalcanopy/supabase';
-import { getValidatedRedirectUrl, isVotaryTarget, buildVotarySsoRedirectUrl } from '../../../lib/env';
+import { getValidatedRedirectUrl, isVotaryTarget, resolvePostAuthRedirectUrl } from '../../../lib/env';
 
 export default function VerifyClient() {
   const router = useRouter();
@@ -36,6 +36,11 @@ export default function VerifyClient() {
   const [verificationComplete, setVerificationComplete] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [verificationProof, setVerificationProof] = useState<{
+    challenge: string;
+    signature: string;
+    proofNonce: string;
+  } | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -73,15 +78,50 @@ export default function VerifyClient() {
         return;
       }
 
-      // Execute client-side cryptographic proof challenge
-      if (typeof window !== 'undefined' && window.crypto?.subtle) {
-        const nonce = new Uint8Array(16);
-        window.crypto.getRandomValues(nonce);
-        const encoder = new TextEncoder();
-        const payload = encoder.encode(
-          `${session.user.id}-${Date.now()}-${Array.from(nonce).join(',')}`
-        );
-        await window.crypto.subtle.digest('SHA-256', payload);
+      // Fetch server-issued cryptographic challenge & solve Proof-of-Work
+      let token = session?.access_token;
+      if (!token) {
+        const { data: sData } = await supabase.auth.getSession();
+        token = sData?.session?.access_token;
+      }
+
+      if (token && typeof fetch === 'function') {
+        const challengeRes = await fetch('/api/auth/verify', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const challengeData = await challengeRes.json().catch(() => ({}));
+        if (!challengeRes.ok || !challengeData?.challenge || !challengeData?.signature) {
+          setErrorMsg(
+            challengeData?.error || 'Failed to initialize verification challenge. Please retry.'
+          );
+          setIsVerifying(false);
+          return;
+        }
+
+        const prefix = String(challengeData.powPrefix || '00');
+        let solvedNonce = '';
+        const subtle = typeof globalThis !== 'undefined' ? globalThis.crypto?.subtle : undefined;
+        if (subtle) {
+          const encoder = new TextEncoder();
+          for (let i = 0; i < 100_000; i++) {
+            const candidate = i.toString(16);
+            const encoded = encoder.encode(`${challengeData.challenge}:${candidate}`);
+            const digest = await subtle.digest('SHA-256', Uint8Array.from(encoded));
+            const hex = Array.from(new Uint8Array(digest))
+              .map((b) => b.toString(16).padStart(2, '0'))
+              .join('');
+            if (hex.startsWith(prefix)) {
+              solvedNonce = candidate;
+              break;
+            }
+          }
+        }
+        setVerificationProof({
+          challenge: challengeData.challenge,
+          signature: challengeData.signature,
+          proofNonce: solvedNonce,
+        });
       }
 
       setTimeout(() => {
@@ -107,12 +147,11 @@ export default function VerifyClient() {
     setErrorMsg(null);
 
     try {
-      // Persist verified citizen profile status to database
+      // Update only citizen display_name from client; citizen_tier is written server-side on approval
       const { data, error } = await supabase
         .from('profiles')
         .update({
           display_name: displayName.trim(),
-          citizen_tier: 'Verified Citizen',
         })
         .eq('id', session.user.id)
         .select('id, display_name, citizen_tier');
@@ -127,6 +166,52 @@ export default function VerifyClient() {
         return;
       }
 
+      // Complete authoritative server-side verification (updates app_metadata + profiles.is_verified + citizen_tier)
+      let accessToken = session?.access_token;
+      if (!accessToken) {
+        const { data: sessionRes } = await supabase.auth.getSession();
+        accessToken = sessionRes?.session?.access_token;
+      }
+      if (!accessToken) {
+        setErrorMsg('Active authenticated session token missing. Please sign in again.');
+        return;
+      }
+
+      const verifyRes = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          displayName: displayName.trim(),
+          ...(verificationProof || {}),
+        }),
+      });
+
+      const verifyData = await verifyRes.json().catch(() => ({}));
+      if (!verifyRes.ok) {
+        const message =
+          verifyData.error ||
+          'Account verification could not be completed automatically. Please contact an administrator.';
+        if (/expired|restart verification/i.test(message)) {
+          setVerificationProof(null);
+          setStep(1);
+        }
+        setErrorMsg(message);
+        return;
+      }
+
+      // Refresh Supabase session so refreshed JWT carries trusted app_metadata claims
+      if (typeof (supabase.auth as any).refreshSession === 'function') {
+        const { data: refreshed, error: refreshError } = await (supabase.auth as any).refreshSession();
+        if (refreshError || !refreshed?.session?.access_token) {
+          setErrorMsg('Verified, but could not refresh session token. Please retry or sign in again.');
+          return;
+        }
+        setSession(refreshed.session);
+      }
+
       setVerificationComplete(true);
       setStep(3);
     } catch (err: any) {
@@ -137,25 +222,21 @@ export default function VerifyClient() {
   };
 
   const handleProceed = () => {
-    // If target is The Votary, transfer authenticated tokens via /auth/callback URL fragment
-    if (isVotaryTarget(validatedRedirect)) {
-      if (session?.access_token && session?.refresh_token) {
-        window.location.href = buildVotarySsoRedirectUrl(validatedRedirect, session);
-        return;
-      }
-      // If session is absent, route to central login to complete SSO handoff
+    const resolved = resolvePostAuthRedirectUrl(validatedRedirect, session);
+    if (resolved.kind === 'internal') {
+      router.push(resolved.url);
+      return;
+    }
+
+    // If target is The Votary and no session tokens exist yet, route through central /login SSO handoff
+    if (isVotaryTarget(validatedRedirect) && (!session?.access_token || !session?.refresh_token)) {
       const loginUrl = new URL('/login', typeof window !== 'undefined' ? window.location.origin : 'https://hub.sunshade.icu');
       loginUrl.searchParams.set('redirectTo', validatedRedirect);
       window.location.href = loginUrl.toString();
       return;
     }
 
-    if (validatedRedirect.startsWith('/')) {
-      router.push(validatedRedirect);
-      return;
-    }
-
-    window.location.href = validatedRedirect;
+    window.location.href = resolved.url;
   };
 
   return (

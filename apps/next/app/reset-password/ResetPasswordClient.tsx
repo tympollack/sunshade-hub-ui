@@ -16,7 +16,7 @@ import {
   Key,
 } from 'lucide-react';
 import Link from 'next/link';
-import { getValidatedRedirectUrl, isVotaryTarget, buildVotarySsoRedirectUrl } from '../../lib/env';
+import { getValidatedRedirectUrl, resolvePostAuthRedirectUrl } from '../../lib/env';
 
 function getAppNameFromUrl(url: string): string | null {
   try {
@@ -268,46 +268,13 @@ export default function ResetPasswordClient() {
   }, [searchParams]);
 
   const performRedirect = (target: string, session?: any) => {
-    if (target.startsWith('/')) {
-      router.replace(target);
+    const resolved = resolvePostAuthRedirectUrl(target, session);
+    if (resolved.kind === 'internal') {
+      router.replace(resolved.url);
       return;
     }
 
-    try {
-      const parsed = new URL(target);
-      const host = parsed.hostname.toLowerCase();
-
-      if (isVotaryTarget(target) || host === 'votary.app' || host.endsWith('.votary.app')) {
-        window.location.href = buildVotarySsoRedirectUrl(target, session);
-        return;
-      }
-
-      // If on sunshade.icu, shared cookie works natively
-      if (host === 'sunshade.icu' || host.endsWith('.sunshade.icu')) {
-        window.location.href = parsed.toString();
-        return;
-      }
-
-      // For cross-domain preview environments, pass tokens via URL hash fragment
-      // to keep tokens out of server request URLs, access logs, and referer headers
-      if (session?.access_token && session?.refresh_token) {
-        const callbackUrl = new URL('/auth/callback', parsed.origin);
-        const hashParams = new URLSearchParams();
-        hashParams.set('access_token', session.access_token);
-        hashParams.set('refresh_token', session.refresh_token);
-        const nextPath = parsed.pathname + parsed.search;
-        if (nextPath && nextPath !== '/') {
-          hashParams.set('next', nextPath);
-        }
-        callbackUrl.hash = hashParams.toString();
-        window.location.href = callbackUrl.toString();
-        return;
-      }
-    } catch {
-      // ignore
-    }
-
-    window.location.href = target;
+    window.location.href = resolved.url;
   };
 
   // Handle automatic redirect on successful password update

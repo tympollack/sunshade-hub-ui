@@ -18,7 +18,7 @@ import {
   Compass,
 } from 'lucide-react';
 import { supabase } from '@digitalcanopy/supabase';
-import { getValidatedRedirectUrl, isVotaryTarget, buildVotarySsoRedirectUrl } from '../../lib/env';
+import { getValidatedRedirectUrl, resolvePostAuthRedirectUrl } from '../../lib/env';
 
 export default function ClaimClient() {
   const searchParams = useSearchParams();
@@ -41,46 +41,8 @@ export default function ClaimClient() {
   const [redirectCount, setRedirectCount] = useState(3);
 
   const performRedirect = (target: string, session?: any) => {
-    if (target.startsWith('/')) {
-      window.location.href = target;
-      return;
-    }
-
-    try {
-      const parsed = new URL(target);
-      const host = parsed.hostname.toLowerCase();
-
-      // For The Votary, route through /auth/callback and append tokens via URL hash fragment
-      if (isVotaryTarget(target) || host === 'votary.app' || host.endsWith('.votary.app')) {
-        window.location.href = buildVotarySsoRedirectUrl(target, session);
-        return;
-      }
-
-      // If on sunshade.icu, shared cookie works natively
-      if (host === 'sunshade.icu' || host.endsWith('.sunshade.icu')) {
-        window.location.href = parsed.toString();
-        return;
-      }
-
-      // For cross-domain environments, transfer session tokens to /auth/callback via hash
-      if (session?.access_token && session?.refresh_token) {
-        const callbackUrl = new URL('/auth/callback', parsed.origin);
-        const hashParams = new URLSearchParams();
-        hashParams.set('access_token', session.access_token);
-        hashParams.set('refresh_token', session.refresh_token);
-        const nextPath = parsed.pathname + parsed.search;
-        if (nextPath && nextPath !== '/') {
-          hashParams.set('next', nextPath);
-        }
-        callbackUrl.hash = hashParams.toString();
-        window.location.href = callbackUrl.toString();
-        return;
-      }
-    } catch {
-      // ignore
-    }
-
-    window.location.href = target;
+    const resolved = resolvePostAuthRedirectUrl(target, session);
+    window.location.href = resolved.url;
   };
 
   useEffect(() => {
@@ -202,10 +164,15 @@ export default function ClaimClient() {
       }
 
       const safeTarget = getValidatedRedirectUrl(rawRedirect, '/dashboard');
+      const wantsVerify = searchParams.get('verify') === 'true';
+      const postClaimRedirect =
+        wantsVerify && safeTarget !== '/verify' && !safeTarget.startsWith('/verify?')
+          ? `/verify?redirectTo=${encodeURIComponent(safeTarget)}`
+          : safeTarget;
 
       setSuccessData({
         email: data.email || email,
-        redirectUrl: safeTarget,
+        redirectUrl: postClaimRedirect,
         session: activeSession,
       });
     } catch (err: any) {
