@@ -202,10 +202,15 @@ export default function ClaimClient() {
       }
 
       const safeTarget = getValidatedRedirectUrl(rawRedirect, '/dashboard');
+      const wantsVerify = searchParams.get('verify') === 'true';
+      const postClaimRedirect =
+        wantsVerify && safeTarget !== '/verify' && !safeTarget.startsWith('/verify?')
+          ? `/verify?redirectTo=${encodeURIComponent(safeTarget)}`
+          : safeTarget;
 
       setSuccessData({
         email: data.email || email,
-        redirectUrl: safeTarget,
+        redirectUrl: postClaimRedirect,
         session: activeSession,
       });
     } catch (err: any) {
