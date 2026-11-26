@@ -32,10 +32,24 @@ export default function ForgotPasswordClient() {
     searchParams.get('app_url') ||
     searchParams.get('url');
 
+  const wantsVerify = searchParams.get('verify') === 'true';
+
   const handshakeTargetUrl = useMemo(
     () => getValidatedRedirectUrl(rawTargetUrl, '/dashboard'),
     [rawTargetUrl]
   );
+
+  const recoveryRedirectTarget = useMemo(() => {
+    if (!wantsVerify) {
+      return handshakeTargetUrl !== '/dashboard' ? handshakeTargetUrl : undefined;
+    }
+    if (handshakeTargetUrl === '/verify' || handshakeTargetUrl.startsWith('/verify?')) {
+      return handshakeTargetUrl;
+    }
+    return handshakeTargetUrl !== '/dashboard'
+      ? `/verify?redirectTo=${encodeURIComponent(handshakeTargetUrl)}`
+      : '/verify';
+  }, [wantsVerify, handshakeTargetUrl]);
 
   const initialEmail = searchParams.get('email') || '';
 
@@ -75,8 +89,7 @@ export default function ForgotPasswordClient() {
     setIsSubmitting(true);
 
     try {
-      const redirectParam =
-        handshakeTargetUrl !== '/dashboard' ? handshakeTargetUrl : undefined;
+      const redirectParam = recoveryRedirectTarget;
 
       // 1. Try custom transactional recovery email via Resend API route
       const res = await fetch('/api/auth/reset-password-request', {
@@ -116,11 +129,15 @@ export default function ForgotPasswordClient() {
     }
   };
 
-  const loginLink = `/login${
+  const loginQuery = [
     handshakeTargetUrl !== '/dashboard'
-      ? `?redirect_to=${encodeURIComponent(handshakeTargetUrl)}`
-      : ''
-  }`;
+      ? `redirect_to=${encodeURIComponent(handshakeTargetUrl)}`
+      : '',
+    wantsVerify ? 'verify=true' : '',
+  ]
+    .filter(Boolean)
+    .join('&');
+  const loginLink = `/login${loginQuery ? `?${loginQuery}` : ''}`;
 
   return (
     <div

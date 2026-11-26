@@ -69,6 +69,7 @@ import {
   isVotaryTarget,
   buildTokenRedirectUrl,
   buildVotarySsoRedirectUrl,
+  resolvePostAuthRedirectUrl,
   extractRedirectTarget,
 } from './auth/redirectValidator';
 
@@ -79,5 +80,6 @@ export {
   isVotaryTarget,
   buildTokenRedirectUrl,
   buildVotarySsoRedirectUrl,
+  resolvePostAuthRedirectUrl,
   extractRedirectTarget,
 };
