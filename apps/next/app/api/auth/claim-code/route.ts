@@ -133,6 +133,11 @@ export async function POST(req: NextRequest) {
         const { error: updateAuthErr } = await serviceClient.auth.admin.updateUserById(authUserId, {
           password,
           email_confirm: true,
+          app_metadata: {
+            ...((existingAuthUser.app_metadata as Record<string, any>) || {}),
+            invite_redeemed: true,
+            invite_redeemed_at: new Date().toISOString(),
+          },
           user_metadata: {
             full_name: fullName || existingAuthUser.user_metadata?.full_name || '',
             username: username || existingAuthUser.user_metadata?.username || '',
@@ -150,6 +155,10 @@ export async function POST(req: NextRequest) {
           email: targetEmail,
           password,
           email_confirm: true,
+          app_metadata: {
+            invite_redeemed: true,
+            invite_redeemed_at: new Date().toISOString(),
+          },
           user_metadata: {
             full_name: fullName,
             username,
@@ -170,6 +179,10 @@ export async function POST(req: NextRequest) {
               const { error: fallbackUpdateErr } = await serviceClient.auth.admin.updateUserById(authUserId, {
                 password,
                 email_confirm: true,
+                app_metadata: {
+                  invite_redeemed: true,
+                  invite_redeemed_at: new Date().toISOString(),
+                },
               });
               if (fallbackUpdateErr) {
                 return NextResponse.json(

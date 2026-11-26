@@ -221,7 +221,18 @@ export default function LoginClient() {
         <div className="pt-2 text-center border-t border-zinc-800/80 space-y-2.5">
           <div className="flex items-center justify-center gap-1.5">
             <Link
-              href={`/forgot-password${handshakeTargetUrl !== '/dashboard' ? `?redirect_to=${encodeURIComponent(handshakeTargetUrl)}` : ''}`}
+              href={`/forgot-password${
+                handshakeTargetUrl !== '/dashboard' || wantsVerify
+                  ? `?${[
+                      handshakeTargetUrl !== '/dashboard'
+                        ? `redirect_to=${encodeURIComponent(handshakeTargetUrl)}`
+                        : '',
+                      wantsVerify ? 'verify=true' : '',
+                    ]
+                      .filter(Boolean)
+                      .join('&')}`
+                  : ''
+              }`}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-orange-400 transition-colors"
             >
               <Key className="w-3.5 h-3.5 text-orange-500" />
@@ -231,7 +242,18 @@ export default function LoginClient() {
 
           <div>
             <Link
-              href={`/claim${handshakeTargetUrl !== '/dashboard' ? `?redirect_to=${encodeURIComponent(handshakeTargetUrl)}` : ''}`}
+              href={`/claim${
+                handshakeTargetUrl !== '/dashboard' || wantsVerify
+                  ? `?${[
+                      handshakeTargetUrl !== '/dashboard'
+                        ? `redirect_to=${encodeURIComponent(handshakeTargetUrl)}`
+                        : '',
+                      wantsVerify ? 'verify=true' : '',
+                    ]
+                      .filter(Boolean)
+                      .join('&')}`
+                  : ''
+              }`}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors"
             >
               <Key className="w-3.5 h-3.5" />
