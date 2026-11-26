@@ -190,12 +190,13 @@ export function buildVotarySsoRedirectUrl(
 
 /**
  * Resolves the final post-authentication destination URL across The Votary,
- * shared `.sunshade.icu` subdomains, and cross-domain preview apps (`*.vercel.app`, `localhost`),
- * forwarding session tokens to preview `/auth/callback#...` when needed.
+ * shared `.sunshade.icu` subdomains, same-origin Hub paths, and cross-domain preview apps (`*.vercel.app`),
+ * forwarding session tokens to external preview `/auth/callback#...` when needed.
  */
 export function resolvePostAuthRedirectUrl(
   targetUrl: string,
-  session?: AuthSessionTokens | null
+  session?: AuthSessionTokens | null,
+  currentOrigin?: string
 ): { kind: 'internal' | 'external'; url: string } {
   if (targetUrl.startsWith('/')) {
     return { kind: 'internal', url: targetUrl };
@@ -204,6 +205,15 @@ export function resolvePostAuthRedirectUrl(
   try {
     const parsed = new URL(targetUrl);
     const host = parsed.hostname.toLowerCase();
+    const resolvedCurrentOrigin =
+      currentOrigin || (typeof window !== 'undefined' ? window.location.origin : '');
+
+    if (resolvedCurrentOrigin && parsed.origin === resolvedCurrentOrigin) {
+      return {
+        kind: 'internal',
+        url: `${parsed.pathname}${parsed.search}${parsed.hash}`,
+      };
+    }
 
     if (isVotaryTarget(targetUrl) || host === 'votary.app' || host.endsWith('.votary.app')) {
       return { kind: 'external', url: buildVotarySsoRedirectUrl(targetUrl, session) };
@@ -213,7 +223,27 @@ export function resolvePostAuthRedirectUrl(
       return { kind: 'external', url: parsed.toString() };
     }
 
-    if (session?.access_token && session?.refresh_token) {
+    const isLoopback = host === 'localhost' || host === '127.0.0.1';
+    let allowLoopbackTokenHandoff = false;
+    if (isLoopback && resolvedCurrentOrigin) {
+      try {
+        const curHost = new URL(resolvedCurrentOrigin).hostname.toLowerCase();
+        allowLoopbackTokenHandoff =
+          curHost === 'localhost' ||
+          curHost === '127.0.0.1' ||
+          curHost.includes('-stag') ||
+          curHost.includes('staging') ||
+          curHost.endsWith('.vercel.app');
+      } catch {
+        allowLoopbackTokenHandoff = false;
+      }
+    }
+
+    if (
+      session?.access_token &&
+      session?.refresh_token &&
+      (!isLoopback || allowLoopbackTokenHandoff)
+    ) {
       const callbackUrl = new URL('/auth/callback', parsed.origin);
       const hashParams = new URLSearchParams();
       hashParams.set('access_token', session.access_token);
@@ -225,6 +255,8 @@ export function resolvePostAuthRedirectUrl(
       callbackUrl.hash = hashParams.toString();
       return { kind: 'external', url: callbackUrl.toString() };
     }
+
+    return { kind: 'external', url: parsed.toString() };
   } catch {
     // Fall through to raw targetUrl
   }

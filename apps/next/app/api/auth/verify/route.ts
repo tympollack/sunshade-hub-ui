@@ -378,11 +378,31 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      let existingProfileMethod: string | null = null;
+      if (alreadyVerified && typeof serviceClient.from === 'function') {
+        try {
+          const profSelect = serviceClient.from('profiles') as any;
+          if (profSelect && typeof profSelect.select === 'function') {
+            const { data: existingProf } = await profSelect
+              .select('verification_method')
+              .eq('id', user.id)
+              .maybeSingle();
+            if (typeof existingProf?.verification_method === 'string' && existingProf.verification_method) {
+              existingProfileMethod = existingProf.verification_method;
+            }
+          }
+        } catch {
+          // Optional read
+        }
+      }
+
       verificationResult = {
         user_id: user.id,
         is_verified: true,
         verified_at: effectiveVerifiedAt,
-        method: alreadyVerified ? existingAppMeta.verification_method || 'admin_override' : 'self_service',
+        method: alreadyVerified
+          ? existingProfileMethod || existingAppMeta.verification_method || 'self_service'
+          : 'self_service',
         verification_tier: nextTier,
       };
     }
