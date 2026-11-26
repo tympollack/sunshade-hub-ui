@@ -219,6 +219,7 @@ describe('Onboarding Citizen Verification Flow', () => {
         headers: expect.objectContaining({
           Authorization: 'Bearer test_token',
         }),
+        body: expect.stringMatching(/"challenge":"test-user-id:123456:abc".*"signature":"sig_abc".*"proofNonce":"[0-9a-f]+"/),
       })
     );
     expect(mockUpdate).toHaveBeenCalledWith({ display_name: 'Alex_Citizen' });

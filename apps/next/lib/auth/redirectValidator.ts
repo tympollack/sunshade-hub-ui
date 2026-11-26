@@ -189,6 +189,82 @@ export function buildVotarySsoRedirectUrl(
 }
 
 /**
+ * Resolves the final post-authentication destination URL across The Votary,
+ * shared `.sunshade.icu` subdomains, same-origin Hub paths, and cross-domain preview apps (`*.vercel.app`),
+ * forwarding session tokens to external preview `/auth/callback#...` when needed.
+ */
+export function resolvePostAuthRedirectUrl(
+  targetUrl: string,
+  session?: AuthSessionTokens | null,
+  currentOrigin?: string
+): { kind: 'internal' | 'external'; url: string } {
+  if (targetUrl.startsWith('/')) {
+    return { kind: 'internal', url: targetUrl };
+  }
+
+  try {
+    const parsed = new URL(targetUrl);
+    const host = parsed.hostname.toLowerCase();
+    const resolvedCurrentOrigin =
+      currentOrigin || (typeof window !== 'undefined' ? window.location.origin : '');
+
+    if (resolvedCurrentOrigin && parsed.origin === resolvedCurrentOrigin) {
+      return {
+        kind: 'internal',
+        url: `${parsed.pathname}${parsed.search}${parsed.hash}`,
+      };
+    }
+
+    if (isVotaryTarget(targetUrl) || host === 'votary.app' || host.endsWith('.votary.app')) {
+      return { kind: 'external', url: buildVotarySsoRedirectUrl(targetUrl, session) };
+    }
+
+    if (host === 'sunshade.icu' || host.endsWith('.sunshade.icu')) {
+      return { kind: 'external', url: parsed.toString() };
+    }
+
+    const isLoopback = host === 'localhost' || host === '127.0.0.1';
+    let allowLoopbackTokenHandoff = false;
+    if (isLoopback && resolvedCurrentOrigin) {
+      try {
+        const curHost = new URL(resolvedCurrentOrigin).hostname.toLowerCase();
+        allowLoopbackTokenHandoff =
+          curHost === 'localhost' ||
+          curHost === '127.0.0.1' ||
+          curHost.includes('-stag') ||
+          curHost.includes('staging') ||
+          curHost.endsWith('.vercel.app');
+      } catch {
+        allowLoopbackTokenHandoff = false;
+      }
+    }
+
+    if (
+      session?.access_token &&
+      session?.refresh_token &&
+      (!isLoopback || allowLoopbackTokenHandoff)
+    ) {
+      const callbackUrl = new URL('/auth/callback', parsed.origin);
+      const hashParams = new URLSearchParams();
+      hashParams.set('access_token', session.access_token);
+      hashParams.set('refresh_token', session.refresh_token);
+      const nextPath = parsed.pathname + parsed.search;
+      if (nextPath && nextPath !== '/') {
+        hashParams.set('next', nextPath);
+      }
+      callbackUrl.hash = hashParams.toString();
+      return { kind: 'external', url: callbackUrl.toString() };
+    }
+
+    return { kind: 'external', url: parsed.toString() };
+  } catch {
+    // Fall through to raw targetUrl
+  }
+
+  return { kind: 'external', url: targetUrl };
+}
+
+/**
  * Helper to extract and validate redirect destination from various query parameter conventions.
  */
 export function extractRedirectTarget(

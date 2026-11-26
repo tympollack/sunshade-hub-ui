@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@digitalcanopy/supabase';
-import { getValidatedRedirectUrl, isVotaryTarget, buildVotarySsoRedirectUrl } from '../../../lib/env';
+import { getValidatedRedirectUrl, isVotaryTarget, resolvePostAuthRedirectUrl } from '../../../lib/env';
 
 export default function VerifyClient() {
   const router = useRouter();
@@ -191,10 +191,14 @@ export default function VerifyClient() {
 
       const verifyData = await verifyRes.json().catch(() => ({}));
       if (!verifyRes.ok) {
-        setErrorMsg(
+        const message =
           verifyData.error ||
-            'Account verification could not be completed automatically. Please contact an administrator.'
-        );
+          'Account verification could not be completed automatically. Please contact an administrator.';
+        if (/expired|restart verification/i.test(message)) {
+          setVerificationProof(null);
+          setStep(1);
+        }
+        setErrorMsg(message);
         return;
       }
 
@@ -218,25 +222,21 @@ export default function VerifyClient() {
   };
 
   const handleProceed = () => {
-    // If target is The Votary, transfer authenticated tokens via /auth/callback URL fragment
-    if (isVotaryTarget(validatedRedirect)) {
-      if (session?.access_token && session?.refresh_token) {
-        window.location.href = buildVotarySsoRedirectUrl(validatedRedirect, session);
-        return;
-      }
-      // If session is absent, route to central login to complete SSO handoff
+    const resolved = resolvePostAuthRedirectUrl(validatedRedirect, session);
+    if (resolved.kind === 'internal') {
+      router.push(resolved.url);
+      return;
+    }
+
+    // If target is The Votary and no session tokens exist yet, route through central /login SSO handoff
+    if (isVotaryTarget(validatedRedirect) && (!session?.access_token || !session?.refresh_token)) {
       const loginUrl = new URL('/login', typeof window !== 'undefined' ? window.location.origin : 'https://hub.sunshade.icu');
       loginUrl.searchParams.set('redirectTo', validatedRedirect);
       window.location.href = loginUrl.toString();
       return;
     }
 
-    if (validatedRedirect.startsWith('/')) {
-      router.push(validatedRedirect);
-      return;
-    }
-
-    window.location.href = validatedRedirect;
+    window.location.href = resolved.url;
   };
 
   return (

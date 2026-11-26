@@ -7,6 +7,7 @@ import {
   buildTokenRedirectUrl,
   buildVotarySsoRedirectUrl,
   extractRedirectTarget,
+  resolvePostAuthRedirectUrl,
 } from '../lib/auth/redirectValidator';
 
 describe('Redirect Validator & Votary Cross-Domain Handshake', () => {
@@ -198,6 +199,58 @@ describe('Redirect Validator & Votary Cross-Domain Handshake', () => {
     it('falls back to /dashboard if target is unapproved', () => {
       expect(extractRedirectTarget({ redirectTo: 'https://evil.com/phish' })).toBe('/dashboard');
       expect(extractRedirectTarget(null)).toBe('/dashboard');
+    });
+  });
+
+  describe('resolvePostAuthRedirectUrl', () => {
+    const session = { access_token: 'acc-123', refresh_token: 'ref-456' };
+
+    it('preserves same-origin path, query, and hash as internal navigation without tokens', () => {
+      const result = resolvePostAuthRedirectUrl(
+        'https://sunshade-hub-git-preview-team.vercel.app/dashboard?view=Settings#security',
+        session,
+        'https://sunshade-hub-git-preview-team.vercel.app'
+      );
+
+      expect(result).toEqual({
+        kind: 'internal',
+        url: '/dashboard?view=Settings#security',
+      });
+    });
+
+    it('does not forward tokens to loopback origins from production Hub', () => {
+      const result = resolvePostAuthRedirectUrl(
+        'http://localhost:4000/auth/callback?next=%2Fpolls',
+        session,
+        'https://hub.sunshade.icu'
+      );
+
+      expect(result).toEqual({
+        kind: 'external',
+        url: 'http://localhost:4000/auth/callback?next=%2Fpolls',
+      });
+    });
+
+    it('forwards fragment tokens to loopback and preview origins from staging or local Hub', () => {
+      const loopbackResult = resolvePostAuthRedirectUrl(
+        'http://localhost:4000/polls?tab=recent',
+        session,
+        'https://hub-stag.sunshade.icu'
+      );
+      expect(loopbackResult).toEqual({
+        kind: 'external',
+        url: 'http://localhost:4000/auth/callback#access_token=acc-123&refresh_token=ref-456&next=%2Fpolls%3Ftab%3Drecent',
+      });
+
+      const previewResult = resolvePostAuthRedirectUrl(
+        'https://valerie-git-feat.vercel.app/polls/1',
+        session,
+        'https://hub.sunshade.icu'
+      );
+      expect(previewResult).toEqual({
+        kind: 'external',
+        url: 'https://valerie-git-feat.vercel.app/auth/callback#access_token=acc-123&refresh_token=ref-456&next=%2Fpolls%2F1',
+      });
     });
   });
 });

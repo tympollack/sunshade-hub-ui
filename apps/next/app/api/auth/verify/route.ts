@@ -299,6 +299,10 @@ export async function POST(req: NextRequest) {
       const existingAppMeta = (user.app_metadata as Record<string, any>) || {};
       const existingTier = String(existingAppMeta.verification_tier || 'UNVERIFIED').toUpperCase();
       const nextTier = TRUSTED_VERIFIED_TIERS.has(existingTier) ? existingTier : 'VERIFIED';
+      const effectiveVerifiedAt =
+        alreadyVerified && typeof existingAppMeta.verified_at === 'string' && existingAppMeta.verified_at
+          ? existingAppMeta.verified_at
+          : now;
 
       const { error: authUpdateErr } = await serviceClient.auth.admin.updateUserById(user.id, {
         app_metadata: {
@@ -307,7 +311,7 @@ export async function POST(req: NextRequest) {
           is_human: true,
           anti_sybil_verified: true,
           verification_tier: nextTier,
-          verified_at: now,
+          verified_at: effectiveVerifiedAt,
         },
       });
 
@@ -336,16 +340,30 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      const secondaryUpdatePayload: Record<string, any> = {
+        ...(cleanDisplayName ? { display_name: cleanDisplayName } : {}),
+        citizen_tier: 'Verified Citizen',
+      };
+      if (!alreadyVerified) {
+        secondaryUpdatePayload.verified_at = effectiveVerifiedAt;
+        secondaryUpdatePayload.verification_method = 'self_service';
+      }
+
       try {
-        await serviceClient
+        const { error: secondaryProfErr } = await serviceClient
           .from('profiles')
-          .update({
-            ...(cleanDisplayName ? { display_name: cleanDisplayName } : {}),
-            verified_at: now,
-            verification_method: 'self_service',
-            citizen_tier: 'Verified Citizen',
-          })
+          .update(secondaryUpdatePayload)
           .eq('id', user.id);
+
+        if (secondaryProfErr) {
+          await serviceClient
+            .from('profiles')
+            .update({
+              ...(cleanDisplayName ? { display_name: cleanDisplayName } : {}),
+              citizen_tier: 'Verified Citizen',
+            })
+            .eq('id', user.id);
+        }
       } catch {
         try {
           await serviceClient
@@ -360,11 +378,31 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      let existingProfileMethod: string | null = null;
+      if (alreadyVerified && typeof serviceClient.from === 'function') {
+        try {
+          const profSelect = serviceClient.from('profiles') as any;
+          if (profSelect && typeof profSelect.select === 'function') {
+            const { data: existingProf } = await profSelect
+              .select('verification_method')
+              .eq('id', user.id)
+              .maybeSingle();
+            if (typeof existingProf?.verification_method === 'string' && existingProf.verification_method) {
+              existingProfileMethod = existingProf.verification_method;
+            }
+          }
+        } catch {
+          // Optional read
+        }
+      }
+
       verificationResult = {
         user_id: user.id,
         is_verified: true,
-        verified_at: now,
-        method: 'self_service',
+        verified_at: effectiveVerifiedAt,
+        method: alreadyVerified
+          ? existingProfileMethod || existingAppMeta.verification_method || 'self_service'
+          : 'self_service',
         verification_tier: nextTier,
       };
     }
