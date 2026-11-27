@@ -25,6 +25,7 @@ import {
   type ShowdownBundle,
 } from '../../../../lib/arcade/arcadeSessionService';
 import { ActiveCabinetStage } from './ActiveCabinetStage';
+import { BlindSkillCheckOverlay } from './BlindSkillCheckOverlay';
 
 export interface HubArcadeDeckProps {
   userId?: string | null;
@@ -365,14 +366,24 @@ export function HubArcadeDeck({
 
       {isSkillOverlayOpen &&
         cabinetState?.pendingRollPreview &&
-        renderSkillCheckOverlay &&
-        renderSkillCheckOverlay({
-          cartridge: cabinetState.cartridge,
-          rollPreview: cabinetState.pendingRollPreview,
-          onSubmit: handleSubmitSkillCheck,
-          onBankStub: handleBankPendingStub,
-          onClose: () => setIsSkillOverlayOpen(false),
-        })}
+        (renderSkillCheckOverlay ? (
+          renderSkillCheckOverlay({
+            cartridge: cabinetState.cartridge,
+            rollPreview: cabinetState.pendingRollPreview,
+            onSubmit: handleSubmitSkillCheck,
+            onBankStub: handleBankPendingStub,
+            onClose: () => setIsSkillOverlayOpen(false),
+          })
+        ) : (
+          <BlindSkillCheckOverlay
+            isOpen={isSkillOverlayOpen}
+            cartridge={cabinetState.cartridge}
+            rollPreview={cabinetState.pendingRollPreview}
+            onSubmit={handleSubmitSkillCheck}
+            onBankStub={handleBankPendingStub}
+            onClose={() => setIsSkillOverlayOpen(false)}
+          />
+        ))}
     </section>
   );
 }
