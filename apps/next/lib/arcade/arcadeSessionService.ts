@@ -140,7 +140,7 @@ export class ArcadeCabinetRuntime {
 
     const board = options.miracleSnapshot?.boardSnapshot;
     const initialRollIndex = options.miracleSnapshot
-      ? options.miracleSnapshot.checkpointRollIndex
+      ? options.miracleSnapshot.checkpointRollIndex + 1
       : 0;
 
     if (options.miracleSnapshot && board) {
@@ -171,7 +171,10 @@ export class ArcadeCabinetRuntime {
       return this.pendingRollPreview;
     }
 
-    const result = await this.controller.pullNextRoll({ markRollAsPlayed: false });
+    // Mark roll as played in ChapterSessionController so the final chapter pull
+    // is never simultaneously auto-vaulted while pending in the skill-check flow.
+    // Players can still explicitly bank it via bankPendingRollAsStub().
+    const result = await this.controller.pullNextRoll({ markRollAsPlayed: true });
     this.rollsByIndex.set(result.roll.index, result.roll);
     const preview = toClientRollPreview(result.roll);
     this.pendingRollPreview = preview;
@@ -185,6 +188,13 @@ export class ArcadeCabinetRuntime {
     const roll = this.rollsByIndex.get(submission.rollIndex);
     if (!roll) {
       throw new Error(`No pending roll at index ${submission.rollIndex}.`);
+    }
+
+    const activeVaulted = await this.vault.listActiveStubs();
+    if (activeVaulted.some((s) => s.rollIndex === submission.rollIndex)) {
+      throw new Error(
+        `Roll ${submission.rollIndex} is already banked in Bonus Stub Vault.`
+      );
     }
 
     this.controller.markHighStakesRollPlayed(roll.index);
@@ -283,6 +293,13 @@ export class ArcadeCabinetRuntime {
         : 0.5,
       contrabandHoldCount: this.contrabandHoldCount,
       hullIntegrity: this.hullIntegrity,
+      boardState: {
+        rollIndex: record.rollIndex,
+        scoreAtCheckpoint: this.score,
+        winProbabilityAtCheckpoint: this.winProbability,
+        hullIntegrity: this.hullIntegrity,
+        contrabandHoldCount: this.contrabandHoldCount,
+      },
       score: this.score,
     });
 

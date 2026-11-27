@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Gamepad2, Play, Lock, CheckCircle2 } from 'lucide-react';
 import {
   AtmosphericBadge,
@@ -9,32 +9,30 @@ import {
   TokenBalanceBadge,
 } from '@digitalcanopy/ui';
 import type {
-  BankedStub,
   BlindCheckResult,
   BlindSkillSubmission,
   CastLedgerEntry,
   ClientRollPreview,
   MiracleSeedSnapshot,
 } from '@digitalcanopy/reels-engine';
-import {
-  mergeCartridgeCatalog,
-  type ArcadeCartridge,
-} from '../../../../lib/arcade/cartridges';
-import {
-  ArcadeCabinetRuntime,
-  type ActiveCabinetState,
-  type ShowdownBundle,
-} from '../../../../lib/arcade/arcadeSessionService';
+import type { ArcadeCartridge } from '../../../../lib/arcade/cartridges';
+import type { ShowdownBundle } from '../../../../lib/arcade/arcadeSessionService';
 import { ActiveCabinetStage } from './ActiveCabinetStage';
 import { BlindSkillCheckOverlay } from './BlindSkillCheckOverlay';
 import { ShowdownReelTheater } from './ShowdownReelTheater';
 import { CastLedgerBadges } from './CastLedgerBadges';
+import {
+  useArcadeDeckSession,
+  type ArcadeDeckSessionHandle,
+} from './useArcadeDeckSession';
 
 export interface HubArcadeDeckProps {
   userId?: string | null;
   utilityBalance?: number;
   dbCartridges?: Array<Record<string, any>>;
   unlockedCartridgeIds?: string[];
+  initialCastBadges?: CastLedgerEntry[];
+  sessionHandle?: ArcadeDeckSessionHandle;
   onOpenShowdownTheater?: (bundle: ShowdownBundle) => void;
   renderSkillCheckOverlay?: (props: {
     cartridge: ArcadeCartridge;
@@ -53,166 +51,33 @@ export function HubArcadeDeck({
   userId,
   utilityBalance = 0,
   dbCartridges,
-  unlockedCartridgeIds = [],
+  unlockedCartridgeIds,
+  initialCastBadges,
+  sessionHandle,
   onOpenShowdownTheater,
   renderSkillCheckOverlay,
   activeMiracleSeed = null,
   onClearMiracleSeed,
 }: HubArcadeDeckProps) {
-  const unlockedSet = useMemo(() => new Set(unlockedCartridgeIds), [unlockedCartridgeIds]);
-  const cartridges = useMemo(
-    () => mergeCartridgeCatalog(dbCartridges, unlockedSet),
-    [dbCartridges, unlockedSet]
-  );
+  const internalSession = useArcadeDeckSession({
+    userId,
+    dbCartridges,
+    unlockedCartridgeIds,
+    initialCastBadges,
+    externalMiracleSeed: activeMiracleSeed,
+    onClearExternalMiracleSeed: onClearMiracleSeed,
+    onOpenShowdownTheater,
+  });
 
+  const deck = sessionHandle ?? internalSession;
   const [genreFilter, setGenreFilter] = useState<(typeof GENRE_FILTERS)[number]>('all');
-  const [cabinetState, setCabinetState] = useState<ActiveCabinetState | null>(null);
-  const [isBusy, setIsBusy] = useState(false);
-  const [statusError, setStatusError] = useState<string | null>(null);
-  const [isSkillOverlayOpen, setIsSkillOverlayOpen] = useState(false);
-  const [resultBanner, setResultBanner] = useState<string | null>(null);
-  const [activeShowdown, setActiveShowdown] = useState<ShowdownBundle | null>(null);
-  const [internalMiracleSeed, setInternalMiracleSeed] = useState<MiracleSeedSnapshot | null>(null);
-  const [earnedBadges, setEarnedBadges] = useState<CastLedgerEntry[]>([]);
-  const runtimeRef = useRef<ArcadeCabinetRuntime | null>(null);
-  const effectiveMiracleSeed = activeMiracleSeed ?? internalMiracleSeed;
 
   const filteredCartridges = useMemo(() => {
-    if (genreFilter === 'all') return cartridges;
-    return cartridges.filter((c) => c.genre === genreFilter);
-  }, [cartridges, genreFilter]);
+    if (genreFilter === 'all') return deck.cartridges;
+    return deck.cartridges.filter((c) => c.genre === genreFilter);
+  }, [deck.cartridges, genreFilter]);
 
-  const bootCabinet = useCallback(
-    async (cartridge: ArcadeCartridge & { isUnlocked: boolean }, miracleSeed?: MiracleSeedSnapshot) => {
-      if (!cartridge.isUnlocked) {
-        setStatusError(`Cabinet "${cartridge.title}" is locked.`);
-        return;
-      }
-
-      setStatusError(null);
-      setResultBanner(null);
-      const runtime = new ArcadeCabinetRuntime({
-        cartridge,
-        playerId: userId || 'guest-citizen',
-        miracleSnapshot: miracleSeed,
-      });
-      runtimeRef.current = runtime;
-      const snapshot = await runtime.getSnapshot();
-      setCabinetState(snapshot);
-    },
-    [userId]
-  );
-
-  React.useEffect(() => {
-    if (!effectiveMiracleSeed) return;
-    const matchCartridge =
-      cartridges.find((c) => c.id === effectiveMiracleSeed.cartridgeId) ?? cartridges[0];
-    if (matchCartridge) {
-      bootCabinet(matchCartridge, effectiveMiracleSeed);
-    }
-  }, [effectiveMiracleSeed, cartridges, bootCabinet]);
-
-  const handlePullRoll = async () => {
-    if (!runtimeRef.current) return;
-    setIsBusy(true);
-    setStatusError(null);
-    setResultBanner(null);
-    try {
-      await runtimeRef.current.pullNextRoll();
-      const snapshot = await runtimeRef.current.getSnapshot();
-      setCabinetState(snapshot);
-      setIsSkillOverlayOpen(true);
-    } catch (err: any) {
-      setStatusError(err?.message || 'Unable to pull deterministic roll.');
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const handleSubmitSkillCheck = async (
-    submission: BlindSkillSubmission
-  ): Promise<BlindCheckResult> => {
-    if (!runtimeRef.current) {
-      throw new Error('Arcade cabinet runtime not initialized.');
-    }
-    const result = await runtimeRef.current.submitBlindSkillCheck(submission);
-    const snapshot = await runtimeRef.current.getSnapshot();
-    setCabinetState(snapshot);
-    setResultBanner(
-      `Roll #${result.rollIndex} resolved → ${result.selectedTier.toUpperCase()} (${Math.round(result.normalizedRatio * 100)}% skill)`
-    );
-    return result;
-  };
-
-  const handleBankPendingStub = async () => {
-    if (!runtimeRef.current) return;
-    setIsBusy(true);
-    setStatusError(null);
-    try {
-      const stub = await runtimeRef.current.bankPendingRollAsStub(
-        new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-      );
-      const snapshot = await runtimeRef.current.getSnapshot();
-      setCabinetState(snapshot);
-      setIsSkillOverlayOpen(false);
-      setResultBanner(`Roll #${stub.rollIndex} sealed into Bonus Stub Vault.`);
-    } catch (err: any) {
-      setStatusError(err?.message || 'Failed to vault bonus stub.');
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const handleClaimStub = async (stub: BankedStub) => {
-    if (!runtimeRef.current) return;
-    setIsBusy(true);
-    setStatusError(null);
-    try {
-      const receipt = await runtimeRef.current.claimVaultedStub(stub.stubId);
-      const snapshot = await runtimeRef.current.getSnapshot();
-      setCabinetState(snapshot);
-      setResultBanner(
-        `Vaulted Stub #${receipt.rollIndex} claimed → ${receipt.selectedTier.toUpperCase()}`
-      );
-    } catch (err: any) {
-      setStatusError(err?.message || 'Failed to claim vaulted stub.');
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const handleAcknowledgeNextChapter = async () => {
-    if (!runtimeRef.current) return;
-    setStatusError(null);
-    try {
-      runtimeRef.current.acknowledgeNextChapter();
-      const snapshot = await runtimeRef.current.getSnapshot();
-      setCabinetState(snapshot);
-    } catch (err: any) {
-      setStatusError(err?.message || 'Cannot advance chapter yet.');
-    }
-  };
-
-  const handleBuildShowdown = () => {
-    if (!runtimeRef.current) return;
-    const bundle = runtimeRef.current.buildShowdownBundle();
-    if (bundle.castBadges.length > 0) {
-      setEarnedBadges((prev) => {
-        const merged = new Map(prev.map((b) => [b.entryId, b]));
-        for (const badge of bundle.castBadges) {
-          merged.set(badge.entryId, badge);
-        }
-        return Array.from(merged.values());
-      });
-    }
-    if (onOpenShowdownTheater) {
-      onOpenShowdownTheater(bundle);
-    } else {
-      setActiveShowdown(bundle);
-    }
-  };
-
-  const unlockedCount = cartridges.filter((c) => c.isUnlocked).length;
+  const unlockedCount = deck.cartridges.filter((c) => c.isUnlocked).length;
 
   return (
     <section data-testid="hub-arcade-deck" className="space-y-5">
@@ -279,18 +144,18 @@ export function HubArcadeDeck({
         </div>
       </GlassCard>
 
-      {statusError && (
+      {deck.statusError && (
         <div
           role="alert"
           className="px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium"
         >
-          {statusError}
+          {deck.statusError}
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {filteredCartridges.map((cartridge) => {
-          const isSelected = cabinetState?.cartridge.id === cartridge.id;
+          const isSelected = deck.cabinetState?.cartridge.id === cartridge.id;
           return (
             <div
               key={cartridge.id}
@@ -352,7 +217,7 @@ export function HubArcadeDeck({
                   variant={isSelected ? 'cozy' : 'sunshade'}
                   size="sm"
                   disabled={!cartridge.isUnlocked}
-                  onPress={() => bootCabinet(cartridge)}
+                  onPress={() => deck.bootCabinet(cartridge)}
                   icon={<Play className="w-3.5 h-3.5" />}
                   label={isSelected ? 'Reboot Cabinet' : 'Launch Cabinet'}
                   className="w-full"
@@ -363,68 +228,61 @@ export function HubArcadeDeck({
         })}
       </div>
 
-      {cabinetState && (
+      {deck.cabinetState && (
         <ActiveCabinetStage
-          cabinetState={cabinetState}
-          isBusy={isBusy}
-          isSkillOverlayOpen={isSkillOverlayOpen}
+          cabinetState={deck.cabinetState}
+          isBusy={deck.isBusy}
+          isSkillOverlayOpen={deck.isSkillOverlayOpen}
           hasCustomSkillOverlay={Boolean(renderSkillCheckOverlay)}
-          resultBanner={resultBanner}
-          onPullRoll={handlePullRoll}
-          onOpenSkillOverlay={() => setIsSkillOverlayOpen(true)}
-          onBankPendingStub={handleBankPendingStub}
-          onClaimStub={handleClaimStub}
-          onAcknowledgeNextChapter={handleAcknowledgeNextChapter}
-          onBuildShowdown={handleBuildShowdown}
+          resultBanner={deck.resultBanner}
+          onPullRoll={deck.pullRoll}
+          onOpenSkillOverlay={deck.openSkillOverlay}
+          onBankPendingStub={deck.bankPendingStub}
+          onClaimStub={deck.claimStub}
+          onAcknowledgeNextChapter={deck.acknowledgeNextChapter}
+          onBuildShowdown={deck.buildShowdown}
           onQuickSubmitSkill={async (submission) => {
-            await handleSubmitSkillCheck(submission);
-            setIsSkillOverlayOpen(false);
+            await deck.submitSkillCheck(submission);
+            deck.closeSkillOverlay();
           }}
-          onClearMiracleSeed={
-            onClearMiracleSeed ??
-            (() => {
-              setInternalMiracleSeed(null);
-            })
-          }
+          onClearMiracleSeed={deck.clearMiracleSeed}
         />
       )}
 
-      {earnedBadges.length > 0 && (
+      {deck.earnedBadges.length > 0 && (
         <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-[#161616] p-5">
-          <CastLedgerBadges entries={earnedBadges} compact />
+          <CastLedgerBadges entries={deck.earnedBadges} compact />
         </div>
       )}
 
-      <ShowdownReelTheater
-        isOpen={Boolean(activeShowdown)}
-        bundle={activeShowdown}
-        onClose={() => setActiveShowdown(null)}
-        onLaunchMiracleSeed={(snap) => {
-          setInternalMiracleSeed(snap);
-          setActiveShowdown(null);
-        }}
-      />
-
-      {isSkillOverlayOpen &&
-        cabinetState?.pendingRollPreview &&
+      {deck.isSkillOverlayOpen &&
+        deck.cabinetState &&
+        deck.activeSkillPreview &&
         (renderSkillCheckOverlay ? (
           renderSkillCheckOverlay({
-            cartridge: cabinetState.cartridge,
-            rollPreview: cabinetState.pendingRollPreview,
-            onSubmit: handleSubmitSkillCheck,
-            onBankStub: handleBankPendingStub,
-            onClose: () => setIsSkillOverlayOpen(false),
+            cartridge: deck.cabinetState.cartridge,
+            rollPreview: deck.activeSkillPreview,
+            onSubmit: deck.submitSkillCheck,
+            onBankStub: deck.bankPendingStub,
+            onClose: deck.closeSkillOverlay,
           })
         ) : (
           <BlindSkillCheckOverlay
-            isOpen={isSkillOverlayOpen}
-            cartridge={cabinetState.cartridge}
-            rollPreview={cabinetState.pendingRollPreview}
-            onSubmit={handleSubmitSkillCheck}
-            onBankStub={handleBankPendingStub}
-            onClose={() => setIsSkillOverlayOpen(false)}
+            isOpen={deck.isSkillOverlayOpen}
+            cartridge={deck.cabinetState.cartridge}
+            rollPreview={deck.activeSkillPreview}
+            onSubmit={deck.submitSkillCheck}
+            onBankStub={deck.bankPendingStub}
+            onClose={deck.closeSkillOverlay}
           />
         ))}
+
+      <ShowdownReelTheater
+        isOpen={Boolean(deck.activeShowdown)}
+        bundle={deck.activeShowdown}
+        onClose={deck.closeShowdown}
+        onLaunchMiracleSeed={deck.launchMiracleSeed}
+      />
     </section>
   );
 }

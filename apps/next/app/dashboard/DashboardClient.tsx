@@ -38,6 +38,8 @@ import { SecuritySettingsDrawer } from './components/SecuritySettingsDrawer';
 import { BroadcastPreviewDrawer, type BroadcastPostData } from './components/BroadcastPreviewDrawer';
 import { LaunchpadShowcase } from './components/LaunchpadShowcase';
 import { HubArcadeDeck } from './components/arcade/HubArcadeDeck';
+import { useArcadeDeckSession } from './components/arcade/useArcadeDeckSession';
+import type { CastLedgerEntry } from '@digitalcanopy/reels-engine';
 import { ECOSYSTEM_APPS } from '../../data/ecosystemApps';
 import { isFeatureEnabled, filterVisibleLaunchpadApps } from '../../lib/services/featureFlagsService';
 import { DashboardAchievements } from './components/DashboardAchievements';
@@ -93,6 +95,9 @@ interface DashboardClientProps {
   ecosystemWidget: React.ReactNode;
   dartUpWidget?: React.ReactNode;
   featureFlags?: Record<string, boolean>;
+  arcadeCartridges?: Array<Record<string, any>>;
+  arcadeUnlockedIds?: string[];
+  castLedgerEntries?: Array<Record<string, any>>;
 }
 
 export default function DashboardClient({
@@ -111,6 +116,9 @@ export default function DashboardClient({
   ecosystemWidget,
   dartUpWidget,
   featureFlags,
+  arcadeCartridges,
+  arcadeUnlockedIds,
+  castLedgerEntries,
 }: DashboardClientProps) {
   const [currentProfile, setCurrentProfile] = useState<DashboardProfile | null>(profile);
   const [activeView, setActiveView] = useState('Overview');
@@ -133,6 +141,23 @@ export default function DashboardClient({
   const isConnectedServicesEnabled = isFeatureEnabled(featureFlags, 'connected_services', true);
   const isGuestLaunchEnabled = isFeatureEnabled(featureFlags, 'guest_launch', true);
   const isArcadeDeckEnabled = isFeatureEnabled(featureFlags, 'arcade_deck', true);
+  const initialCastBadges: CastLedgerEntry[] = (castLedgerEntries ?? []).map((row) => ({
+    entryId: String(row.entry_id),
+    matchId: String(row.match_id),
+    cartridgeId: String(row.cartridge_id),
+    playerId: String(row.user_id),
+    badge: row.badge,
+    awardedAt: String(row.awarded_at),
+    rollIndex: Number(row.roll_index ?? 0),
+    miracleSeedHash: row.miracle_seed_hash ?? undefined,
+    summary: String(row.summary ?? ''),
+  }));
+  const arcadeSession = useArcadeDeckSession({
+    userId: currentProfile?.id || session?.user?.id,
+    dbCartridges: arcadeCartridges,
+    unlockedCartridgeIds: arcadeUnlockedIds,
+    initialCastBadges,
+  });
   const visibleLaunchpadApps = filterVisibleLaunchpadApps(ECOSYSTEM_APPS, featureFlags);
   const defaultBroadcastPost: BroadcastPostData = {
     id: 'hub-staging-preview',
@@ -244,7 +269,15 @@ export default function DashboardClient({
       const params = new URLSearchParams(window.location.search);
       const viewParam = params.get('view') || params.get('tab');
       if (viewParam) {
-        const views = ['Overview', 'Arcade Deck', 'Game Library', 'Medical Vault', 'Edge Nodes', 'Profile', 'Settings'];
+        const views = [
+          'Overview',
+          ...(isArcadeDeckEnabled ? ['Arcade Deck'] : []),
+          'Game Library',
+          'Medical Vault',
+          'Edge Nodes',
+          'Profile',
+          'Settings',
+        ];
         const normalizedParam = viewParam.toLowerCase() === 'arcade' ? 'arcade deck' : viewParam.toLowerCase();
         const matched = views.find((v) => v.toLowerCase() === normalizedParam);
         if (matched) setActiveView(matched);
@@ -601,6 +634,7 @@ export default function DashboardClient({
                     <HubArcadeDeck
                       userId={currentProfile?.id || session?.user?.id}
                       utilityBalance={hubTokens}
+                      sessionHandle={arcadeSession}
                     />
                   )}
 
@@ -687,10 +721,11 @@ export default function DashboardClient({
               )}
 
               {/* ARCADE DECK VIEW */}
-              {activeView === 'Arcade Deck' && (
+              {isArcadeDeckEnabled && activeView === 'Arcade Deck' && (
                 <HubArcadeDeck
                   userId={currentProfile?.id || session?.user?.id}
                   utilityBalance={hubTokens}
+                  sessionHandle={arcadeSession}
                 />
               )}
 

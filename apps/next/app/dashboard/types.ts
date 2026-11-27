@@ -142,4 +142,7 @@ export interface DashboardData {
   hubEvents: any[];
   notifications: HubNotification[];
   featureFlags?: Record<string, boolean>;
+  arcadeCartridges?: Array<Record<string, any>>;
+  arcadeUnlockedIds?: string[];
+  castLedgerEntries?: Array<Record<string, any>>;
 }
