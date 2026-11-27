@@ -27,6 +27,7 @@ import { LiveReactionTimelineBar } from './LiveReactionTimelineBar';
 import { GladiatorDropsPanel } from './GladiatorDropsPanel';
 import { VanityFunnelOverlay } from './VanityFunnelOverlay';
 import { SimulcastRelayPanel } from './SimulcastRelayPanel';
+import { VerticalClipExporterPanel } from './VerticalClipExporterPanel';
 import { CastLedgerBadges } from '../../app/dashboard/components/arcade/CastLedgerBadges';
 import { supabase } from '@digitalcanopy/supabase';
 
@@ -395,6 +396,16 @@ export function SunShadeLiveStage({
               overlayEnabled={simulcastOverlayEnabled}
               onToggleOverlay={() => setSimulcastOverlayEnabled((prev) => !prev)}
               onSpecGenerated={(spec) => setSimulcastShortUrl(spec.overlay.shortUrl)}
+            />
+            <VerticalClipExporterPanel
+              creatorSlug={context.creatorSlug}
+              creatorName={creatorName}
+              title={activeVod?.title || `${creatorName} Live Highlight`}
+              matchId={activeVod?.matchId}
+              currentPlayheadMs={syncState?.playheadMs ?? 0}
+              durationMs={syncState?.durationMs ?? 60_000}
+              dramaIndex={syncState?.interpolatedDramaIndex ?? 0}
+              score={syncState?.interpolatedScore ?? 0}
             />
             {extraRightPanels}
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
