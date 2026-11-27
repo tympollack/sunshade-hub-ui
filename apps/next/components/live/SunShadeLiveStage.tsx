@@ -24,7 +24,9 @@ import {
 import { WebGLTelemetryCanvas } from './WebGLTelemetryCanvas';
 import { DraggableWebcamPiP } from './DraggableWebcamPiP';
 import { LiveReactionTimelineBar } from './LiveReactionTimelineBar';
+import { GladiatorDropsPanel } from './GladiatorDropsPanel';
 import { CastLedgerBadges } from '../../app/dashboard/components/arcade/CastLedgerBadges';
+import { supabase } from '@digitalcanopy/supabase';
 
 export interface SunShadeLiveStageProps {
   context: LiveCreatorContext;
@@ -49,6 +51,15 @@ export function SunShadeLiveStage({
   const [pipLayout, setPipLayout] = useState<PresencePiPLayout | undefined>(undefined);
   const [syncState, setSyncState] = useState<ScrubSyncState | null>(null);
   const [activeHudBanner, setActiveHudBanner] = useState<string | null>(null);
+  const [hudHistory, setHudHistory] = useState<LiveHudTriggerEvent[]>([]);
+  const [viewerBalance, setViewerBalance] = useState<number>(context.viewerUtilityBalance);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase?.auth?.getSession?.().then(({ data }) => {
+      setAccessToken(data?.session?.access_token ?? null);
+    }).catch(() => {});
+  }, []);
 
   const presenceRef = useRef<WebRTCPiPPresenceTrack | null>(null);
   if (!presenceRef.current) {
@@ -87,6 +98,9 @@ export function SunShadeLiveStage({
 
   const handleRemoteHudTrigger = useCallback((trigger: LiveHudTriggerEvent) => {
     setActiveHudBanner(trigger.message);
+    setHudHistory((prev) =>
+      prev.some((item) => item.id === trigger.id) ? prev : [trigger, ...prev].slice(0, 20)
+    );
   }, []);
 
   const realtime = useLiveReactionSync({
@@ -214,7 +228,7 @@ export function SunShadeLiveStage({
               </div>
 
               <TokenBalanceBadge
-                balance={context.viewerUtilityBalance}
+                balance={viewerBalance}
                 symbol="HT"
                 label="Utility Wallet"
                 variant="default"
@@ -341,6 +355,22 @@ export function SunShadeLiveStage({
           </div>
 
           <div className="space-y-4">
+            <GladiatorDropsPanel
+              creatorId={context.profile?.id ?? null}
+              creatorName={creatorName}
+              viewerUserId={context.viewerUserId}
+              viewerBalance={viewerBalance}
+              activeMatchId={activeVod?.matchId}
+              authAccessToken={accessToken}
+              hudHistory={hudHistory}
+              onHudTrigger={(trigger, newBalance) => {
+                if (typeof newBalance === 'number') {
+                  setViewerBalance(newBalance);
+                }
+                handleRemoteHudTrigger(trigger);
+                realtime.broadcastHudTrigger(trigger);
+              }}
+            />
             {extraRightPanels}
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
               <CastLedgerBadges entries={context.castBadges} compact />
