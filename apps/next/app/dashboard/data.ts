@@ -10,6 +10,27 @@ import type {
   HubNotification,
 } from './types';
 
+async function safeQueryReels(supabase: any, userId: string) {
+  if (typeof supabase?.schema !== 'function') {
+    return { cartridges: [], unlocks: [], castBadges: [] };
+  }
+  try {
+    const reelsSchema = supabase.schema('reels');
+    const [cartridgeRes, unlockRes, castRes] = await Promise.all([
+      reelsSchema.from('cartridges').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
+      reelsSchema.from('user_cartridge_unlocks').select('cartridge_id').eq('user_id', userId),
+      reelsSchema.from('cast_ledger_entries').select('*').eq('user_id', userId).order('awarded_at', { ascending: false }).limit(20),
+    ]);
+    return {
+      cartridges: cartridgeRes?.data ?? [],
+      unlocks: (unlockRes?.data ?? []).map((r: any) => String(r.cartridge_id)),
+      castBadges: castRes?.data ?? [],
+    };
+  } catch {
+    return { cartridges: [], unlocks: [], castBadges: [] };
+  }
+}
+
 export async function getDashboardData(): Promise<DashboardData & { userId: string | null }> {
   const supabase = await createSSRClient();
 
@@ -53,6 +74,7 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
     { data: userChessAchRows },
     { data: eventsRows },
     { data: broadcastRows },
+    reelsData,
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -115,6 +137,8 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(10),
+
+    safeQueryReels(supabase, user.id),
   ]);
 
   const profile: DashboardProfile | null = profileRow
@@ -268,5 +292,8 @@ export async function getDashboardData(): Promise<DashboardData & { userId: stri
     hubEvents: (eventsRows ?? []) as any[],
     notifications,
     featureFlags,
+    arcadeCartridges: reelsData.cartridges as Array<Record<string, any>>,
+    arcadeUnlockedIds: reelsData.unlocks,
+    castLedgerEntries: reelsData.castBadges as Array<Record<string, any>>,
   };
 }

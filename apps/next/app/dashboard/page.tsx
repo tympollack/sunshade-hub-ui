@@ -33,6 +33,9 @@ export default async function DashboardPage() {
         hubEvents={data.hubEvents}
         notifications={data.notifications}
         featureFlags={data.featureFlags}
+        arcadeCartridges={data.arcadeCartridges}
+        arcadeUnlockedIds={data.arcadeUnlockedIds}
+        castLedgerEntries={data.castLedgerEntries}
         chessWidget={
           showChess ? (
             <WidgetErrorBoundary gameName="SunShade Chess">
