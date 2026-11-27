@@ -4,6 +4,20 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { createDirectorTimelineFromTrajectory } from '@digitalcanopy/dramacast';
 import type { RollTrajectoryStep } from '@digitalcanopy/reels-engine';
 import { SunShadeLiveStage } from '../components/live/SunShadeLiveStage';
+
+vi.mock('@digitalcanopy/supabase', () => ({
+  supabase: {
+    channel: vi.fn(() => ({
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+      track: vi.fn(),
+      presenceState: vi.fn(() => ({})),
+      unsubscribe: vi.fn(),
+    })),
+    removeChannel: vi.fn(),
+  },
+}));
 import { snapPointToCorner } from '../components/live/DraggableWebcamPiP';
 import {
   loadCreatorLiveContext,

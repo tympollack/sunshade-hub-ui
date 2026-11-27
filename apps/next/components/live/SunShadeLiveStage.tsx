@@ -1,17 +1,8 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import {
-  Radio,
-  Film,
-  ArrowLeft,
-  Tv,
-  Play,
-  Pause,
-  Users,
-  Sparkles,
-} from 'lucide-react';
+import { Radio, Film, ArrowLeft, Tv, Users, Sparkles } from 'lucide-react';
 import {
   AtmosphericBadge,
   GlassCard,
@@ -23,10 +14,16 @@ import {
   WebRTCPiPPresenceTrack,
   type PresencePiPLayout,
   type ScrubSyncState,
+  type TelemetryFrame,
 } from '@digitalcanopy/dramacast';
 import type { LiveCreatorContext, CreatorShowdownVod } from '../../lib/live/liveCreatorService';
+import {
+  useLiveReactionSync,
+  type LiveHudTriggerEvent,
+} from '../../lib/live/useLiveReactionSync';
 import { WebGLTelemetryCanvas } from './WebGLTelemetryCanvas';
 import { DraggableWebcamPiP } from './DraggableWebcamPiP';
+import { LiveReactionTimelineBar } from './LiveReactionTimelineBar';
 import { CastLedgerBadges } from '../../app/dashboard/components/arcade/CastLedgerBadges';
 
 export interface SunShadeLiveStageProps {
@@ -34,13 +31,6 @@ export interface SunShadeLiveStageProps {
   initialSimulcastOverlay?: boolean;
   extraRightPanels?: React.ReactNode;
   extraStageOverlay?: React.ReactNode;
-}
-
-function formatTimecode(ms: number): string {
-  const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const mins = Math.floor(totalSec / 60);
-  const secs = totalSec % 60;
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
 export function SunShadeLiveStage({
@@ -53,9 +43,12 @@ export function SunShadeLiveStage({
   const [selectedVodId, setSelectedVodId] = useState<string | null>(
     context.vodReels[0]?.id ?? null
   );
+  const [remoteFrames, setRemoteFrames] = useState<TelemetryFrame[] | null>(null);
   const [isLiveStudioActive, setIsLiveStudioActive] = useState(false);
+  const [followHostSync, setFollowHostSync] = useState(true);
   const [pipLayout, setPipLayout] = useState<PresencePiPLayout | undefined>(undefined);
   const [syncState, setSyncState] = useState<ScrubSyncState | null>(null);
+  const [activeHudBanner, setActiveHudBanner] = useState<string | null>(null);
 
   const presenceRef = useRef<WebRTCPiPPresenceTrack | null>(null);
   if (!presenceRef.current) {
@@ -67,25 +60,45 @@ export function SunShadeLiveStage({
     return context.vodReels.find((r) => r.id === selectedVodId) ?? context.vodReels[0] ?? null;
   }, [context.vodReels, selectedVodId]);
 
+  const effectiveFrames = remoteFrames ?? activeVod?.telemetryFrames ?? [];
   const syncRef = useRef<ReactionTimelineSynchronizer | null>(null);
 
   useEffect(() => {
-    if (!activeVod) {
+    if (!activeVod && (!remoteFrames || remoteFrames.length === 0)) {
       syncRef.current = null;
       setSyncState(null);
       return;
     }
 
     const synchronizer = new ReactionTimelineSynchronizer({
-      frames: activeVod.telemetryFrames,
-      timelinePlan: activeVod.timelinePlan,
+      frames: effectiveFrames,
+      timelinePlan: activeVod?.timelinePlan,
       presenceProvider: presenceRef.current ?? undefined,
       defaultPlaybackRate: 1,
     });
     syncRef.current = synchronizer;
     setSyncState(synchronizer.getState());
     return synchronizer.subscribe((next) => setSyncState(next));
-  }, [activeVod]);
+  }, [activeVod, effectiveFrames, remoteFrames]);
+
+  const handleRemoteTelemetryFrames = useCallback((frames: TelemetryFrame[]) => {
+    setRemoteFrames(frames);
+  }, []);
+
+  const handleRemoteHudTrigger = useCallback((trigger: LiveHudTriggerEvent) => {
+    setActiveHudBanner(trigger.message);
+  }, []);
+
+  const realtime = useLiveReactionSync({
+    creatorSlug: context.creatorSlug,
+    viewerId: context.viewerUserId || 'guest-viewer',
+    synchronizer: syncRef.current,
+    isHost: isLiveStudioActive,
+    followHostSync,
+    onRemoteTelemetryFrames: handleRemoteTelemetryFrames,
+    onRemotePipLayout: setPipLayout,
+    onRemoteHudTrigger: handleRemoteHudTrigger,
+  });
 
   useEffect(() => {
     if (!syncState?.isPlaying) return;
@@ -97,10 +110,32 @@ export function SunShadeLiveStage({
 
   const handleTogglePlay = () => {
     if (!syncRef.current || !syncState) return;
-    if (syncState.isPlaying) {
-      syncRef.current.pause();
-    } else {
-      syncRef.current.play();
+    const next = syncState.isPlaying ? syncRef.current.pause() : syncRef.current.play();
+    if (isLiveStudioActive) {
+      realtime.broadcastPlayhead(next, activeVod?.matchId);
+    }
+  };
+
+  const handleScrub = (ms: number) => {
+    if (!syncRef.current) return;
+    const next = syncRef.current.seek(ms);
+    if (isLiveStudioActive) {
+      realtime.broadcastPlayhead(next, activeVod?.matchId);
+    }
+  };
+
+  const handleJumpToKeyframe = (keyframeId: string) => {
+    if (!syncRef.current) return;
+    const next = syncRef.current.jumpToKeyframe(keyframeId);
+    if (isLiveStudioActive) {
+      realtime.broadcastPlayhead(next, activeVod?.matchId);
+    }
+  };
+
+  const handlePipLayoutChange = (next: PresencePiPLayout) => {
+    setPipLayout(next);
+    if (isLiveStudioActive) {
+      realtime.broadcastPipLayout(next);
     }
   };
 
@@ -108,10 +143,20 @@ export function SunShadeLiveStage({
     presenceRef.current?.attachPlaybackElement(el ?? undefined);
   };
 
-  const durationMs = Math.max(
-    1000,
-    syncState?.durationMs || activeVod?.timelinePlan?.targetDurationMs || 60_000
-  );
+  const handleToggleLiveStudio = () => {
+    const nextActive = !isLiveStudioActive;
+    setIsLiveStudioActive(nextActive);
+    if (nextActive && activeVod) {
+      realtime.broadcastTelemetry(
+        activeVod.telemetryFrames,
+        activeVod.matchId,
+        activeVod.cartridgeId
+      );
+      if (syncState) {
+        realtime.broadcastPlayhead(syncState, activeVod.matchId);
+      }
+    }
+  };
 
   return (
     <div
@@ -120,7 +165,6 @@ export function SunShadeLiveStage({
       className="min-h-screen bg-zinc-950 text-zinc-100 p-4 sm:p-6 lg:p-8"
     >
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Top Broadcast Bar */}
         <GlassCard variant="default" padding="md" className="border-zinc-800 bg-zinc-900/70">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="space-y-1.5">
@@ -160,6 +204,8 @@ export function SunShadeLiveStage({
             <div className="flex flex-wrap items-center gap-3">
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-mono text-zinc-300">
                 <Users className="w-3.5 h-3.5 text-cyan-400" />
+                <span data-testid="live-viewer-count">{`${realtime.viewerCount} Watching`}</span>
+                <span className="text-zinc-600">•</span>
                 <span data-testid="live-standing-readout">
                   {context.profile
                     ? `${context.profile.citizenTier} • Rep ${context.profile.reputationScore}`
@@ -179,7 +225,7 @@ export function SunShadeLiveStage({
                 testID="toggle-live-studio-btn"
                 variant={isLiveStudioActive ? 'cozy' : 'sunshade'}
                 size="sm"
-                onPress={() => setIsLiveStudioActive((prev) => !prev)}
+                onPress={handleToggleLiveStudio}
                 icon={<Radio className="w-3.5 h-3.5" />}
                 label={isLiveStudioActive ? 'End Live Broadcast' : 'Start Live Broadcast'}
               />
@@ -187,66 +233,57 @@ export function SunShadeLiveStage({
           </div>
         </GlassCard>
 
-        {/* Main Stage + Side Column */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
           <div className="xl:col-span-2 space-y-4">
-            {/* WebGL Telemetry Canvas + Draggable Webcam PiP */}
             <div className="relative">
               <WebGLTelemetryCanvas
                 creatorName={creatorName}
                 syncState={syncState}
                 isLiveActive={isLiveStudioActive}
+                activeHudBanner={activeHudBanner}
               />
               <DraggableWebcamPiP
                 creatorName={creatorName}
                 presenceProvider={presenceRef.current}
                 layout={pipLayout}
-                onLayoutChange={setPipLayout}
+                onLayoutChange={handlePipLayoutChange}
                 onAttachVideoElement={handleAttachVideo}
               />
               {extraStageOverlay}
             </div>
 
-            {/* VOD / Reaction Scrubber Controls */}
             {activeVod && syncState && (
-              <div
-                data-testid="live-vod-scrubber-bar"
-                className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 space-y-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <PrimaryButton
-                      testID="live-play-pause-btn"
-                      variant="sunshade"
-                      size="sm"
-                      onPress={handleTogglePlay}
-                      icon={syncState.isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                      label={syncState.isPlaying ? 'Pause' : 'Play Reaction Sync'}
-                    />
-                    <span className="text-xs font-semibold text-zinc-300 truncate max-w-xs">
-                      {activeVod.title}
-                    </span>
-                  </div>
-                  <span data-testid="live-timecode" className="text-xs font-mono text-zinc-300">
-                    {`${formatTimecode(syncState.playheadMs)} / ${formatTimecode(durationMs)}`}
-                  </span>
-                </div>
-
-                <input
-                  type="range"
-                  aria-label="Live Reaction Timeline"
-                  data-testid="live-timeline-scrubber"
-                  min={0}
-                  max={durationMs}
-                  step={250}
-                  value={Math.round(syncState.playheadMs)}
-                  onChange={(e) => syncRef.current?.seek(Number(e.target.value))}
-                  className="w-full accent-orange-500 cursor-pointer"
-                />
-              </div>
+              <LiveReactionTimelineBar
+                title={activeVod.title}
+                syncState={syncState}
+                keyframes={activeVod.timelinePlan?.keyframes ?? []}
+                reactionCues={realtime.reactionCues}
+                isRealtimeConnected={realtime.isRealtimeConnected}
+                followHostSync={followHostSync}
+                driftMs={realtime.driftMs}
+                codecStats={realtime.codecStats}
+                onTogglePlay={handleTogglePlay}
+                onScrub={handleScrub}
+                onJumpToKeyframe={handleJumpToKeyframe}
+                onToggleFollowHost={() => setFollowHostSync((prev) => !prev)}
+                onEmitReactionCue={(label, emoji) =>
+                  realtime.broadcastReactionCue(
+                    label,
+                    emoji,
+                    syncState.playheadMs,
+                    creatorName
+                  )
+                }
+                onBroadcastTelemetryPacket={() =>
+                  realtime.broadcastTelemetry(
+                    effectiveFrames,
+                    activeVod.matchId,
+                    activeVod.cartridgeId
+                  )
+                }
+              />
             )}
 
-            {/* Creator Showdown Reel Archive */}
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -281,7 +318,10 @@ export function SunShadeLiveStage({
                         key={vod.id}
                         type="button"
                         data-testid={`vod-reel-card-${vod.id}`}
-                        onClick={() => setSelectedVodId(vod.id)}
+                        onClick={() => {
+                          setRemoteFrames(null);
+                          setSelectedVodId(vod.id);
+                        }}
                         className={`text-left p-3 rounded-xl border transition-colors ${
                           selected
                             ? 'bg-orange-500/10 border-orange-500 text-white'
@@ -300,7 +340,6 @@ export function SunShadeLiveStage({
             </div>
           </div>
 
-          {/* Right Side Panel */}
           <div className="space-y-4">
             {extraRightPanels}
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
