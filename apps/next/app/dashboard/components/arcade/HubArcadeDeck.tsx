@@ -12,6 +12,7 @@ import type {
   BankedStub,
   BlindCheckResult,
   BlindSkillSubmission,
+  CastLedgerEntry,
   ClientRollPreview,
   MiracleSeedSnapshot,
 } from '@digitalcanopy/reels-engine';
@@ -26,6 +27,8 @@ import {
 } from '../../../../lib/arcade/arcadeSessionService';
 import { ActiveCabinetStage } from './ActiveCabinetStage';
 import { BlindSkillCheckOverlay } from './BlindSkillCheckOverlay';
+import { ShowdownReelTheater } from './ShowdownReelTheater';
+import { CastLedgerBadges } from './CastLedgerBadges';
 
 export interface HubArcadeDeckProps {
   userId?: string | null;
@@ -68,7 +71,11 @@ export function HubArcadeDeck({
   const [statusError, setStatusError] = useState<string | null>(null);
   const [isSkillOverlayOpen, setIsSkillOverlayOpen] = useState(false);
   const [resultBanner, setResultBanner] = useState<string | null>(null);
+  const [activeShowdown, setActiveShowdown] = useState<ShowdownBundle | null>(null);
+  const [internalMiracleSeed, setInternalMiracleSeed] = useState<MiracleSeedSnapshot | null>(null);
+  const [earnedBadges, setEarnedBadges] = useState<CastLedgerEntry[]>([]);
   const runtimeRef = useRef<ArcadeCabinetRuntime | null>(null);
+  const effectiveMiracleSeed = activeMiracleSeed ?? internalMiracleSeed;
 
   const filteredCartridges = useMemo(() => {
     if (genreFilter === 'all') return cartridges;
@@ -97,13 +104,13 @@ export function HubArcadeDeck({
   );
 
   React.useEffect(() => {
-    if (!activeMiracleSeed) return;
+    if (!effectiveMiracleSeed) return;
     const matchCartridge =
-      cartridges.find((c) => c.id === activeMiracleSeed.cartridgeId) ?? cartridges[0];
+      cartridges.find((c) => c.id === effectiveMiracleSeed.cartridgeId) ?? cartridges[0];
     if (matchCartridge) {
-      bootCabinet(matchCartridge, activeMiracleSeed);
+      bootCabinet(matchCartridge, effectiveMiracleSeed);
     }
-  }, [activeMiracleSeed, cartridges, bootCabinet]);
+  }, [effectiveMiracleSeed, cartridges, bootCabinet]);
 
   const handlePullRoll = async () => {
     if (!runtimeRef.current) return;
@@ -189,7 +196,20 @@ export function HubArcadeDeck({
   const handleBuildShowdown = () => {
     if (!runtimeRef.current) return;
     const bundle = runtimeRef.current.buildShowdownBundle();
-    onOpenShowdownTheater?.(bundle);
+    if (bundle.castBadges.length > 0) {
+      setEarnedBadges((prev) => {
+        const merged = new Map(prev.map((b) => [b.entryId, b]));
+        for (const badge of bundle.castBadges) {
+          merged.set(badge.entryId, badge);
+        }
+        return Array.from(merged.values());
+      });
+    }
+    if (onOpenShowdownTheater) {
+      onOpenShowdownTheater(bundle);
+    } else {
+      setActiveShowdown(bundle);
+    }
   };
 
   const unlockedCount = cartridges.filter((c) => c.isUnlocked).length;
@@ -360,9 +380,30 @@ export function HubArcadeDeck({
             await handleSubmitSkillCheck(submission);
             setIsSkillOverlayOpen(false);
           }}
-          onClearMiracleSeed={onClearMiracleSeed}
+          onClearMiracleSeed={
+            onClearMiracleSeed ??
+            (() => {
+              setInternalMiracleSeed(null);
+            })
+          }
         />
       )}
+
+      {earnedBadges.length > 0 && (
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-[#161616] p-5">
+          <CastLedgerBadges entries={earnedBadges} compact />
+        </div>
+      )}
+
+      <ShowdownReelTheater
+        isOpen={Boolean(activeShowdown)}
+        bundle={activeShowdown}
+        onClose={() => setActiveShowdown(null)}
+        onLaunchMiracleSeed={(snap) => {
+          setInternalMiracleSeed(snap);
+          setActiveShowdown(null);
+        }}
+      />
 
       {isSkillOverlayOpen &&
         cabinetState?.pendingRollPreview &&
