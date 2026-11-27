@@ -25,6 +25,8 @@ import { WebGLTelemetryCanvas } from './WebGLTelemetryCanvas';
 import { DraggableWebcamPiP } from './DraggableWebcamPiP';
 import { LiveReactionTimelineBar } from './LiveReactionTimelineBar';
 import { GladiatorDropsPanel } from './GladiatorDropsPanel';
+import { VanityFunnelOverlay } from './VanityFunnelOverlay';
+import { SimulcastRelayPanel } from './SimulcastRelayPanel';
 import { CastLedgerBadges } from '../../app/dashboard/components/arcade/CastLedgerBadges';
 import { supabase } from '@digitalcanopy/supabase';
 
@@ -54,6 +56,8 @@ export function SunShadeLiveStage({
   const [hudHistory, setHudHistory] = useState<LiveHudTriggerEvent[]>([]);
   const [viewerBalance, setViewerBalance] = useState<number>(context.viewerUtilityBalance);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [simulcastOverlayEnabled, setSimulcastOverlayEnabled] = useState(initialSimulcastOverlay);
+  const [simulcastShortUrl, setSimulcastShortUrl] = useState<string>(context.canonicalUrl);
 
   useEffect(() => {
     supabase?.auth?.getSession?.().then(({ data }) => {
@@ -263,6 +267,18 @@ export function SunShadeLiveStage({
                 onLayoutChange={handlePipLayoutChange}
                 onAttachVideoElement={handleAttachVideo}
               />
+              <VanityFunnelOverlay
+                visible={simulcastOverlayEnabled}
+                dramaIndex={syncState?.interpolatedDramaIndex ?? 0}
+                overlay={{
+                  creatorSlug: context.creatorSlug,
+                  creatorName,
+                  canonicalUrl: context.canonicalUrl,
+                  shortUrl: simulcastShortUrl,
+                  ctaLabel: `Play & Drop at ${simulcastShortUrl}`,
+                  splitBanner: '95% Direct to Creator • 5% Hub Infra',
+                }}
+              />
               {extraStageOverlay}
             </div>
 
@@ -370,6 +386,15 @@ export function SunShadeLiveStage({
                 handleRemoteHudTrigger(trigger);
                 realtime.broadcastHudTrigger(trigger);
               }}
+            />
+            <SimulcastRelayPanel
+              creatorSlug={context.creatorSlug}
+              creatorName={creatorName}
+              canonicalUrl={context.canonicalUrl}
+              authAccessToken={accessToken}
+              overlayEnabled={simulcastOverlayEnabled}
+              onToggleOverlay={() => setSimulcastOverlayEnabled((prev) => !prev)}
+              onSpecGenerated={(spec) => setSimulcastShortUrl(spec.overlay.shortUrl)}
             />
             {extraRightPanels}
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
