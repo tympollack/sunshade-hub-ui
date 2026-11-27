@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Gamepad2, Play, Lock, CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
+import { Gamepad2, Play, Lock, CheckCircle2, Tv } from 'lucide-react';
 import {
   AtmosphericBadge,
   GlassCard,
@@ -113,6 +114,14 @@ export function HubArcadeDeck({
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <Link
+              href={`/live/${encodeURIComponent(userId || 'studio')}`}
+              data-testid="open-sunshade-live-link"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-xs font-bold text-orange-400 border border-orange-500/30 transition-colors"
+            >
+              <Tv className="w-3.5 h-3.5" />
+              <span>SunShade Live</span>
+            </Link>
             <TokenBalanceBadge
               balance={utilityBalance}
               symbol="HT"
