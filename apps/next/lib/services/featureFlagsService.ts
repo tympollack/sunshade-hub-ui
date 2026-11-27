@@ -31,6 +31,7 @@ export const DEFAULT_HUB_FEATURE_FLAGS: Record<string, boolean> = {
   connected_services: true,
   guest_launch: true,
   arcade_deck: true,
+  sunshade_live: true,
 };
 
 /**
