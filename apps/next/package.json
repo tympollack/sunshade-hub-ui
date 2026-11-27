@@ -14,6 +14,8 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1091.0",
     "@aws-sdk/s3-request-presigner": "^3.1091.0",
+    "@digitalcanopy/dramacast": "^0.1.1",
+    "@digitalcanopy/reels-engine": "^0.1.1",
     "@digitalcanopy/supabase": "^0.1.0",
     "@digitalcanopy/ui": "^0.1.2",
     "@supabase/ssr": "^0.12.0",

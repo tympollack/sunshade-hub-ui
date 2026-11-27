@@ -24,6 +24,7 @@ import {
   History,
   User,
   Sparkles,
+  Gamepad2,
 } from 'lucide-react';
 import { GameDetailsDrawer } from './GameDetailsDrawer';
 import { useHubPresence } from '../../hooks/useHubPresence';
@@ -36,6 +37,7 @@ import { ConnectedServicesGrid } from './components/ConnectedServicesGrid';
 import { SecuritySettingsDrawer } from './components/SecuritySettingsDrawer';
 import { BroadcastPreviewDrawer, type BroadcastPostData } from './components/BroadcastPreviewDrawer';
 import { LaunchpadShowcase } from './components/LaunchpadShowcase';
+import { HubArcadeDeck } from './components/arcade/HubArcadeDeck';
 import { ECOSYSTEM_APPS } from '../../data/ecosystemApps';
 import { isFeatureEnabled, filterVisibleLaunchpadApps } from '../../lib/services/featureFlagsService';
 import { DashboardAchievements } from './components/DashboardAchievements';
@@ -130,6 +132,7 @@ export default function DashboardClient({
   const isLaunchpadEnabled = isFeatureEnabled(featureFlags, 'showcase_launchpad', true);
   const isConnectedServicesEnabled = isFeatureEnabled(featureFlags, 'connected_services', true);
   const isGuestLaunchEnabled = isFeatureEnabled(featureFlags, 'guest_launch', true);
+  const isArcadeDeckEnabled = isFeatureEnabled(featureFlags, 'arcade_deck', true);
   const visibleLaunchpadApps = filterVisibleLaunchpadApps(ECOSYSTEM_APPS, featureFlags);
   const defaultBroadcastPost: BroadcastPostData = {
     id: 'hub-staging-preview',
@@ -241,8 +244,9 @@ export default function DashboardClient({
       const params = new URLSearchParams(window.location.search);
       const viewParam = params.get('view') || params.get('tab');
       if (viewParam) {
-        const views = ['Overview', 'Game Library', 'Medical Vault', 'Edge Nodes', 'Profile', 'Settings'];
-        const matched = views.find((v) => v.toLowerCase() === viewParam.toLowerCase());
+        const views = ['Overview', 'Arcade Deck', 'Game Library', 'Medical Vault', 'Edge Nodes', 'Profile', 'Settings'];
+        const normalizedParam = viewParam.toLowerCase() === 'arcade' ? 'arcade deck' : viewParam.toLowerCase();
+        const matched = views.find((v) => v.toLowerCase() === normalizedParam);
         if (matched) setActiveView(matched);
       }
       if (params.get('drawer') === 'security') {
@@ -420,6 +424,14 @@ export default function DashboardClient({
               active={activeView === 'Game Library'}
               onClick={() => setActiveView('Game Library')}
             />
+            {isArcadeDeckEnabled && (
+              <NavItem
+                icon={<Gamepad2 size={18} />}
+                label="Arcade Deck"
+                active={activeView === 'Arcade Deck'}
+                onClick={() => setActiveView('Arcade Deck')}
+              />
+            )}
             <NavItem
               icon={<Activity size={18} />}
               label="Medical Vault"
@@ -584,6 +596,14 @@ export default function DashboardClient({
                   {/* SunShade Launchpad & Dynamic App Registry */}
                   {isLaunchpadEnabled && <LaunchpadShowcase apps={visibleLaunchpadApps} guestLaunchEnabled={isGuestLaunchEnabled} />}
 
+                  {/* Instant-Load Hub Arcade Deck */}
+                  {isArcadeDeckEnabled && (
+                    <HubArcadeDeck
+                      userId={currentProfile?.id || session?.user?.id}
+                      utilityBalance={hubTokens}
+                    />
+                  )}
+
                   {isDartUpWidgetEnabled && dartUpWidget}
 
                   {(isChessWidgetEnabled || isEcosystemWidgetEnabled) && (
@@ -664,6 +684,14 @@ export default function DashboardClient({
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* ARCADE DECK VIEW */}
+              {activeView === 'Arcade Deck' && (
+                <HubArcadeDeck
+                  userId={currentProfile?.id || session?.user?.id}
+                  utilityBalance={hubTokens}
+                />
               )}
 
               {/* MEDICAL VAULT VIEW */}
@@ -750,6 +778,14 @@ export default function DashboardClient({
             active={activeView === 'Game Library'}
             onClick={() => setActiveView('Game Library')}
           />
+          {isArcadeDeckEnabled && (
+            <MobileNavItem
+              icon={<Gamepad2 size={20} />}
+              label="Arcade"
+              active={activeView === 'Arcade Deck'}
+              onClick={() => setActiveView('Arcade Deck')}
+            />
+          )}
           <MobileNavItem
             icon={<Activity size={20} />}
             label="Vault"

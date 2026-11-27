@@ -30,6 +30,7 @@ export const DEFAULT_HUB_FEATURE_FLAGS: Record<string, boolean> = {
   showcase_launchpad: true,
   connected_services: true,
   guest_launch: true,
+  arcade_deck: true,
 };
 
 /**
