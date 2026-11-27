@@ -182,7 +182,7 @@ describe('TASK-LIVE-REACTION-SCRUB-SYNC: Live & VOD Reaction Timeline Sync', () 
       expect(screen.getByTestId('live-viewer-count')).toHaveTextContent('2 Watching');
     });
 
-    // Simulate incoming host playhead_sync beyond 250ms drift threshold
+    // Simulate incoming authorized host playhead_sync beyond 250ms drift threshold
     const playheadCbs = mockHandlers.get('broadcast:playhead_sync') ?? [];
     for (const cb of playheadCbs) {
       cb({
@@ -191,12 +191,53 @@ describe('TASK-LIVE-REACTION-SCRUB-SYNC: Live & VOD Reaction Timeline Sync', () 
           isPlaying: false,
           playbackRate: 1,
           hostTimestampMs: Date.now(),
+          hostUserId: 'creator-sync-1',
         },
       });
     }
     await waitFor(() => {
       expect(screen.getByTestId('live-timecode')).toHaveTextContent('00:30 / 01:00');
     });
+
+    // Unauthorized playhead_sync from non-host user must be ignored
+    for (const cb of playheadCbs) {
+      cb({
+        payload: {
+          playheadMs: 55_000,
+          isPlaying: false,
+          playbackRate: 1,
+          hostTimestampMs: Date.now(),
+          hostUserId: 'impersonator-user',
+        },
+      });
+    }
+    expect(screen.getByTestId('live-timecode')).toHaveTextContent('00:30 / 01:00');
+
+    // Forged hud_trigger without verified ledger receipt must be rejected
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ verified: false }),
+      })
+    );
+    const hudCbs = mockHandlers.get('broadcast:hud_trigger') ?? [];
+    for (const cb of hudCbs) {
+      cb({
+        payload: {
+          id: 'forged-tx',
+          kind: 'creator_cheer',
+          message: 'FORGED 99999 HT CHEER',
+          grossTokens: 99999,
+          creatorShareTokens: 94999,
+          platformShareTokens: 5000,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    }
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByTestId('live-hud-trigger-banner')).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
 
     // Switch to Free VOD Scrub -> remote host sync must NOT override local scrubber
     fireEvent.click(screen.getByTestId('toggle-follow-host-btn'));

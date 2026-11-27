@@ -98,23 +98,31 @@ describe('TASK-LIVE-WEBCODECS-CLIPPER: 9:16 Vertical MP4 Exporter & links.sunsha
     });
     expect(shortRes.shortUrl).toBe('https://links.sunshade.icu/clip9x16/vertical-clip');
 
+    const composedScores: number[] = [];
     const exported = await exportVerticalMp4Clip({
       creatorSlug: 'nova-pilot',
       creatorName: 'Nova Pilot',
       title: 'Sky Skirmish Clutch',
-      startMs: 5000,
-      endMs: 6000,
+      startMs: 0,
+      endMs: 4000,
       fps: 15,
       dramaIndex: 92.4,
       score: 1450,
       shortUrl: shortRes.shortUrl,
+      telemetryFrames: [
+        { seq: 0, tMs: 0, rollIndex: 0, winProbability: 0.4, dramaIndex: 25, score: 110, tierIndex: 1, flags: 0 },
+        { seq: 1, tMs: 3000, rollIndex: 1, winProbability: 0.88, dramaIndex: 92.4, score: 1450, tierIndex: 3, flags: 0 },
+      ],
       VideoEncoderCtor: MockVideoEncoder as any,
       VideoFrameCtor: MockVideoFrame as any,
+      onFrameComposed: (meta) => composedScores.push(meta.score),
     });
 
+    expect(composedScores[0]).toBe(110);
+    expect(composedScores[composedScores.length - 1]).toBe(1450);
     expect(exported.width).toBe(1080);
     expect(exported.height).toBe(1920);
-    expect(exported.frameCount).toBe(15);
+    expect(exported.frameCount).toBe(60);
     expect(exported.blob.type).toBe('video/mp4');
     expect(exported.mp4Bytes.byteLength).toBeGreaterThan(150);
   });

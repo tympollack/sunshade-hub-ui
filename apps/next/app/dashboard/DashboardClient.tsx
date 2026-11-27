@@ -141,6 +141,7 @@ export default function DashboardClient({
   const isConnectedServicesEnabled = isFeatureEnabled(featureFlags, 'connected_services', true);
   const isGuestLaunchEnabled = isFeatureEnabled(featureFlags, 'guest_launch', true);
   const isArcadeDeckEnabled = isFeatureEnabled(featureFlags, 'arcade_deck', true);
+  const isSunShadeLiveEnabled = isFeatureEnabled(featureFlags, 'sunshade_live', true);
   const initialCastBadges: CastLedgerEntry[] = (castLedgerEntries ?? []).map((row) => ({
     entryId: String(row.entry_id),
     matchId: String(row.match_id),
@@ -634,6 +635,7 @@ export default function DashboardClient({
                     <HubArcadeDeck
                       userId={currentProfile?.id || session?.user?.id}
                       utilityBalance={hubTokens}
+                      showSunShadeLive={isSunShadeLiveEnabled}
                       sessionHandle={arcadeSession}
                     />
                   )}
@@ -725,6 +727,7 @@ export default function DashboardClient({
                 <HubArcadeDeck
                   userId={currentProfile?.id || session?.user?.id}
                   utilityBalance={hubTokens}
+                  showSunShadeLive={isSunShadeLiveEnabled}
                   sessionHandle={arcadeSession}
                 />
               )}

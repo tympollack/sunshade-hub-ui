@@ -148,7 +148,9 @@ export async function runSimulcastWorker(argv = process.argv.slice(2)) {
     await page.setViewport({ width: config.width, height: config.height });
   }
 
-  await page.goto(config.url, { waitUntil: 'networkidle' });
+  await page.goto(config.url, {
+    waitUntil: kind === 'playwright' ? 'networkidle' : 'networkidle2',
+  });
 
   const ffmpeg = spawn('ffmpeg', ffmpegArgs, {
     stdio: ['pipe', 'inherit', 'inherit'],
@@ -161,6 +163,11 @@ export async function runSimulcastWorker(argv = process.argv.slice(2)) {
     try {
       ffmpeg.stdin.end();
     } catch {}
+    setTimeout(() => {
+      if (!ffmpeg.killed) {
+        ffmpeg.kill('SIGTERM');
+      }
+    }, 500);
     await browser.close().catch(() => {});
   };
 
@@ -171,7 +178,10 @@ export async function runSimulcastWorker(argv = process.argv.slice(2)) {
 
   while (!stopping && !ffmpeg.killed) {
     const frameStart = Date.now();
-    const frameBuffer = await page.screenshot({ type: 'jpeg', quality: 85 });
+    const stageElement = await page.$('[data-testid="live-webgl-stage-surface"]');
+    const frameBuffer = stageElement
+      ? await stageElement.screenshot({ type: 'jpeg', quality: 85 })
+      : await page.screenshot({ type: 'jpeg', quality: 85 });
     const canWrite = ffmpeg.stdin.write(frameBuffer);
     if (!canWrite) {
       await new Promise((resolve) => ffmpeg.stdin.once('drain', resolve));

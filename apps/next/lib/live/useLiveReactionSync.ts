@@ -29,6 +29,9 @@ export interface LiveHudTriggerEvent {
   creatorShareTokens: number;
   platformShareTokens: number;
   createdAt: string;
+  effectCode?: string;
+  subTierId?: string;
+  perks?: string;
 }
 
 export interface TelemetryCodecStats {
@@ -42,6 +45,7 @@ export interface LivePlayheadBroadcastPayload {
   isPlaying: boolean;
   playbackRate: number;
   hostTimestampMs: number;
+  hostUserId?: string;
   matchId?: string;
 }
 
@@ -94,26 +98,44 @@ export function computeSyncDriftMs(
   return { expectedPlayheadMs, driftMs };
 }
 
+async function verifyRemoteHudTriggerReceipt(txKey: string): Promise<boolean> {
+  if (typeof fetch !== 'function' || !txKey) return false;
+  try {
+    const res = await fetch(`/api/live/gladiator-drop?txKey=${encodeURIComponent(txKey)}`);
+    if (!res.ok) return false;
+    const data = await res.json().catch(() => ({}));
+    return Boolean(data?.verified);
+  } catch {
+    return false;
+  }
+}
+
 export interface UseLiveReactionSyncOptions {
   creatorSlug: string;
+  hostOwnerId?: string | null;
   viewerId: string;
   synchronizer: ReactionTimelineSynchronizer | null;
   isHost: boolean;
   followHostSync?: boolean;
   onRemoteTelemetryFrames?: (frames: TelemetryFrame[], matchId: string) => void;
   onRemotePipLayout?: (layout: PresencePiPLayout) => void;
+  onRemotePipFrame?: (dataUrl: string) => void;
   onRemoteHudTrigger?: (trigger: LiveHudTriggerEvent) => void;
+  onHostSyncRequested?: () => void;
 }
 
 export function useLiveReactionSync({
   creatorSlug,
+  hostOwnerId,
   viewerId,
   synchronizer,
   isHost,
   followHostSync = true,
   onRemoteTelemetryFrames,
   onRemotePipLayout,
+  onRemotePipFrame,
   onRemoteHudTrigger,
+  onHostSyncRequested,
 }: UseLiveReactionSyncOptions) {
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [viewerCount, setViewerCount] = useState(0);
@@ -125,6 +147,7 @@ export function useLiveReactionSync({
   const syncRef = useRef<ReactionTimelineSynchronizer | null>(synchronizer);
   const followHostRef = useRef(followHostSync);
   const isHostRef = useRef(isHost);
+  const hostOwnerIdRef = useRef(hostOwnerId?.trim().toLowerCase() ?? null);
 
   useEffect(() => {
     syncRef.current = synchronizer;
@@ -139,6 +162,16 @@ export function useLiveReactionSync({
   }, [isHost]);
 
   useEffect(() => {
+    hostOwnerIdRef.current = hostOwnerId?.trim().toLowerCase() ?? null;
+  }, [hostOwnerId]);
+
+  const isAuthorizedHostPayload = (senderHostUserId?: string | null): boolean => {
+    const expected = hostOwnerIdRef.current;
+    if (!expected) return true;
+    return Boolean(senderHostUserId && senderHostUserId.trim().toLowerCase() === expected);
+  };
+
+  useEffect(() => {
     if (!creatorSlug || typeof supabase?.channel !== 'function') return;
 
     const channel = supabase.channel(`sunshade-live:${creatorSlug}`, {
@@ -149,6 +182,7 @@ export function useLiveReactionSync({
     channel
       .on('broadcast', { event: 'playhead_sync' }, ({ payload }: { payload: LivePlayheadBroadcastPayload }) => {
         if (!payload || isHostRef.current || !followHostRef.current) return;
+        if (!isAuthorizedHostPayload(payload.hostUserId)) return;
         const activeSync = syncRef.current;
         if (!activeSync) return;
 
@@ -172,15 +206,20 @@ export function useLiveReactionSync({
           activeSync.pause();
         }
       })
-      .on('broadcast', { event: 'telemetry_bundle' }, ({ payload }: { payload: { encodedBase64Url: string } }) => {
-        if (!payload?.encodedBase64Url || isHostRef.current) return;
-        try {
-          const decoded = decodeLiveTelemetryPacket(payload.encodedBase64Url);
-          onRemoteTelemetryFrames?.(decoded.frames, decoded.matchId);
-        } catch {
-          // Ignore malformed telemetry packets
+      .on(
+        'broadcast',
+        { event: 'telemetry_bundle' },
+        ({ payload }: { payload: { encodedBase64Url: string; hostUserId?: string } }) => {
+          if (!payload?.encodedBase64Url || isHostRef.current) return;
+          if (!isAuthorizedHostPayload(payload.hostUserId)) return;
+          try {
+            const decoded = decodeLiveTelemetryPacket(payload.encodedBase64Url);
+            onRemoteTelemetryFrames?.(decoded.frames, decoded.matchId);
+          } catch {
+            // Ignore malformed telemetry packets
+          }
         }
-      })
+      )
       .on('broadcast', { event: 'reaction_cue' }, ({ payload }: { payload: ReactionCueMarker }) => {
         if (!payload?.id) return;
         setReactionCues((prev) => {
@@ -188,15 +227,36 @@ export function useLiveReactionSync({
           return [...prev, payload].slice(-30);
         });
       })
-      .on('broadcast', { event: 'pip_layout' }, ({ payload }: { payload: { layout: PresencePiPLayout } }) => {
-        if (payload?.layout && !isHostRef.current) {
-          onRemotePipLayout?.(payload.layout);
+      .on(
+        'broadcast',
+        { event: 'pip_layout' },
+        ({ payload }: { payload: { layout: PresencePiPLayout; hostUserId?: string } }) => {
+          if (payload?.layout && !isHostRef.current && isAuthorizedHostPayload(payload.hostUserId)) {
+            onRemotePipLayout?.(payload.layout);
+          }
+        }
+      )
+      .on(
+        'broadcast',
+        { event: 'pip_frame' },
+        ({ payload }: { payload: { dataUrl: string; hostUserId?: string } }) => {
+          if (payload?.dataUrl && !isHostRef.current && isAuthorizedHostPayload(payload.hostUserId)) {
+            onRemotePipFrame?.(payload.dataUrl);
+          }
+        }
+      )
+      .on('broadcast', { event: 'request_host_sync' }, () => {
+        if (isHostRef.current) {
+          onHostSyncRequested?.();
         }
       })
       .on('broadcast', { event: 'hud_trigger' }, ({ payload }: { payload: LiveHudTriggerEvent }) => {
-        if (payload?.id) {
-          onRemoteHudTrigger?.(payload);
-        }
+        if (!payload?.id) return;
+        void verifyRemoteHudTriggerReceipt(payload.id).then((verified) => {
+          if (verified) {
+            onRemoteHudTrigger?.(payload);
+          }
+        });
       })
       .on('presence', { event: 'sync' }, () => {
         try {
@@ -219,6 +279,13 @@ export function useLiveReactionSync({
             role: isHostRef.current ? 'host' : 'viewer',
             joinedAt: new Date().toISOString(),
           });
+          if (!isHostRef.current) {
+            void channel.send?.({
+              type: 'broadcast',
+              event: 'request_host_sync',
+              payload: { viewerId },
+            });
+          }
         }
       });
 
@@ -231,7 +298,15 @@ export function useLiveReactionSync({
         void channel.unsubscribe?.();
       }
     };
-  }, [creatorSlug, viewerId, onRemoteHudTrigger, onRemotePipLayout, onRemoteTelemetryFrames]);
+  }, [
+    creatorSlug,
+    viewerId,
+    onRemoteHudTrigger,
+    onRemotePipLayout,
+    onRemotePipFrame,
+    onRemoteTelemetryFrames,
+    onHostSyncRequested,
+  ]);
 
   const broadcastPlayhead = useCallback((state: ScrubSyncState, matchId?: string) => {
     const channel = channelRef.current;
@@ -244,6 +319,7 @@ export function useLiveReactionSync({
         isPlaying: state.isPlaying,
         playbackRate: state.playbackRate,
         hostTimestampMs: Date.now(),
+        hostUserId: hostOwnerIdRef.current ?? undefined,
         matchId,
       } satisfies LivePlayheadBroadcastPayload,
     });
@@ -259,6 +335,7 @@ export function useLiveReactionSync({
         event: 'telemetry_bundle',
         payload: {
           encodedBase64Url: packet.encodedBase64Url,
+          hostUserId: hostOwnerIdRef.current ?? undefined,
           sentAtMs: Date.now(),
         },
       });
@@ -291,7 +368,22 @@ export function useLiveReactionSync({
     void channelRef.current?.send?.({
       type: 'broadcast',
       event: 'pip_layout',
-      payload: { layout },
+      payload: {
+        layout,
+        hostUserId: hostOwnerIdRef.current ?? undefined,
+      },
+    });
+  }, []);
+
+  const broadcastPipFrame = useCallback((dataUrl: string) => {
+    if (!dataUrl) return;
+    void channelRef.current?.send?.({
+      type: 'broadcast',
+      event: 'pip_frame',
+      payload: {
+        dataUrl,
+        hostUserId: hostOwnerIdRef.current ?? undefined,
+      },
     });
   }, []);
 
@@ -313,6 +405,7 @@ export function useLiveReactionSync({
     broadcastTelemetry,
     broadcastReactionCue,
     broadcastPipLayout,
+    broadcastPipFrame,
     broadcastHudTrigger,
   };
 }

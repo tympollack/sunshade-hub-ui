@@ -26,7 +26,7 @@ import {
   type LiveCreatorContext,
 } from '../lib/live/liveCreatorService';
 
-function buildContext(withVod = true): LiveCreatorContext {
+function buildContext(withVod = true, asOwner = true): LiveCreatorContext {
   const steps: RollTrajectoryStep[] = [
     {
       rollIndex: 0,
@@ -76,7 +76,7 @@ function buildContext(withVod = true): LiveCreatorContext {
       citizenTier: 'Core Citizen',
       reputationScore: 98,
     },
-    viewerUserId: 'viewer-uuid-1',
+    viewerUserId: asOwner ? 'creator-uuid-1' : 'viewer-uuid-1',
     viewerUtilityBalance: 450,
     vodReels: withVod
       ? [
@@ -139,9 +139,18 @@ describe('TASK-LIVE-WEBGL-PIP-PLAYER: WebGL Telemetry + Draggable Webcam PiP Pla
     fireEvent.click(screen.getByTestId('pip-visibility-btn'));
     expect(pip).toHaveAttribute('data-visible', 'false');
 
-    // Toggle Live Broadcast state
+    // Toggle Live Broadcast state (authorized owner)
     fireEvent.click(screen.getByTestId('toggle-live-studio-btn'));
     expect(screen.getByText('End Live Broadcast')).toBeInTheDocument();
+  });
+
+  it('prevents non-owner viewers from impersonating the broadcast host', () => {
+    const context = buildContext(true, false);
+    render(<SunShadeLiveStage context={context} />);
+
+    const hostBtn = screen.getByTestId('toggle-live-studio-btn');
+    expect(hostBtn).toHaveTextContent('Host Only');
+    expect(hostBtn).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('computes corner snap quadrants deterministically', () => {

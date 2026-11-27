@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Zap, Crown, Flame, ShieldCheck } from 'lucide-react';
 import { AtmosphericBadge, PrimaryButton } from '@digitalcanopy/ui';
 import {
@@ -39,6 +39,8 @@ export function GladiatorDropsPanel({
   const [isSending, setIsSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [activeSubTier, setActiveSubTier] = useState<string | null>(null);
+  const pendingKeyRef = useRef<{ signature: string; key: string } | null>(null);
 
   const previewSplit = useMemo(() => {
     try {
@@ -64,16 +66,23 @@ export function GladiatorDropsPanel({
       setErrorMsg('Sign in to your Hub Citizen account to send Gladiator Drops or subscribe.');
       return;
     }
-    if (viewerUserId === creatorId) {
+    if (viewerUserId.trim().toLowerCase() === creatorId.trim().toLowerCase()) {
       setErrorMsg('Creators cannot send drops or cheers to their own channel.');
       return;
     }
 
     setIsSending(true);
     try {
-      const idempotencyKey = `live_${actionType}_${dropId || grossTokens}_${Date.now()}_${Math.random()
-        .toString(36)
-        .slice(2, 7)}`;
+      const signature = `${creatorId}:${actionType}:${dropId || grossTokens}`;
+      if (!pendingKeyRef.current || pendingKeyRef.current.signature !== signature) {
+        pendingKeyRef.current = {
+          signature,
+          key: `live_${actionType}_${dropId || grossTokens}_${Date.now()}_${Math.random()
+            .toString(36)
+            .slice(2, 7)}`,
+        };
+      }
+      const idempotencyKey = pendingKeyRef.current.key;
 
       const res = await fetch('/api/live/gladiator-drop', {
         method: 'POST',
@@ -97,6 +106,10 @@ export function GladiatorDropsPanel({
         throw new Error(data.error || 'Transaction failed.');
       }
 
+      pendingKeyRef.current = null;
+      if (actionType === 'creator_sub' && data.hudTrigger?.subTierId) {
+        setActiveSubTier(data.hudTrigger.perks || data.hudTrigger.subTierId);
+      }
       setStatusMsg(
         `Sent! ${data.split.creatorShareTokens} HT credited to ${creatorName} (95%) • ${data.split.platformShareTokens} HT Hub fee (5%).`
       );
@@ -263,6 +276,11 @@ export function GladiatorDropsPanel({
       {statusMsg && (
         <div data-testid="gladiator-success" className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300">
           {statusMsg}
+        </div>
+      )}
+      {activeSubTier && (
+        <div data-testid="gladiator-active-sub-perks" className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
+          {`Active Subscriber Perks: ${activeSubTier}`}
         </div>
       )}
 

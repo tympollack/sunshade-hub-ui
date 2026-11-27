@@ -93,6 +93,10 @@ export const CREATOR_SUB_TIERS: CreatorSubTierDefinition[] = [
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+export function normalizeEntityId(raw: string): string {
+  return (raw || '').trim().toLowerCase();
+}
+
 export function calculateCreatorRevenueSplit(grossTokens: number): RevenueSplitBreakdown {
   if (!Number.isFinite(grossTokens) || !Number.isInteger(grossTokens) || grossTokens <= 0) {
     throw new Error('Gross token amount must be a positive integer.');
@@ -117,8 +121,12 @@ export function buildHudTriggerEvent(params: {
   creatorName: string;
   label: string;
   split: RevenueSplitBreakdown;
+  effectCode?: string;
+  subTierId?: string;
+  perks?: string;
 }): LiveHudTriggerEvent {
-  const { id, actionType, senderName, creatorName, label, split } = params;
+  const { id, actionType, senderName, creatorName, label, split, effectCode, subTierId, perks } =
+    params;
   const prefix =
     actionType === 'creator_sub'
       ? '👑 NEW SUB'
@@ -134,7 +142,89 @@ export function buildHudTriggerEvent(params: {
     creatorShareTokens: split.creatorShareTokens,
     platformShareTokens: split.platformShareTokens,
     createdAt: new Date().toISOString(),
+    effectCode,
+    subTierId,
+    perks,
   };
+}
+
+async function rollbackSenderWallet(
+  supabaseClient: any,
+  senderId: string,
+  expectedAfterDebit: number,
+  restoreBalance: number,
+  nowIso: string
+) {
+  await supabaseClient
+    .from('user_token_wallets')
+    .update({ utility_balance: restoreBalance, updated_at: nowIso })
+    .eq('user_id', senderId)
+    .eq('utility_balance', expectedAfterDebit);
+}
+
+async function rollbackCreatorWallet(
+  supabaseClient: any,
+  creatorId: string,
+  expectedAfterCredit: number,
+  restoreBalance: number,
+  nowIso: string
+) {
+  await supabaseClient
+    .from('user_token_wallets')
+    .update({ utility_balance: restoreBalance, updated_at: nowIso })
+    .eq('user_id', creatorId)
+    .eq('utility_balance', expectedAfterCredit);
+}
+
+async function creditCreatorWalletAtomically(
+  supabaseClient: any,
+  creatorId: string,
+  creditAmount: number,
+  nowIso: string
+): Promise<{ prevBalance: number; nextBalance: number }> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const { data: creatorWallet, error: creatorWalletErr } = await supabaseClient
+      .from('user_token_wallets')
+      .select('utility_balance')
+      .eq('user_id', creatorId)
+      .maybeSingle();
+
+    if (creatorWalletErr) {
+      throw new Error(`Failed to fetch creator wallet: ${creatorWalletErr.message}`);
+    }
+
+    if (!creatorWallet) {
+      const { error: insertErr } = await supabaseClient
+        .from('user_token_wallets')
+        .insert({ user_id: creatorId, utility_balance: creditAmount, updated_at: nowIso });
+      if (!insertErr) {
+        return { prevBalance: 0, nextBalance: creditAmount };
+      }
+      if (insertErr.message?.includes('duplicate') || insertErr.code === '23505') {
+        continue;
+      }
+      throw new Error(`Failed to initialize creator wallet: ${insertErr.message}`);
+    }
+
+    const prevBalance = Number(creatorWallet.utility_balance ?? 0);
+    const nextBalance = prevBalance + creditAmount;
+
+    const { data: updatedRows, error: updateErr } = await supabaseClient
+      .from('user_token_wallets')
+      .update({ utility_balance: nextBalance, updated_at: nowIso })
+      .eq('user_id', creatorId)
+      .eq('utility_balance', prevBalance)
+      .select('utility_balance');
+
+    if (updateErr) {
+      throw new Error(`Failed to credit creator share: ${updateErr.message}`);
+    }
+    if (!Array.isArray(updatedRows) || updatedRows.length > 0) {
+      return { prevBalance, nextBalance };
+    }
+  }
+
+  throw new Error('Concurrent creator wallet update conflict; please retry.');
 }
 
 export async function executeCreatorSplitTransaction(params: {
@@ -168,10 +258,13 @@ export async function executeCreatorSplitTransaction(params: {
     supabaseClient,
   } = params;
 
-  if (!senderId || !creatorId) {
+  const normSenderId = normalizeEntityId(senderId);
+  const normCreatorId = normalizeEntityId(creatorId);
+
+  if (!normSenderId || !normCreatorId) {
     throw new Error('Both senderId and creatorId are required.');
   }
-  if (senderId === creatorId) {
+  if (normSenderId === normCreatorId) {
     throw new Error('Creators cannot send Gladiator Drops or cheers to themselves.');
   }
   if (!idempotencyKey || !idempotencyKey.trim()) {
@@ -180,6 +273,9 @@ export async function executeCreatorSplitTransaction(params: {
 
   let effectiveTokens = grossTokens;
   let itemLabel = actionType === 'creator_sub' ? 'Creator Subscription' : 'Audience Cheer';
+  let effectCode: string | undefined;
+  let subTierId: string | undefined;
+  let perks: string | undefined;
 
   if (actionType === 'gladiator_drop') {
     const drop = GLADIATOR_DROP_CATALOG.find((d) => d.id === dropId);
@@ -188,22 +284,23 @@ export async function executeCreatorSplitTransaction(params: {
     }
     effectiveTokens = drop.costTokens;
     itemLabel = `${drop.badgeEmoji} ${drop.name}`;
+    effectCode = drop.effectCode;
   } else if (actionType === 'creator_sub') {
-    const tier = CREATOR_SUB_TIERS.find((t) => t.id === dropId);
-    if (tier) {
-      effectiveTokens = tier.costTokens;
-      itemLabel = tier.name;
-    }
+    const tier = CREATOR_SUB_TIERS.find((t) => t.id === dropId) ?? CREATOR_SUB_TIERS[0];
+    effectiveTokens = tier.costTokens;
+    itemLabel = tier.name;
+    subTierId = tier.id;
+    perks = tier.perks;
   }
 
   const split = calculateCreatorRevenueSplit(effectiveTokens);
   const cleanKey = idempotencyKey.trim();
 
-  // Check idempotency via existing hub_tokens_ledger metadata key when available
+  // Check idempotency via existing hub_tokens_ledger metadata key
   const { data: existingLedger, error: existingErr } = await supabaseClient
     .from('hub_tokens_ledger')
     .select('id, metadata')
-    .eq('user_id', senderId)
+    .eq('user_id', normSenderId)
     .contains('metadata', { idempotency_key: cleanKey })
     .limit(1);
 
@@ -215,7 +312,7 @@ export async function executeCreatorSplitTransaction(params: {
     const { data: walletNow } = await supabaseClient
       .from('user_token_wallets')
       .select('utility_balance')
-      .eq('user_id', senderId)
+      .eq('user_id', normSenderId)
       .maybeSingle();
 
     return {
@@ -224,12 +321,15 @@ export async function executeCreatorSplitTransaction(params: {
       split,
       senderRemainingBalance: Number(walletNow?.utility_balance ?? 0),
       hudTrigger: buildHudTriggerEvent({
-        id: String(existingLedger[0].id),
+        id: cleanKey,
         actionType,
         senderName,
         creatorName,
         label: itemLabel,
         split,
+        effectCode,
+        subTierId,
+        perks,
       }),
     };
   }
@@ -238,7 +338,7 @@ export async function executeCreatorSplitTransaction(params: {
   const { data: senderWallet, error: senderWalletErr } = await supabaseClient
     .from('user_token_wallets')
     .select('utility_balance')
-    .eq('user_id', senderId)
+    .eq('user_id', normSenderId)
     .maybeSingle();
 
   if (senderWalletErr) {
@@ -259,7 +359,7 @@ export async function executeCreatorSplitTransaction(params: {
   const { data: debitedRows, error: debitErr } = await supabaseClient
     .from('user_token_wallets')
     .update({ utility_balance: nextSenderBalance, updated_at: nowIso })
-    .eq('user_id', senderId)
+    .eq('user_id', normSenderId)
     .eq('utility_balance', senderBalance)
     .select('utility_balance');
 
@@ -270,41 +370,18 @@ export async function executeCreatorSplitTransaction(params: {
     throw new Error('Concurrent wallet update detected; please retry.');
   }
 
-  // 3. Credit creator 95% share into creator utility_balance
-  const { data: creatorWallet, error: creatorWalletErr } = await supabaseClient
-    .from('user_token_wallets')
-    .select('utility_balance')
-    .eq('user_id', creatorId)
-    .maybeSingle();
-
-  if (creatorWalletErr) {
-    await supabaseClient
-      .from('user_token_wallets')
-      .update({ utility_balance: senderBalance, updated_at: nowIso })
-      .eq('user_id', senderId)
-      .eq('utility_balance', nextSenderBalance);
-    throw new Error(`Failed to fetch creator wallet: ${creatorWalletErr.message}`);
-  }
-
-  const creatorPrev = Number(creatorWallet?.utility_balance ?? 0);
-  const creatorNext = creatorPrev + split.creatorShareTokens;
-
-  const creatorUpdateRes = creatorWallet
-    ? await supabaseClient
-        .from('user_token_wallets')
-        .update({ utility_balance: creatorNext, updated_at: nowIso })
-        .eq('user_id', creatorId)
-    : await supabaseClient
-        .from('user_token_wallets')
-        .insert({ user_id: creatorId, utility_balance: creatorNext, updated_at: nowIso });
-
-  if (creatorUpdateRes?.error) {
-    await supabaseClient
-      .from('user_token_wallets')
-      .update({ utility_balance: senderBalance, updated_at: nowIso })
-      .eq('user_id', senderId)
-      .eq('utility_balance', nextSenderBalance);
-    throw new Error(`Failed to credit creator share: ${creatorUpdateRes.error.message}`);
+  // 3. Optimistically credit creator 95% share with CAS retries
+  let creatorCredit: { prevBalance: number; nextBalance: number };
+  try {
+    creatorCredit = await creditCreatorWalletAtomically(
+      supabaseClient,
+      normCreatorId,
+      split.creatorShareTokens,
+      nowIso
+    );
+  } catch (err) {
+    await rollbackSenderWallet(supabaseClient, normSenderId, nextSenderBalance, senderBalance, nowIso);
+    throw err;
   }
 
   // 4. Append-only hub_tokens_ledger records for sender debit + creator 95% credit
@@ -316,15 +393,18 @@ export async function executeCreatorSplitTransaction(params: {
 
   const { error: ledgerErr } = await supabaseClient.from('hub_tokens_ledger').insert([
     {
-      user_id: senderId,
+      user_id: normSenderId,
       token_class: 'utility_token',
       transaction_type: txTypeMap[actionType],
       amount: -split.grossTokens,
       description: `${itemLabel} sent to ${creatorName}`,
       metadata: {
         idempotency_key: cleanKey,
-        creator_id: creatorId,
+        creator_id: normCreatorId,
         drop_id: dropId ?? null,
+        effect_code: effectCode ?? null,
+        sub_tier_id: subTierId ?? null,
+        perks: perks ?? null,
         split_ratio: '95/5',
         creator_share_tokens: split.creatorShareTokens,
         platform_share_tokens: split.platformShareTokens,
@@ -332,14 +412,14 @@ export async function executeCreatorSplitTransaction(params: {
       created_at: nowIso,
     },
     {
-      user_id: creatorId,
+      user_id: normCreatorId,
       token_class: 'utility_token',
       transaction_type: 'LIVE_CREATOR_PAYOUT_95PCT',
       amount: split.creatorShareTokens,
       description: `95% Live Payout (${itemLabel}) from ${senderName}`,
       metadata: {
         idempotency_key: `${cleanKey}:creator`,
-        sender_id: senderId,
+        sender_id: normSenderId,
         gross_tokens: split.grossTokens,
         platform_fee_tokens: split.platformShareTokens,
       },
@@ -348,6 +428,14 @@ export async function executeCreatorSplitTransaction(params: {
   ]);
 
   if (ledgerErr) {
+    await rollbackCreatorWallet(
+      supabaseClient,
+      normCreatorId,
+      creatorCredit.nextBalance,
+      creatorCredit.prevBalance,
+      nowIso
+    );
+    await rollbackSenderWallet(supabaseClient, normSenderId, nextSenderBalance, senderBalance, nowIso);
     throw new Error(`Failed to record split ledger entries: ${ledgerErr.message}`);
   }
 
@@ -357,13 +445,21 @@ export async function executeCreatorSplitTransaction(params: {
       .schema('hub')
       .from('cheer_transactions')
       .insert({
-        sender_id: senderId,
-        pilot_id: creatorId,
+        sender_id: normSenderId,
+        pilot_id: normCreatorId,
         match_id: matchId,
         amount: split.grossTokens,
         idempotency_key: cleanKey,
       });
     if (cheerErr && !cheerErr.message?.includes('duplicate')) {
+      await rollbackCreatorWallet(
+        supabaseClient,
+        normCreatorId,
+        creatorCredit.nextBalance,
+        creatorCredit.prevBalance,
+        nowIso
+      );
+      await rollbackSenderWallet(supabaseClient, normSenderId, nextSenderBalance, senderBalance, nowIso);
       throw new Error(`Failed to persist cheer transaction: ${cheerErr.message}`);
     }
   }
@@ -374,12 +470,15 @@ export async function executeCreatorSplitTransaction(params: {
     split,
     senderRemainingBalance: nextSenderBalance,
     hudTrigger: buildHudTriggerEvent({
-      id: `hud_${cleanKey}`,
+      id: cleanKey,
       actionType,
       senderName,
       creatorName,
       label: itemLabel,
       split,
+      effectCode,
+      subTierId,
+      perks,
     }),
   };
 }

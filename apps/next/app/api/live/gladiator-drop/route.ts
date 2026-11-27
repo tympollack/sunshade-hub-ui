@@ -5,6 +5,37 @@ import {
   type LiveContributionType,
 } from '../../../../lib/live/gladiatorDropsService';
 
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const txKey = (searchParams.get('txKey') || '').trim();
+  if (!txKey) {
+    return NextResponse.json({ verified: false, error: 'txKey is required.' }, { status: 400 });
+  }
+
+  try {
+    const serviceClient = createServiceClient();
+    const { data, error } = await serviceClient
+      .from('hub_tokens_ledger')
+      .select('id, metadata')
+      .contains('metadata', { idempotency_key: txKey })
+      .limit(1);
+
+    if (error) {
+      return NextResponse.json({ verified: false, error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      verified: Array.isArray(data) && data.length > 0,
+      txKey,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { verified: false, error: err?.message || 'Verification failed.' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get('authorization') || '';

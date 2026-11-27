@@ -4,6 +4,7 @@ import type {
 } from '@digitalcanopy/dramacast';
 import type { CastLedgerEntry, MiracleSeedSnapshot } from '@digitalcanopy/reels-engine';
 import { isStagingEnvironment } from '../env';
+import { normalizeFeatureFlags } from '../services/featureFlagsService';
 
 export interface LiveCreatorProfile {
   id: string;
@@ -80,9 +81,14 @@ export async function loadCreatorLiveContext(
 
   let viewerUserId: string | null = null;
   let viewerUtilityBalance = 0;
+  let featureFlags = normalizeFeatureFlags(null);
 
   try {
-    const authRes = await supabase.auth?.getUser?.();
+    const [{ data: flagRows }, authRes] = await Promise.all([
+      supabase.from('hub_feature_flags').select('key, enabled'),
+      supabase.auth?.getUser?.() ?? Promise.resolve({ data: { user: null } }),
+    ]);
+    featureFlags = normalizeFeatureFlags(flagRows);
     viewerUserId = authRes?.data?.user?.id ?? null;
   } catch {
     viewerUserId = null;
@@ -191,6 +197,6 @@ export async function loadCreatorLiveContext(
     viewerUtilityBalance,
     vodReels,
     castBadges,
-    featureFlags: {},
+    featureFlags,
   };
 }

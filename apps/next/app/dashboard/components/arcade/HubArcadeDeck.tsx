@@ -30,6 +30,7 @@ import {
 export interface HubArcadeDeckProps {
   userId?: string | null;
   utilityBalance?: number;
+  showSunShadeLive?: boolean;
   dbCartridges?: Array<Record<string, any>>;
   unlockedCartridgeIds?: string[];
   initialCastBadges?: CastLedgerEntry[];
@@ -51,6 +52,7 @@ const GENRE_FILTERS = ['all', 'arcade', 'smuggler', 'strategy'] as const;
 export function HubArcadeDeck({
   userId,
   utilityBalance = 0,
+  showSunShadeLive = true,
   dbCartridges,
   unlockedCartridgeIds,
   initialCastBadges,
@@ -114,14 +116,16 @@ export function HubArcadeDeck({
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <Link
-              href={`/live/${encodeURIComponent(userId || 'studio')}`}
-              data-testid="open-sunshade-live-link"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-xs font-bold text-orange-400 border border-orange-500/30 transition-colors"
-            >
-              <Tv className="w-3.5 h-3.5" />
-              <span>SunShade Live</span>
-            </Link>
+            {showSunShadeLive && (
+              <Link
+                href={`/live/${encodeURIComponent(userId || 'studio')}`}
+                data-testid="open-sunshade-live-link"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-xs font-bold text-orange-400 border border-orange-500/30 transition-colors"
+              >
+                <Tv className="w-3.5 h-3.5" />
+                <span>SunShade Live</span>
+              </Link>
+            )}
             <TokenBalanceBadge
               balance={utilityBalance}
               symbol="HT"

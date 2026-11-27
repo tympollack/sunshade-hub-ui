@@ -18,7 +18,10 @@ export interface DraggableWebcamPiPProps {
   stageWidth?: number;
   stageHeight?: number;
   vodVideoUrl?: string | null;
+  remoteFrameDataUrl?: string | null;
+  canControlCamera?: boolean;
   onAttachVideoElement?: (el: HTMLVideoElement | null) => void;
+  onWebcamStateChange?: (active: boolean, videoEl: HTMLVideoElement | null) => void;
 }
 
 const CORNERS: Array<{ corner: PresencePiPCorner; label: string }> = [
@@ -50,7 +53,10 @@ export function DraggableWebcamPiP({
   stageWidth = 960,
   stageHeight = 540,
   vodVideoUrl = null,
+  remoteFrameDataUrl = null,
+  canControlCamera = true,
   onAttachVideoElement,
+  onWebcamStateChange,
 }: DraggableWebcamPiPProps) {
   const [internalLayout, setInternalLayout] = useState<PresencePiPLayout>(
     controlledLayout ?? presenceProvider?.getLayout() ?? DEFAULT_PIP_LAYOUT
@@ -91,8 +97,12 @@ export function DraggableWebcamPiP({
     }
     return () => {
       onAttachVideoElement?.(null);
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      void presenceProvider?.stop?.();
     };
-  }, [onAttachVideoElement]);
+  }, [onAttachVideoElement, presenceProvider]);
 
   useEffect(() => {
     if (!presenceProvider || !videoRef.current) return;
@@ -105,7 +115,7 @@ export function DraggableWebcamPiP({
   }, [presenceProvider, webcamActive]);
 
   const handleToggleWebcam = async () => {
-    if (!presenceProvider) return;
+    if (!presenceProvider || !canControlCamera) return;
     setWebcamError(null);
     if (webcamActive) {
       await presenceProvider.stop();
@@ -113,6 +123,7 @@ export function DraggableWebcamPiP({
         videoRef.current.srcObject = null;
       }
       setWebcamActive(false);
+      onWebcamStateChange?.(false, videoRef.current);
       return;
     }
 
@@ -126,9 +137,11 @@ export function DraggableWebcamPiP({
         videoRef.current.srcObject = (presenceProvider as any).getMediaStream();
       }
       setWebcamActive(true);
+      onWebcamStateChange?.(true, videoRef.current);
     } catch (err: any) {
       setWebcamError(err?.message || 'Camera access unavailable in this browser.');
       setWebcamActive(false);
+      onWebcamStateChange?.(false, videoRef.current);
     }
   };
 
@@ -203,7 +216,19 @@ export function DraggableWebcamPiP({
           className={`w-full h-full object-cover ${webcamActive || vodVideoUrl ? 'block' : 'hidden'}`}
         />
 
-        {!webcamActive && !vodVideoUrl && (
+        {!webcamActive && !vodVideoUrl && remoteFrameDataUrl && (
+          <img
+            src={remoteFrameDataUrl}
+            alt={`${creatorName} live webcam PiP`}
+            data-testid="pip-remote-frame"
+            style={{
+              transform: activeLayout.mirrorVideo ? 'scaleX(-1)' : undefined,
+            }}
+            className="w-full h-full object-cover"
+          />
+        )}
+
+        {!webcamActive && !vodVideoUrl && !remoteFrameDataUrl && (
           <div className="p-2 text-center space-y-1">
             <Move className="w-4 h-4 text-orange-400 mx-auto" />
             <p className="text-[10px] font-bold text-white truncate max-w-[110px]">
@@ -216,7 +241,7 @@ export function DraggableWebcamPiP({
         )}
 
         <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-mono text-emerald-300">
-          {webcamActive ? 'CAM LIVE' : vodVideoUrl ? 'VOD SYNC' : 'PiP'}
+          {webcamActive ? 'CAM LIVE' : remoteFrameDataUrl ? 'HOST CAM' : vodVideoUrl ? 'VOD SYNC' : 'PiP'}
         </div>
       </div>
 
@@ -261,7 +286,7 @@ export function DraggableWebcamPiP({
           >
             {activeLayout.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
           </button>
-          {presenceProvider && (
+          {presenceProvider && canControlCamera && (
             <button
               type="button"
               data-testid="pip-camera-toggle-btn"

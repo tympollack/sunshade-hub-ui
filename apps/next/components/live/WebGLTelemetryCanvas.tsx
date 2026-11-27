@@ -10,6 +10,8 @@ export interface WebGLTelemetryCanvasProps {
   syncState: ScrubSyncState | null;
   isLiveActive: boolean;
   activeHudBanner?: string | null;
+  activeDropEffect?: string | null;
+  onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
   className?: string;
 }
 
@@ -125,10 +127,17 @@ export function WebGLTelemetryCanvas({
   syncState,
   isLiveActive,
   activeHudBanner,
+  activeDropEffect,
+  onCanvasReady,
   className = '',
 }: WebGLTelemetryCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [backend, setBackend] = useState<'webgl' | 'canvas2d' | 'standby'>('standby');
+
+  useEffect(() => {
+    onCanvasReady?.(canvasRef.current);
+    return () => onCanvasReady?.(null);
+  }, [onCanvasReady]);
 
   const winProb = syncState?.interpolatedWinProbability ?? 0;
   const dramaIndex = syncState?.interpolatedDramaIndex ?? 0;
@@ -255,6 +264,13 @@ export function WebGLTelemetryCanvas({
             <AtmosphericBadge
               label={`${activeKf.cameraCue} • ${activeKf.playbackRate}×`}
               variant="cozy"
+              size="sm"
+            />
+          )}
+          {activeDropEffect && (
+            <AtmosphericBadge
+              label={`ACTIVE DROP: ${activeDropEffect}`}
+              variant="success"
               size="sm"
             />
           )}

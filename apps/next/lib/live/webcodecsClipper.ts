@@ -1,5 +1,11 @@
 import { LinksClient, type ShortLinkResult } from '@digitalcanopy/links';
+import {
+  ReactionTimelineSynchronizer,
+  type DirectorTimelinePlan,
+  type TelemetryFrame,
+} from '@digitalcanopy/dramacast';
 import { buildIsoBmffMp4, type EncodedMp4Sample } from './mp4Muxer';
+import { drawTelemetryFallback2D } from '../../components/live/WebGLTelemetryCanvas';
 
 export const VERTICAL_CLIP_WIDTH = 1080;
 export const VERTICAL_CLIP_HEIGHT = 1920;
@@ -23,11 +29,20 @@ export interface VerticalClipExportOptions {
   dramaIndex?: number;
   score?: number;
   shortUrl?: string;
+  telemetryFrames?: readonly TelemetryFrame[];
+  timelinePlan?: DirectorTimelinePlan;
   sourceCanvas?: HTMLCanvasElement | null;
   sourceVideo?: HTMLVideoElement | null;
   VideoEncoderCtor?: typeof VideoEncoder;
   VideoFrameCtor?: typeof VideoFrame;
   onProgress?: (pct: number) => void;
+  onFrameComposed?: (frameMeta: {
+    timestampMs: number;
+    score: number;
+    dramaIndex: number;
+    winProbability: number;
+    caption?: string;
+  }) => void;
 }
 
 export interface VerticalClipExportResult {
@@ -86,9 +101,11 @@ export function composeVerticalFrameCanvas(
     creatorName: string;
     title: string;
     dramaIndex: number;
+    winProbability: number;
     score: number;
+    caption?: string;
     shortUrl: string;
-    progress: number;
+    timestampMs: number;
     sourceCanvas?: HTMLCanvasElement | null;
     sourceVideo?: HTMLVideoElement | null;
   }
@@ -104,7 +121,6 @@ export function composeVerticalFrameCanvas(
   ctx.fillStyle = '#09090b';
   ctx.fillRect(0, 0, layout.targetWidth, layout.targetHeight);
 
-  // Header branding
   ctx.fillStyle = '#f97316';
   ctx.font = 'bold 34px sans-serif';
   ctx.fillText('SUNSHADE LIVE • 9:16 CLIP', 60, 100);
@@ -112,21 +128,28 @@ export function composeVerticalFrameCanvas(
   ctx.font = 'bold 28px sans-serif';
   ctx.fillText(options.title.slice(0, 42), 60, 146);
 
-  // Stage surface
+  // Stage surface: render dynamic telemetry curve for timestampMs or sourceCanvas
+  ctx.save();
+  ctx.translate(layout.stageRect.x, layout.stageRect.y);
+  drawTelemetryFallback2D(
+    ctx,
+    layout.stageRect.width,
+    layout.stageRect.height,
+    options.winProbability,
+    Math.min(1, options.dramaIndex / 100),
+    options.timestampMs / 1000
+  );
   if (options.sourceCanvas) {
-    ctx.drawImage(
-      options.sourceCanvas,
-      layout.stageRect.x,
-      layout.stageRect.y,
-      layout.stageRect.width,
-      layout.stageRect.height
-    );
-  } else {
-    ctx.fillStyle = '#18181b';
-    ctx.fillRect(layout.stageRect.x, layout.stageRect.y, layout.stageRect.width, layout.stageRect.height);
-    ctx.strokeStyle = '#06b6d4';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(layout.stageRect.x + 12, layout.stageRect.y + 12, layout.stageRect.width - 24, layout.stageRect.height - 24);
+    ctx.globalAlpha = 0.55;
+    ctx.drawImage(options.sourceCanvas, 0, 0, layout.stageRect.width, layout.stageRect.height);
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+
+  if (options.caption) {
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillText(options.caption, 60, layout.stageRect.y + 56);
   }
 
   // Creator PiP card
@@ -147,7 +170,7 @@ export function composeVerticalFrameCanvas(
 
   // Telemetry & Funnel CTA
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 36px monospace';
+  ctx.font = 'bold 34px monospace';
   ctx.fillText(
     `${options.creatorName} • Drama ${options.dramaIndex.toFixed(1)} • ${options.score.toLocaleString()} PTS`,
     60,
@@ -176,6 +199,15 @@ export async function exportVerticalMp4Clip(
   const durationMs = Math.min(60_000, endMs - startMs);
   const frameCount = Math.max(1, Math.round((durationMs / 1000) * fps));
   const frameDurationUs = Math.round(1_000_000 / fps);
+
+  const clipSync =
+    options.telemetryFrames && options.telemetryFrames.length > 0
+      ? new ReactionTimelineSynchronizer({
+          frames: options.telemetryFrames,
+          timelinePlan: options.timelinePlan,
+          defaultPlaybackRate: 1,
+        })
+      : null;
 
   const canvas = document.createElement('canvas');
   canvas.width = VERTICAL_CLIP_WIDTH;
@@ -215,13 +247,38 @@ export async function exportVerticalMp4Clip(
   for (let i = 0; i < frameCount; i++) {
     if (encoderError) throw encoderError;
 
+    const frameTimeMs = startMs + Math.round((i / fps) * 1000);
+    const syncSnapshot = clipSync ? clipSync.seek(frameTimeMs) : null;
+    if (options.sourceVideo && Number.isFinite(frameTimeMs)) {
+      try {
+        options.sourceVideo.currentTime = (syncSnapshot?.presenceCueTimeMs ?? frameTimeMs) / 1000;
+      } catch {
+        // Ignore seek errors on unready media elements
+      }
+    }
+
+    const frameDrama = syncSnapshot?.interpolatedDramaIndex ?? options.dramaIndex ?? 0;
+    const frameScore = syncSnapshot?.interpolatedScore ?? options.score ?? 0;
+    const frameWinProb = syncSnapshot?.interpolatedWinProbability ?? 0.5;
+    const frameCaption = syncSnapshot?.activeKeyframe?.captionOverlay;
+
+    options.onFrameComposed?.({
+      timestampMs: frameTimeMs,
+      score: frameScore,
+      dramaIndex: frameDrama,
+      winProbability: frameWinProb,
+      caption: frameCaption,
+    });
+
     composeVerticalFrameCanvas(canvas, {
       creatorName: options.creatorName,
       title: options.title,
-      dramaIndex: options.dramaIndex ?? 0,
-      score: options.score ?? 0,
+      dramaIndex: frameDrama,
+      winProbability: frameWinProb,
+      score: frameScore,
+      caption: frameCaption,
       shortUrl: options.shortUrl || `https://hub.sunshade.network/live/${options.creatorSlug}`,
-      progress: i / Math.max(1, frameCount - 1),
+      timestampMs: frameTimeMs,
       sourceCanvas: options.sourceCanvas,
       sourceVideo: options.sourceVideo,
     });
@@ -266,6 +323,7 @@ export async function exportVerticalMp4Clip(
 
 export async function mintClipShareLink(params: {
   creatorSlug: string;
+  reelId?: string;
   matchId?: string;
   startMs: number;
   endMs: number;
@@ -275,12 +333,17 @@ export async function mintClipShareLink(params: {
   const client =
     params.linksClient ?? new LinksClient({ enableFallback: true, timeoutMs: 2500 });
 
+  const search = new URLSearchParams({
+    t: String(Math.max(0, Math.round(params.startMs))),
+    clipEnd: String(Math.max(0, Math.round(params.endMs))),
+  });
+  if (params.reelId) {
+    search.set('reelId', params.reelId);
+  }
+
   const destination = `https://hub.sunshade.network/live/${encodeURIComponent(
     params.creatorSlug
-  )}?t=${Math.max(0, Math.round(params.startMs))}&clipEnd=${Math.max(
-    0,
-    Math.round(params.endMs)
-  )}`;
+  )}?${search.toString()}`;
 
   return client.shortenUrl({
     destination,
@@ -288,6 +351,7 @@ export async function mintClipShareLink(params: {
     campaign: 'sunshade-live-9x16',
     metadata: {
       creatorSlug: params.creatorSlug,
+      reelId: params.reelId ?? null,
       matchId: params.matchId ?? null,
       title: params.title,
     },

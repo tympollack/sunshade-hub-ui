@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Scissors, Download, Link2, Check, Copy } from 'lucide-react';
 import { AtmosphericBadge, PrimaryButton } from '@digitalcanopy/ui';
+import type { DirectorTimelinePlan, TelemetryFrame } from '@digitalcanopy/dramacast';
 import {
   exportVerticalMp4Clip,
   isWebCodecsSupported,
@@ -14,11 +15,14 @@ export interface VerticalClipExporterPanelProps {
   creatorSlug: string;
   creatorName: string;
   title: string;
+  reelId?: string;
   matchId?: string;
   currentPlayheadMs: number;
   durationMs: number;
   dramaIndex: number;
   score: number;
+  telemetryFrames?: readonly TelemetryFrame[];
+  timelinePlan?: DirectorTimelinePlan;
   sourceCanvas?: HTMLCanvasElement | null;
   sourceVideo?: HTMLVideoElement | null;
 }
@@ -27,11 +31,14 @@ export function VerticalClipExporterPanel({
   creatorSlug,
   creatorName,
   title,
+  reelId,
   matchId,
   currentPlayheadMs,
   durationMs,
   dramaIndex,
   score,
+  telemetryFrames,
+  timelinePlan,
   sourceCanvas,
   sourceVideo,
 }: VerticalClipExporterPanelProps) {
@@ -47,6 +54,16 @@ export function VerticalClipExporterPanel({
   const [shortUrl, setShortUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const activeObjectUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (activeObjectUrlRef.current && typeof URL?.revokeObjectURL === 'function') {
+        URL.revokeObjectURL(activeObjectUrlRef.current);
+        activeObjectUrlRef.current = null;
+      }
+    };
+  }, []);
 
   const webCodecsReady = isWebCodecsSupported();
 
@@ -55,6 +72,7 @@ export function VerticalClipExporterPanel({
     const endMs = Math.max(startMs + 1000, endSec * 1000);
     const shortRes = await mintClipShareLink({
       creatorSlug,
+      reelId,
       matchId,
       startMs,
       endMs,
@@ -80,6 +98,8 @@ export function VerticalClipExporterPanel({
         dramaIndex,
         score,
         shortUrl: mintedShortUrl,
+        telemetryFrames,
+        timelinePlan,
         sourceCanvas,
         sourceVideo,
         onProgress: setProgressPct,
@@ -87,7 +107,12 @@ export function VerticalClipExporterPanel({
 
       setExportResult(result);
       if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
-        setDownloadUrl(URL.createObjectURL(result.blob));
+        if (activeObjectUrlRef.current && typeof URL.revokeObjectURL === 'function') {
+          URL.revokeObjectURL(activeObjectUrlRef.current);
+        }
+        const nextUrl = URL.createObjectURL(result.blob);
+        activeObjectUrlRef.current = nextUrl;
+        setDownloadUrl(nextUrl);
       }
     } catch (err: any) {
       setErrorMsg(err?.message || 'Unable to export 9:16 vertical MP4 clip.');

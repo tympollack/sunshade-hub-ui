@@ -34,6 +34,9 @@ import { supabase } from '@digitalcanopy/supabase';
 export interface SunShadeLiveStageProps {
   context: LiveCreatorContext;
   initialSimulcastOverlay?: boolean;
+  initialReelId?: string;
+  initialPlayheadMs?: number;
+  initialClipEndMs?: number;
   extraRightPanels?: React.ReactNode;
   extraStageOverlay?: React.ReactNode;
 }
@@ -41,35 +44,51 @@ export interface SunShadeLiveStageProps {
 export function SunShadeLiveStage({
   context,
   initialSimulcastOverlay = false,
+  initialReelId,
+  initialPlayheadMs,
   extraRightPanels,
   extraStageOverlay,
 }: SunShadeLiveStageProps) {
   const creatorName = context.profile?.displayName || context.creatorSlug;
-  const [selectedVodId, setSelectedVodId] = useState<string | null>(
-    context.vodReels[0]?.id ?? null
+  const canHostBroadcast = Boolean(
+    context.viewerUserId &&
+      context.profile?.id &&
+      context.viewerUserId.trim().toLowerCase() === context.profile.id.trim().toLowerCase()
   );
+
+  const [selectedVodId, setSelectedVodId] = useState<string | null>(() => {
+    if (initialReelId && context.vodReels.some((r) => r.id === initialReelId)) {
+      return initialReelId;
+    }
+    return context.vodReels[0]?.id ?? null;
+  });
   const [remoteFrames, setRemoteFrames] = useState<TelemetryFrame[] | null>(null);
   const [isLiveStudioActive, setIsLiveStudioActive] = useState(false);
   const [followHostSync, setFollowHostSync] = useState(true);
   const [pipLayout, setPipLayout] = useState<PresencePiPLayout | undefined>(undefined);
+  const [remotePipFrameUrl, setRemotePipFrameUrl] = useState<string | null>(null);
   const [syncState, setSyncState] = useState<ScrubSyncState | null>(null);
   const [activeHudBanner, setActiveHudBanner] = useState<string | null>(null);
+  const [activeDropEffect, setActiveDropEffect] = useState<string | null>(null);
   const [hudHistory, setHudHistory] = useState<LiveHudTriggerEvent[]>([]);
   const [viewerBalance, setViewerBalance] = useState<number>(context.viewerUtilityBalance);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [simulcastOverlayEnabled, setSimulcastOverlayEnabled] = useState(initialSimulcastOverlay);
   const [simulcastShortUrl, setSimulcastShortUrl] = useState<string>(context.canonicalUrl);
+  const [webcamActive, setWebcamActive] = useState(false);
+
+  const stageCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const pipVideoRef = useRef<HTMLVideoElement | null>(null);
+  const presenceRef = useRef<WebRTCPiPPresenceTrack | null>(null);
+  if (!presenceRef.current) {
+    presenceRef.current = new WebRTCPiPPresenceTrack();
+  }
 
   useEffect(() => {
     supabase?.auth?.getSession?.().then(({ data }) => {
       setAccessToken(data?.session?.access_token ?? null);
     }).catch(() => {});
   }, []);
-
-  const presenceRef = useRef<WebRTCPiPPresenceTrack | null>(null);
-  if (!presenceRef.current) {
-    presenceRef.current = new WebRTCPiPPresenceTrack();
-  }
 
   const activeVod: CreatorShowdownVod | null = useMemo(() => {
     if (!selectedVodId) return context.vodReels[0] ?? null;
@@ -78,6 +97,7 @@ export function SunShadeLiveStage({
 
   const effectiveFrames = remoteFrames ?? activeVod?.telemetryFrames ?? [];
   const syncRef = useRef<ReactionTimelineSynchronizer | null>(null);
+  const initialSeekAppliedRef = useRef(false);
 
   useEffect(() => {
     if (!activeVod && (!remoteFrames || remoteFrames.length === 0)) {
@@ -92,88 +112,116 @@ export function SunShadeLiveStage({
       presenceProvider: presenceRef.current ?? undefined,
       defaultPlaybackRate: 1,
     });
+    if (!initialSeekAppliedRef.current && typeof initialPlayheadMs === 'number' && initialPlayheadMs > 0) {
+      synchronizer.seek(initialPlayheadMs);
+      initialSeekAppliedRef.current = true;
+    }
     syncRef.current = synchronizer;
     setSyncState(synchronizer.getState());
     return synchronizer.subscribe((next) => setSyncState(next));
-  }, [activeVod, effectiveFrames, remoteFrames]);
+  }, [activeVod, effectiveFrames, remoteFrames, initialPlayheadMs]);
 
-  const handleRemoteTelemetryFrames = useCallback((frames: TelemetryFrame[]) => {
-    setRemoteFrames(frames);
-  }, []);
-
-  const handleRemoteHudTrigger = useCallback((trigger: LiveHudTriggerEvent) => {
+  const applyHudTrigger = useCallback((trigger: LiveHudTriggerEvent) => {
     setActiveHudBanner(trigger.message);
+    if (trigger.effectCode) {
+      setActiveDropEffect(trigger.effectCode);
+    }
     setHudHistory((prev) =>
       prev.some((item) => item.id === trigger.id) ? prev : [trigger, ...prev].slice(0, 20)
     );
   }, []);
 
+  const realtimeRef = useRef<ReturnType<typeof useLiveReactionSync> | null>(null);
+
+  const handleHostSyncRequested = useCallback(() => {
+    if (!isLiveStudioActive || !canHostBroadcast) return;
+    if (activeVod) {
+      realtimeRef.current?.broadcastTelemetry(
+        activeVod.telemetryFrames,
+        activeVod.matchId,
+        activeVod.cartridgeId
+      );
+    }
+    if (syncRef.current) {
+      realtimeRef.current?.broadcastPlayhead(syncRef.current.getState(), activeVod?.matchId);
+    }
+    if (pipLayout) {
+      realtimeRef.current?.broadcastPipLayout(pipLayout);
+    }
+  }, [activeVod, canHostBroadcast, isLiveStudioActive, pipLayout]);
+
   const realtime = useLiveReactionSync({
     creatorSlug: context.creatorSlug,
+    hostOwnerId: context.profile?.id ?? null,
     viewerId: context.viewerUserId || 'guest-viewer',
     synchronizer: syncRef.current,
-    isHost: isLiveStudioActive,
+    isHost: isLiveStudioActive && canHostBroadcast,
     followHostSync,
-    onRemoteTelemetryFrames: handleRemoteTelemetryFrames,
+    onRemoteTelemetryFrames: useCallback((frames: TelemetryFrame[]) => setRemoteFrames(frames), []),
     onRemotePipLayout: setPipLayout,
-    onRemoteHudTrigger: handleRemoteHudTrigger,
+    onRemotePipFrame: setRemotePipFrameUrl,
+    onRemoteHudTrigger: applyHudTrigger,
+    onHostSyncRequested: handleHostSyncRequested,
   });
+  realtimeRef.current = realtime;
 
   useEffect(() => {
     if (!syncState?.isPlaying) return;
-    const interval = setInterval(() => {
-      syncRef.current?.step(100);
-    }, 100);
+    const interval = setInterval(() => syncRef.current?.step(100), 100);
     return () => clearInterval(interval);
   }, [syncState?.isPlaying]);
+
+  useEffect(() => {
+    if (!isLiveStudioActive || !canHostBroadcast || !webcamActive) return;
+    const captureCanvas = document.createElement('canvas');
+    captureCanvas.width = 160;
+    captureCanvas.height = 160;
+    const interval = setInterval(() => {
+      const video = pipVideoRef.current;
+      if (!video || video.readyState < 2) return;
+      const ctx = captureCanvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0, 160, 160);
+      realtimeRef.current?.broadcastPipFrame(captureCanvas.toDataURL('image/jpeg', 0.6));
+    }, 500);
+    return () => clearInterval(interval);
+  }, [isLiveStudioActive, canHostBroadcast, webcamActive]);
 
   const handleTogglePlay = () => {
     if (!syncRef.current || !syncState) return;
     const next = syncState.isPlaying ? syncRef.current.pause() : syncRef.current.play();
-    if (isLiveStudioActive) {
-      realtime.broadcastPlayhead(next, activeVod?.matchId);
-    }
+    if (isLiveStudioActive && canHostBroadcast) realtime.broadcastPlayhead(next, activeVod?.matchId);
   };
 
   const handleScrub = (ms: number) => {
     if (!syncRef.current) return;
     const next = syncRef.current.seek(ms);
-    if (isLiveStudioActive) {
-      realtime.broadcastPlayhead(next, activeVod?.matchId);
-    }
+    if (isLiveStudioActive && canHostBroadcast) realtime.broadcastPlayhead(next, activeVod?.matchId);
   };
 
   const handleJumpToKeyframe = (keyframeId: string) => {
     if (!syncRef.current) return;
     const next = syncRef.current.jumpToKeyframe(keyframeId);
-    if (isLiveStudioActive) {
-      realtime.broadcastPlayhead(next, activeVod?.matchId);
-    }
+    if (isLiveStudioActive && canHostBroadcast) realtime.broadcastPlayhead(next, activeVod?.matchId);
   };
 
   const handlePipLayoutChange = (next: PresencePiPLayout) => {
     setPipLayout(next);
-    if (isLiveStudioActive) {
-      realtime.broadcastPipLayout(next);
-    }
+    if (isLiveStudioActive && canHostBroadcast) realtime.broadcastPipLayout(next);
   };
 
-  const handleAttachVideo = (el: HTMLVideoElement | null) => {
+  const handleAttachVideo = useCallback((el: HTMLVideoElement | null) => {
+    pipVideoRef.current = el;
     presenceRef.current?.attachPlaybackElement(el ?? undefined);
-  };
+  }, []);
 
   const handleToggleLiveStudio = () => {
+    if (!canHostBroadcast) return;
     const nextActive = !isLiveStudioActive;
     setIsLiveStudioActive(nextActive);
     if (nextActive && activeVod) {
-      realtime.broadcastTelemetry(
-        activeVod.telemetryFrames,
-        activeVod.matchId,
-        activeVod.cartridgeId
-      );
-      if (syncState) {
-        realtime.broadcastPlayhead(syncState, activeVod.matchId);
-      }
+      realtime.broadcastTelemetry(activeVod.telemetryFrames, activeVod.matchId, activeVod.cartridgeId);
+      if (syncState) realtime.broadcastPlayhead(syncState, activeVod.matchId);
     }
   };
 
@@ -215,9 +263,7 @@ export function SunShadeLiveStage({
                 <Tv className="w-6 h-6 text-orange-500" />
                 <span>{`${creatorName} — SunShade Live`}</span>
               </h1>
-              <p className="text-xs font-mono text-zinc-400 break-all">
-                {context.canonicalUrl}
-              </p>
+              <p className="text-xs font-mono text-zinc-400 break-all">{context.canonicalUrl}</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -244,9 +290,16 @@ export function SunShadeLiveStage({
                 testID="toggle-live-studio-btn"
                 variant={isLiveStudioActive ? 'cozy' : 'sunshade'}
                 size="sm"
+                disabled={!canHostBroadcast}
                 onPress={handleToggleLiveStudio}
                 icon={<Radio className="w-3.5 h-3.5" />}
-                label={isLiveStudioActive ? 'End Live Broadcast' : 'Start Live Broadcast'}
+                label={
+                  !canHostBroadcast
+                    ? 'Host Only'
+                    : isLiveStudioActive
+                    ? 'End Live Broadcast'
+                    : 'Start Live Broadcast'
+                }
               />
             </div>
           </div>
@@ -260,13 +313,20 @@ export function SunShadeLiveStage({
                 syncState={syncState}
                 isLiveActive={isLiveStudioActive}
                 activeHudBanner={activeHudBanner}
+                activeDropEffect={activeDropEffect}
+                onCanvasReady={(el) => {
+                  stageCanvasRef.current = el;
+                }}
               />
               <DraggableWebcamPiP
                 creatorName={creatorName}
                 presenceProvider={presenceRef.current}
                 layout={pipLayout}
+                remoteFrameDataUrl={remotePipFrameUrl}
+                canControlCamera={canHostBroadcast}
                 onLayoutChange={handlePipLayoutChange}
                 onAttachVideoElement={handleAttachVideo}
+                onWebcamStateChange={(active) => setWebcamActive(active)}
               />
               <VanityFunnelOverlay
                 visible={simulcastOverlayEnabled}
@@ -298,12 +358,7 @@ export function SunShadeLiveStage({
                 onJumpToKeyframe={handleJumpToKeyframe}
                 onToggleFollowHost={() => setFollowHostSync((prev) => !prev)}
                 onEmitReactionCue={(label, emoji) =>
-                  realtime.broadcastReactionCue(
-                    label,
-                    emoji,
-                    syncState.playheadMs,
-                    creatorName
-                  )
+                  realtime.broadcastReactionCue(label, emoji, syncState.playheadMs, creatorName)
                 }
                 onBroadcastTelemetryPacket={() =>
                   realtime.broadcastTelemetry(
@@ -381,10 +436,8 @@ export function SunShadeLiveStage({
               authAccessToken={accessToken}
               hudHistory={hudHistory}
               onHudTrigger={(trigger, newBalance) => {
-                if (typeof newBalance === 'number') {
-                  setViewerBalance(newBalance);
-                }
-                handleRemoteHudTrigger(trigger);
+                if (typeof newBalance === 'number') setViewerBalance(newBalance);
+                applyHudTrigger(trigger);
                 realtime.broadcastHudTrigger(trigger);
               }}
             />
@@ -401,11 +454,16 @@ export function SunShadeLiveStage({
               creatorSlug={context.creatorSlug}
               creatorName={creatorName}
               title={activeVod?.title || `${creatorName} Live Highlight`}
+              reelId={activeVod?.id}
               matchId={activeVod?.matchId}
               currentPlayheadMs={syncState?.playheadMs ?? 0}
               durationMs={syncState?.durationMs ?? 60_000}
               dramaIndex={syncState?.interpolatedDramaIndex ?? 0}
               score={syncState?.interpolatedScore ?? 0}
+              telemetryFrames={effectiveFrames}
+              timelinePlan={activeVod?.timelinePlan}
+              sourceCanvas={stageCanvasRef.current}
+              sourceVideo={pipVideoRef.current}
             />
             {extraRightPanels}
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">

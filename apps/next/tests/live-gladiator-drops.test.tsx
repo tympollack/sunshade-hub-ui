@@ -6,7 +6,7 @@ import {
   executeCreatorSplitTransaction,
 } from '../lib/live/gladiatorDropsService';
 import { GladiatorDropsPanel } from '../components/live/GladiatorDropsPanel';
-import { POST as gladiatorDropPost } from '../app/api/live/gladiator-drop/route';
+import { GET as gladiatorDropGet, POST as gladiatorDropPost } from '../app/api/live/gladiator-drop/route';
 import { NextRequest } from 'next/server';
 
 const { mockGetUserFromToken, mockServiceClient } = vi.hoisted(() => ({
@@ -146,6 +146,66 @@ describe('TASK-LIVE-GLADIATOR-DROPS: Audience Gladiator Drops & 95/5 Creator Spl
     expect(db._ledgerRows[1].transaction_type).toBe('LIVE_CREATOR_PAYOUT_95PCT');
     expect(db._cheerRows).toHaveLength(1);
     expect(res.hudTrigger.message).toContain('Warp Overdrive');
+    expect(res.hudTrigger.effectCode).toBe('DRAMA_SPIKE_MULTIPLIER');
+  });
+
+  it('blocks noncanonical case-variant self-payments and rolls back wallets on ledger failure', async () => {
+    const db = buildMockWalletDb(1000, 200);
+    await expect(
+      executeCreatorSplitTransaction({
+        senderId: 'sender-1',
+        senderName: 'Viewer',
+        creatorId: '  SENDER-1 ',
+        creatorName: 'Viewer',
+        actionType: 'creator_cheer',
+        grossTokens: 100,
+        idempotencyKey: 'self-key',
+        supabaseClient: db,
+      })
+    ).rejects.toThrow(/themselves/i);
+
+    // Force ledger insert failure and verify both sender and creator balances roll back
+    const origFrom = db.from;
+    db.from = vi.fn((table: string) => {
+      if (table === 'hub_tokens_ledger') {
+        const base = origFrom(table);
+        return {
+          ...base,
+          insert: vi.fn().mockResolvedValue({ error: { message: 'ledger write failed' } }),
+        };
+      }
+      return origFrom(table);
+    });
+
+    await expect(
+      executeCreatorSplitTransaction({
+        senderId: 'sender-1',
+        senderName: 'Viewer',
+        creatorId: 'creator-1',
+        creatorName: 'Nova Pilot',
+        actionType: 'creator_cheer',
+        grossTokens: 100,
+        idempotencyKey: 'rollback-key',
+        supabaseClient: db,
+      })
+    ).rejects.toThrow(/ledger write failed/);
+
+    expect(db._balances['sender-1']).toBe(1000);
+    expect(db._balances['creator-1']).toBe(200);
+  });
+
+  it('verifies transaction receipt via GET /api/live/gladiator-drop', async () => {
+    mockServiceClient.mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        contains: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({ data: [{ id: 'row-1' }], error: null }),
+      })),
+    });
+    const req = new NextRequest('http://localhost/api/live/gladiator-drop?txKey=drop-key-1');
+    const res = await gladiatorDropGet(req);
+    const json = await res.json();
+    expect(json.verified).toBe(true);
   });
 
   it('rejects unauthenticated requests on POST /api/live/gladiator-drop', async () => {
