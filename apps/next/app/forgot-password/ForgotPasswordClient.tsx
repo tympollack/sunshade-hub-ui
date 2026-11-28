@@ -141,20 +141,22 @@ export default function ForgotPasswordClient() {
 
   return (
     <div
-      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-orange-500/30 selection:text-white relative overflow-hidden my-auto"
+      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-orange-500/30 selection:text-white relative overflow-x-hidden my-auto"
       style={{
         background: 'radial-gradient(ellipse at top, #1c140e 0%, #111111 50%, #0a0a0a 100%)',
       }}
     >
       {/* Ambient Backdrop Glows */}
-      <div
-        className="absolute w-96 h-96 rounded-full blur-3xl pointer-events-none -top-20 -left-20 opacity-35"
-        style={{ background: 'radial-gradient(circle, rgba(234,88,12,0.3) 0%, transparent 70%)' }}
-      />
-      <div
-        className="absolute w-96 h-96 rounded-full blur-3xl pointer-events-none -bottom-20 -right-20 opacity-30"
-        style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.2) 0%, transparent 70%)' }}
-      />
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0">
+        <div
+          className="absolute w-72 h-72 rounded-full blur-3xl top-0 left-0 opacity-35"
+          style={{ background: 'radial-gradient(circle, rgba(234,88,12,0.3) 0%, transparent 70%)' }}
+        />
+        <div
+          className="absolute w-72 h-72 rounded-full blur-3xl bottom-0 right-0 opacity-30"
+          style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.2) 0%, transparent 70%)' }}
+        />
+      </div>
 
       <div className="relative z-10 w-full max-w-md p-6 sm:p-8 rounded-3xl bg-zinc-900/90 backdrop-blur-xl border border-orange-500/30 shadow-2xl shadow-orange-950/20 space-y-6 animate-in fade-in zoom-in-95 duration-300 mx-auto">
         {/* Header Branding & Badge */}
@@ -233,11 +235,7 @@ export default function ForgotPasswordClient() {
 
               <Link
                 href={loginLink}
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white shadow-lg transition-all hover:scale-[1.01] active:scale-95 border border-orange-500/40 text-center"
-                style={{
-                  background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
-                  boxShadow: '0 4px 16px rgba(234,88,12,0.35)',
-                }}
+                className="w-full min-h-[44px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-orange-700 hover:bg-orange-600 shadow-lg transition-all hover:scale-[1.01] active:scale-95 border border-orange-500/40 text-center"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Return to Sign In</span>
@@ -259,9 +257,9 @@ export default function ForgotPasswordClient() {
                 placeholder="your.email@domain.com"
                 required
                 autoFocus
-                className="w-full h-11 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-orange-500 transition-colors"
+                className="w-full h-11 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-xs text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-orange-500 transition-colors"
               />
-              <span className="text-[10px] text-zinc-500 block">
+              <span className="text-[10px] text-zinc-400 block">
                 The email address associated with your SunShade account.
               </span>
             </div>
@@ -269,11 +267,7 @@ export default function ForgotPasswordClient() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-xs font-bold text-white shadow-lg transition-all hover:scale-[1.01] active:scale-95 border border-orange-500/40 disabled:opacity-50 mt-2"
-              style={{
-                background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
-                boxShadow: '0 4px 16px rgba(234,88,12,0.35)',
-              }}
+              className="w-full min-h-[44px] flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-xs font-bold text-white bg-orange-700 hover:bg-orange-600 shadow-lg transition-all hover:scale-[1.01] active:scale-95 border border-orange-500/40 disabled:opacity-50 mt-2"
             >
               <span>{isSubmitting ? 'Sending Recovery Link...' : 'Send Recovery Link'}</span>
               <ArrowRight className="w-4 h-4" />
@@ -286,15 +280,15 @@ export default function ForgotPasswordClient() {
           {!submittedEmail && (
             <Link
               href={loginLink}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+              className="inline-flex items-center gap-1.5 min-h-[36px] py-2 px-2 text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Remember your password? Back to Sign In</span>
             </Link>
           )}
 
-          <div className="flex items-center justify-center gap-1.5 text-[11px] font-mono text-zinc-500 pt-1">
-            <Compass className="w-3.5 h-3.5 text-zinc-500" />
+          <div className="flex items-center justify-center gap-1.5 text-[11px] font-mono text-zinc-400 pt-1">
+            <Compass className="w-3.5 h-3.5 text-zinc-400" />
             <span>SunShade Ecosystem • Central SSO Gateway</span>
           </div>
         </div>

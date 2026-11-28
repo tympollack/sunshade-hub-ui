@@ -9,7 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default async function SunShadeLiveDirectoryPage() {
-  const supabase = await createSSRClient();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const isOfflinePlaceholder =
+    !supabaseUrl || supabaseUrl.includes('placeholder.supabase.co');
+
   let publicReels: Array<{
     id: string;
     user_id: string;
@@ -21,39 +24,42 @@ export default async function SunShadeLiveDirectoryPage() {
   let studioSlug = 'studio';
   let isLiveEnabled = true;
 
-  try {
-    const [{ data: flagRows }, { data: authData }] = await Promise.all([
-      supabase.from('hub_feature_flags').select('key, enabled'),
-      supabase.auth.getUser(),
-    ]);
-    const flags = normalizeFeatureFlags(flagRows);
-    isLiveEnabled = isFeatureEnabled(flags, 'sunshade_live', true);
+  if (!isOfflinePlaceholder) {
+    try {
+      const supabase = await createSSRClient();
+      const [{ data: flagRows }, { data: authData }] = await Promise.all([
+        supabase.from('hub_feature_flags').select('key, enabled'),
+        supabase.auth.getUser(),
+      ]);
+      const flags = normalizeFeatureFlags(flagRows);
+      isLiveEnabled = isFeatureEnabled(flags, 'sunshade_live', true);
 
-    if (authData?.user?.id) {
-      const { data: profileRow } = await supabase
-        .from('profiles')
-        .select('display_name')
-        .eq('id', authData.user.id)
-        .maybeSingle();
-      studioSlug = profileRow?.display_name || authData.user.id;
-    }
-
-    if (isLiveEnabled && typeof supabase?.schema === 'function') {
-      const { data, error } = await supabase
-        .schema('reels')
-        .from('showdown_reels')
-        .select('id, user_id, title, peak_drama_index, final_score')
-        .eq('is_public', true)
-        .order('peak_drama_index', { ascending: false })
-        .limit(12);
-      if (error) {
-        queryError = error.message;
-      } else {
-        publicReels = (data ?? []) as typeof publicReels;
+      if (authData?.user?.id) {
+        const { data: profileRow } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', authData.user.id)
+          .maybeSingle();
+        studioSlug = profileRow?.display_name || authData.user.id;
       }
+
+      if (isLiveEnabled && typeof supabase?.schema === 'function') {
+        const { data, error } = await supabase
+          .schema('reels')
+          .from('showdown_reels')
+          .select('id, user_id, title, peak_drama_index, final_score')
+          .eq('is_public', true)
+          .order('peak_drama_index', { ascending: false })
+          .limit(12);
+        if (error) {
+          queryError = error.message;
+        } else {
+          publicReels = (data ?? []) as typeof publicReels;
+        }
+      }
+    } catch (err: any) {
+      queryError = err?.message || 'Unable to load SunShade Live channels.';
     }
-  } catch (err: any) {
-    queryError = err?.message || 'Unable to load SunShade Live channels.';
   }
 
   return (
@@ -66,7 +72,7 @@ export default async function SunShadeLiveDirectoryPage() {
           <div className="space-y-1">
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-white"
+              className="inline-flex items-center gap-1.5 min-h-[36px] px-2 py-1 text-xs font-semibold text-zinc-400 hover:text-white"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Hub Dashboard</span>
@@ -82,7 +88,7 @@ export default async function SunShadeLiveDirectoryPage() {
           {isLiveEnabled && (
             <Link
               href={`/live/${encodeURIComponent(studioSlug)}`}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-xs font-bold text-white transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 min-h-[36px] rounded-xl bg-orange-700 hover:bg-orange-600 text-xs font-bold text-white transition-colors"
             >
               <Radio className="w-4 h-4" />
               <span>Open Creator Live Studio</span>

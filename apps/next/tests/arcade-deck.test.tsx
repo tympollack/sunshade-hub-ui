@@ -35,6 +35,10 @@ vi.mock('@digitalcanopy/supabase', () => {
   };
 });
 
+vi.mock('../app/login/HubAuthGate', () => ({
+  HubAuthGate: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 vi.mock('@digitalcanopy/ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@digitalcanopy/ui')>();
   return {

@@ -3,9 +3,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@digitalcanopy/supabase';
-import { LoginForm } from '@digitalcanopy/ui';
 import { Sparkles, Compass, Key, ExternalLink, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import { HubLoginForm } from './HubLoginForm';
 import {
   getValidatedRedirectUrl,
   resolvePostAuthRedirectUrl,
@@ -135,20 +135,22 @@ export default function LoginClient() {
 
   return (
     <div
-      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-orange-500/30 selection:text-white relative overflow-hidden my-auto"
+      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-orange-500/30 selection:text-white relative overflow-x-hidden my-auto"
       style={{
         background: 'radial-gradient(ellipse at top, #1c140e 0%, #111111 50%, #0a0a0a 100%)',
       }}
     >
       {/* Ambient Backdrop Glows */}
-      <div
-        className="absolute w-96 h-96 rounded-full blur-3xl pointer-events-none -top-20 -left-20 opacity-35"
-        style={{ background: 'radial-gradient(circle, rgba(234,88,12,0.3) 0%, transparent 70%)' }}
-      />
-      <div
-        className="absolute w-96 h-96 rounded-full blur-3xl pointer-events-none -bottom-20 -right-20 opacity-30"
-        style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.2) 0%, transparent 70%)' }}
-      />
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0">
+        <div
+          className="absolute w-72 h-72 rounded-full blur-3xl top-0 left-0 opacity-35"
+          style={{ background: 'radial-gradient(circle, rgba(234,88,12,0.3) 0%, transparent 70%)' }}
+        />
+        <div
+          className="absolute w-72 h-72 rounded-full blur-3xl bottom-0 right-0 opacity-30"
+          style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.2) 0%, transparent 70%)' }}
+        />
+      </div>
 
       <div className="relative z-10 w-full max-w-md p-6 sm:p-8 rounded-3xl bg-zinc-900/90 backdrop-blur-xl border border-orange-500/30 shadow-2xl shadow-orange-950/20 space-y-6 animate-in fade-in zoom-in-95 duration-300 mx-auto">
         
@@ -168,7 +170,7 @@ export default function LoginClient() {
             <h1 className="text-2xl font-extrabold text-zinc-100 tracking-tight mt-1.5">
               Sign In to SunShade Hub
             </h1>
-            <p className="text-xs text-zinc-400 max-w-xs mx-auto mt-1 leading-relaxed">
+            <p className="text-xs text-zinc-300 max-w-xs mx-auto mt-1 leading-relaxed">
               {targetAppName ? (
                 <span className="flex items-center justify-center gap-1">
                   <span>Authenticating to return to</span>
@@ -184,12 +186,12 @@ export default function LoginClient() {
 
         {/* Auth Form Box */}
         <div className="flex justify-center">
-          <LoginForm />
+          <HubLoginForm />
         </div>
 
         {/* Helper Links: Forgot Password & Claim Code CTA */}
-        <div className="pt-2 text-center border-t border-zinc-800/80 space-y-2.5">
-          <div className="flex items-center justify-center gap-1.5">
+        <div className="pt-2 text-center border-t border-zinc-800/80 space-y-1">
+          <div className="flex items-center justify-center">
             <Link
               href={`/forgot-password${
                 handshakeTargetUrl !== '/dashboard' || wantsVerify
@@ -203,14 +205,14 @@ export default function LoginClient() {
                       .join('&')}`
                   : ''
               }`}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-orange-400 transition-colors"
+              className="inline-flex items-center gap-1.5 min-h-[36px] py-1.5 px-2 text-xs font-semibold text-zinc-300 hover:text-orange-400 transition-colors"
             >
-              <Key className="w-3.5 h-3.5 text-orange-500" />
+              <Key className="w-3.5 h-3.5 text-orange-400" />
               <span>Forgot your password? Reset it here →</span>
             </Link>
           </div>
 
-          <div>
+          <div className="flex items-center justify-center">
             <Link
               href={`/claim${
                 handshakeTargetUrl !== '/dashboard' || wantsVerify
@@ -224,15 +226,15 @@ export default function LoginClient() {
                       .join('&')}`
                   : ''
               }`}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+              className="inline-flex items-center gap-1.5 min-h-[36px] py-1.5 px-2 text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors"
             >
               <Key className="w-3.5 h-3.5" />
               <span>Have an 8-character activation code? Claim code here →</span>
             </Link>
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 text-[11px] font-mono text-zinc-500 pt-1">
-            <Compass className="w-3.5 h-3.5 text-zinc-500" />
+          <div className="flex items-center justify-center gap-1.5 text-[11px] font-mono text-zinc-400 pt-1">
+            <Compass className="w-3.5 h-3.5 text-zinc-400" />
             <span>SunShade Ecosystem • Central SSO Gateway</span>
           </div>
         </div>

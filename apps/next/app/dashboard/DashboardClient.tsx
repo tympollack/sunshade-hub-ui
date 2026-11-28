@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '@digitalcanopy/supabase';
 import {
   AppShell,
-  AuthGate,
   EventsCarousel,
   GlassCard,
   AtmosphericBadge,
@@ -12,6 +11,7 @@ import {
   PrimaryButton,
   Skeleton,
 } from '@digitalcanopy/ui';
+import { HubAuthGate } from '../login/HubAuthGate';
 import { OTAManager } from './OTAManager';
 import {
   LayoutDashboard,
@@ -436,7 +436,7 @@ export default function DashboardClient({
   }));
 
   return (
-    <AuthGate>
+    <HubAuthGate>
       <AppShell
         testID="hub-dashboard-shell"
         className="w-full h-screen bg-zinc-50 dark:bg-[#111111] text-zinc-900 dark:text-zinc-200 font-sans selection:bg-orange-500/30 transition-colors duration-200"
@@ -888,6 +888,6 @@ export default function DashboardClient({
 
         <OTAManager />
       </AppShell>
-    </AuthGate>
+    </HubAuthGate>
   );
 }

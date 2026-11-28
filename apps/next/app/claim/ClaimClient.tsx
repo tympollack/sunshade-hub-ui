@@ -184,20 +184,22 @@ export default function ClaimClient() {
 
   return (
     <div
-      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-orange-500/30 selection:text-white relative overflow-hidden my-auto"
+      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-orange-500/30 selection:text-white relative overflow-x-hidden my-auto"
       style={{
         background: 'radial-gradient(ellipse at top, #1c140e 0%, #111111 50%, #0a0a0a 100%)',
       }}
     >
       {/* Decorative ambient backdrop glows (SunShade Amber/Orange) */}
-      <div
-        className="absolute w-96 h-96 rounded-full blur-3xl pointer-events-none -top-20 -left-20 opacity-35"
-        style={{ background: 'radial-gradient(circle, rgba(234,88,12,0.3) 0%, transparent 70%)' }}
-      />
-      <div
-        className="absolute w-96 h-96 rounded-full blur-3xl pointer-events-none -bottom-20 -right-20 opacity-30"
-        style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.2) 0%, transparent 70%)' }}
-      />
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0">
+        <div
+          className="absolute w-72 h-72 rounded-full blur-3xl top-0 left-0 opacity-35"
+          style={{ background: 'radial-gradient(circle, rgba(234,88,12,0.3) 0%, transparent 70%)' }}
+        />
+        <div
+          className="absolute w-72 h-72 rounded-full blur-3xl bottom-0 right-0 opacity-30"
+          style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.2) 0%, transparent 70%)' }}
+        />
+      </div>
 
       <div className="relative z-10 w-full max-w-lg p-6 sm:p-8 rounded-3xl bg-zinc-900/90 backdrop-blur-xl border border-orange-500/30 shadow-2xl shadow-orange-950/20 space-y-6 animate-in fade-in zoom-in-95 duration-300 mx-auto">
         {/* Header */}
@@ -223,21 +225,21 @@ export default function ClaimClient() {
             <button
               type="button"
               onClick={() => setStep(1)}
-              className={`py-1.5 rounded-lg text-center font-bold transition-all ${
+              className={`min-h-[36px] py-2 rounded-lg text-center font-bold transition-all ${
                 step === 1
-                  ? 'bg-orange-600 text-white shadow'
+                  ? 'bg-orange-700 text-white shadow'
                   : 'text-zinc-300 hover:text-zinc-100'
               }`}
             >
-              1. Code & Email
+              1. Code &amp; Email
             </button>
             <button
               type="button"
               onClick={() => authCode && email && setStep(2)}
               disabled={!authCode || !email}
-              className={`py-1.5 rounded-lg text-center font-bold transition-all ${
+              className={`min-h-[36px] py-2 rounded-lg text-center font-bold transition-all ${
                 step === 2
-                  ? 'bg-orange-600 text-white shadow'
+                  ? 'bg-orange-700 text-white shadow'
                   : 'text-zinc-300 hover:text-zinc-100 disabled:opacity-40'
               }`}
             >
@@ -284,7 +286,7 @@ export default function ClaimClient() {
 
             <button
               onClick={() => performRedirect(successData.redirectUrl, successData.session)}
-              className="w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 transition-colors shadow-lg shadow-orange-950/30"
+              className="w-full min-h-[44px] flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-xs font-bold text-white bg-orange-700 hover:bg-orange-600 transition-colors shadow-lg shadow-orange-950/30"
             >
               <span>Go to Dashboard Now</span>
               <ArrowRight className="w-4 h-4" />
@@ -329,11 +331,7 @@ export default function ClaimClient() {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-xs font-bold text-white shadow-lg transition-all hover:scale-[1.01] active:scale-95 border border-orange-500/40 mt-4"
-              style={{
-                background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
-                boxShadow: '0 4px 16px rgba(234,88,12,0.35)',
-              }}
+              className="w-full min-h-[44px] flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-xs font-bold text-white bg-orange-700 hover:bg-orange-600 shadow-lg transition-all hover:scale-[1.01] active:scale-95 border border-orange-500/40 mt-4"
             >
               <span>Continue to Account Setup</span>
               <ArrowRight className="w-4 h-4" />
@@ -439,11 +437,7 @@ export default function ClaimClient() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-xs font-bold text-white shadow-lg transition-all hover:scale-[1.01] active:scale-95 border border-orange-500/40 disabled:opacity-50"
-                style={{
-                  background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
-                  boxShadow: '0 4px 16px rgba(234,88,12,0.35)',
-                }}
+                className="flex-1 min-h-[44px] flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-xs font-bold text-white bg-orange-700 hover:bg-orange-600 shadow-lg transition-all hover:scale-[1.01] active:scale-95 border border-orange-500/40 disabled:opacity-50"
               >
                 <span>{isSubmitting ? 'Activating Account...' : 'Activate SunShade Account'}</span>
                 <CheckCircle2 className="w-4 h-4" />
@@ -453,8 +447,8 @@ export default function ClaimClient() {
         )}
 
         {/* Footer brand note */}
-        <div className="pt-2 text-center text-[11px] font-mono text-zinc-500 flex items-center justify-center gap-1.5 border-t border-zinc-800/80">
-          <Compass className="w-3.5 h-3.5 text-zinc-500" />
+        <div className="pt-2 text-center text-[11px] font-mono text-zinc-400 flex items-center justify-center gap-1.5 border-t border-zinc-800/80">
+          <Compass className="w-3.5 h-3.5 text-zinc-400" />
           <span>SunShade Ecosystem • Central SSO Gateway</span>
         </div>
       </div>

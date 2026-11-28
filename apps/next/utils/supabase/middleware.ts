@@ -6,9 +6,29 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  const isPlaceholderSupabase =
+    !supabaseUrl ||
+    !supabaseAnonKey ||
+    supabaseUrl.includes('placeholder.supabase.co');
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some((cookie) => cookie.name.includes('-auth-token'));
+
+  if (isPlaceholderSupabase || !hasAuthCookie) {
+    if (request.nextUrl.pathname.startsWith('/admin')) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/dashboard';
+      url.searchParams.set('debug_reason', 'no_user');
+      return NextResponse.redirect(url);
+    }
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {

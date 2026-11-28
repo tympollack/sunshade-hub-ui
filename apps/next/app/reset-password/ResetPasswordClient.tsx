@@ -402,20 +402,22 @@ export default function ResetPasswordClient() {
 
   return (
     <div
-      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-orange-500/30 selection:text-white relative overflow-hidden my-auto"
+      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-orange-500/30 selection:text-white relative overflow-x-hidden my-auto"
       style={{
         background: 'radial-gradient(ellipse at top, #1c140e 0%, #111111 50%, #0a0a0a 100%)',
       }}
     >
       {/* Ambient Backdrop Glows */}
-      <div
-        className="absolute w-96 h-96 rounded-full blur-3xl pointer-events-none -top-20 -left-20 opacity-35"
-        style={{ background: 'radial-gradient(circle, rgba(234,88,12,0.3) 0%, transparent 70%)' }}
-      />
-      <div
-        className="absolute w-96 h-96 rounded-full blur-3xl pointer-events-none -bottom-20 -right-20 opacity-30"
-        style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.2) 0%, transparent 70%)' }}
-      />
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0">
+        <div
+          className="absolute w-72 h-72 rounded-full blur-3xl top-0 left-0 opacity-35"
+          style={{ background: 'radial-gradient(circle, rgba(234,88,12,0.3) 0%, transparent 70%)' }}
+        />
+        <div
+          className="absolute w-72 h-72 rounded-full blur-3xl bottom-0 right-0 opacity-30"
+          style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.2) 0%, transparent 70%)' }}
+        />
+      </div>
 
       <div className="relative z-10 w-full max-w-md p-6 sm:p-8 rounded-3xl bg-zinc-900/90 backdrop-blur-xl border border-orange-500/30 shadow-2xl shadow-orange-950/20 space-y-6 animate-in fade-in zoom-in-95 duration-300 mx-auto">
         {/* Header Branding */}
@@ -515,11 +517,7 @@ export default function ResetPasswordClient() {
 
             <Link
               href={forgotPasswordLink}
-              className="w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-xs font-bold text-white shadow-lg transition-all hover:scale-[1.01] active:scale-95 border border-orange-500/40 text-center"
-              style={{
-                background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
-                boxShadow: '0 4px 16px rgba(234,88,12,0.35)',
-              }}
+              className="w-full min-h-[44px] flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-xs font-bold text-white bg-orange-700 hover:bg-orange-600 shadow-lg transition-all hover:scale-[1.01] active:scale-95 border border-orange-500/40 text-center"
             >
               <Key className="w-4 h-4" />
               <span>Request New Reset Link</span>
