@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@digitalcanopy/supabase';
 import { Edit, Eye, EyeOff } from 'lucide-react';
+import { AtmosphericBadge } from '@digitalcanopy/ui';
 import type { GameLibraryItem } from '../../dashboard/types';
 import EditGameModal from './EditGameModal';
 
@@ -60,9 +61,12 @@ export default function LibraryClient({ initialGames }: { initialGames: GameLibr
                 <td className="p-4 text-zinc-400">{game.tags?.join(', ') || 'none'}</td>
                 <td className="p-4 text-zinc-400">{game.sort_order}</td>
                 <td className="p-4 text-center">
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${game.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
-                    {game.is_active ? 'Active' : 'Hidden'}
-                  </span>
+                  <AtmosphericBadge
+                    label={game.is_active ? 'Active' : 'Hidden'}
+                    variant={game.is_active ? 'success' : 'neutral'}
+                    statusDot
+                    size="sm"
+                  />
                 </td>
                 <td className="p-4 text-right">
                   <button 

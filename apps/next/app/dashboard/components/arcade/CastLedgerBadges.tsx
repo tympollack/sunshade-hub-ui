@@ -102,15 +102,11 @@ export function CastLedgerBadges({ entries, compact = false }: CastLedgerBadgesP
                     <p className="text-[10px] font-mono text-zinc-400">{meta.badge}</p>
                   </div>
                 </div>
-                <span
-                  className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                    unlocked
-                      ? 'bg-emerald-500/20 text-emerald-300'
-                      : 'bg-zinc-800 text-zinc-400'
-                  }`}
-                >
-                  {unlocked ? 'Earned' : 'Locked'}
-                </span>
+                <AtmosphericBadge
+                  label={unlocked ? 'Earned' : 'Locked'}
+                  variant={unlocked ? 'success' : 'neutral'}
+                  size="sm"
+                />
               </div>
 
               <p className="text-[11px] text-zinc-400 mt-2">

@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Plus,
 } from 'lucide-react';
+import { AtmosphericBadge } from '@digitalcanopy/ui';
 import type { HubFeatureFlag, FeatureFlagCategory } from '../../../lib/services/featureFlagsService';
 
 interface FlagsClientProps {
@@ -245,28 +246,12 @@ export default function FlagsClient({ initialFlags }: FlagsClientProps) {
 function CategoryBadge({ category }: { category: FeatureFlagCategory }) {
   switch (category) {
     case 'card':
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
-          Card
-        </span>
-      );
+      return <AtmosphericBadge label="Card" variant="core" size="sm" />;
     case 'widget':
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-          Widget
-        </span>
-      );
+      return <AtmosphericBadge label="Widget" variant="telemetry" size="sm" />;
     case 'system':
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-          System
-        </span>
-      );
+      return <AtmosphericBadge label="System" variant="cozy" size="sm" />;
     default:
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700">
-          General
-        </span>
-      );
+      return <AtmosphericBadge label="General" variant="neutral" size="sm" />;
   }
 }

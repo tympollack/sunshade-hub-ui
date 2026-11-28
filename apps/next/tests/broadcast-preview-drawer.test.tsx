@@ -184,7 +184,7 @@ describe('BroadcastPreviewDrawer Component', () => {
     expect(handleClose).toHaveBeenCalledTimes(1);
 
     // Backdrop click
-    fireEvent.click(screen.getByTestId('broadcast-drawer-backdrop'));
+    fireEvent.click(screen.getByTestId('broadcast-preview-drawer-backdrop'));
     expect(handleClose).toHaveBeenCalledTimes(2);
 
     // Escape key

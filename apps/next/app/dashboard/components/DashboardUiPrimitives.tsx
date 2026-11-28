@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Swords } from 'lucide-react';
-import { Skeleton } from '@digitalcanopy/ui';
+import { GlassCard, Skeleton } from '@digitalcanopy/ui';
 
 export function SkeletonTable() {
   return (
@@ -31,31 +31,60 @@ export function GameLibraryCard({ game, onSelect }: { game: any; onSelect: () =>
 
 export function MobileNavItem({ icon, label, active = false, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }) {
   return (
-    <button onClick={onClick} className={`flex flex-col items-center gap-1 p-1.5 min-w-[50px] transition-colors ${active ? 'text-orange-600 dark:text-orange-400 font-bold' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 flex flex-col items-center justify-center gap-1 py-1.5 px-1 min-w-[40px] min-h-[40px] transition-colors ${active ? 'text-orange-600 dark:text-orange-400 font-bold' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
+    >
       {icon}
-      <span className="text-[9px] font-medium">{label}</span>
+      <span className="text-[10px] font-medium truncate max-w-full">{label}</span>
     </button>
   );
 }
 
-export function NavItem({ icon, label, active = false, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }) {
+export function NavItem({
+  icon,
+  label,
+  active = false,
+  collapsed = false,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+  collapsed?: boolean;
+  onClick?: () => void;
+}) {
   return (
-    <a href="#" onClick={(e) => { e.preventDefault(); onClick?.(); }} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${active ? 'bg-orange-50 dark:bg-orange-600/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 border border-transparent'}`}>
+    <a
+      href="#"
+      title={collapsed ? label : undefined}
+      aria-label={label}
+      onClick={(e) => {
+        e.preventDefault();
+        onClick?.();
+      }}
+      className={`flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-2.5 min-h-[40px] rounded-lg transition-all duration-200 ${active ? 'bg-orange-50 dark:bg-orange-600/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 border border-transparent'}`}
+    >
       {icon}
-      <span className="text-sm font-medium">{label}</span>
+      {!collapsed && <span className="text-sm font-medium truncate">{label}</span>}
     </a>
   );
 }
 
 export function MetricCard({ title, value, trend, icon }: { title: string; value: string; trend: string; icon: React.ReactNode }) {
   return (
-    <div className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800/60 rounded-xl p-4 sm:p-5 shadow-sm dark:shadow-none hover:border-zinc-300 dark:hover:border-zinc-700/80 transition-colors">
+    <GlassCard
+      variant="default"
+      padding="md"
+      className="border border-stone-800/80 hover:border-orange-500/30 transition-colors"
+    >
       <div className="flex justify-between items-start mb-3 sm:mb-4">
-        <p className="text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-tight pr-2">{title}</p>
-        <div className="p-1.5 sm:p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg transition-colors duration-200 shrink-0">{icon}</div>
+        <p className="text-xs sm:text-sm font-medium text-stone-300 leading-tight pr-2">{title}</p>
+        <div className="p-1.5 sm:p-2 bg-stone-800/70 border border-white/10 rounded-lg transition-colors duration-200 shrink-0">{icon}</div>
       </div>
-      <h4 className="text-lg sm:text-2xl font-bold text-zinc-900 dark:text-white mb-1">{value}</h4>
-      <p className="text-[10px] sm:text-xs text-zinc-500">{trend}</p>
-    </div>
+      <h4 className="text-lg sm:text-2xl font-bold text-stone-100 mb-1">{value}</h4>
+      <p className="text-[11px] sm:text-xs text-stone-400">{trend}</p>
+    </GlassCard>
   );
 }
