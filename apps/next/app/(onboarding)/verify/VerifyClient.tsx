@@ -241,20 +241,22 @@ export default function VerifyClient() {
 
   return (
     <div
-      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 text-white font-sans relative overflow-hidden"
+      className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 text-white font-sans relative overflow-x-hidden"
       style={{
         background: 'radial-gradient(ellipse at top, #1c140e 0%, #111111 50%, #0a0a0a 100%)',
       }}
     >
       {/* Background ambient lighting */}
-      <div
-        className="absolute w-96 h-96 rounded-full blur-3xl pointer-events-none -top-20 -left-20 opacity-30"
-        style={{ background: 'radial-gradient(circle, rgba(234,88,12,0.3) 0%, transparent 70%)' }}
-      />
-      <div
-        className="absolute w-96 h-96 rounded-full blur-3xl pointer-events-none -bottom-20 -right-20 opacity-25"
-        style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.2) 0%, transparent 70%)' }}
-      />
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0">
+        <div
+          className="absolute w-72 h-72 rounded-full blur-3xl top-0 left-0 opacity-30"
+          style={{ background: 'radial-gradient(circle, rgba(234,88,12,0.3) 0%, transparent 70%)' }}
+        />
+        <div
+          className="absolute w-72 h-72 rounded-full blur-3xl bottom-0 right-0 opacity-25"
+          style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.2) 0%, transparent 70%)' }}
+        />
+      </div>
 
       <div className="relative z-10 w-full max-w-xl p-6 sm:p-8 rounded-3xl bg-zinc-900/90 backdrop-blur-xl border border-orange-500/30 shadow-2xl space-y-6">
         
@@ -361,7 +363,7 @@ export default function VerifyClient() {
                 type="button"
                 onClick={handleStartVerification}
                 disabled={isVerifying}
-                className="w-full sm:w-auto px-6 py-3 mt-2 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-950/40"
+                className="w-full sm:w-auto min-h-[44px] px-6 py-3 mt-2 rounded-xl text-xs font-bold text-white bg-orange-700 hover:bg-orange-600 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-950/40"
               >
                 <Sparkles className="w-4 h-4" />
                 <span>{isVerifying ? 'Verifying Uniqueness...' : 'Begin Verification'}</span>
@@ -401,7 +403,7 @@ export default function VerifyClient() {
             <button
               type="submit"
               disabled={isVerifying || !displayName.trim()}
-              className="w-full py-3 px-5 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+              className="w-full min-h-[44px] py-3 px-5 rounded-xl text-xs font-bold text-white bg-orange-700 hover:bg-orange-600 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
             >
               <span>{isVerifying ? 'Finalizing Profile...' : 'Confirm Citizen Profile'}</span>
               <ArrowRight className="w-4 h-4" />
@@ -427,7 +429,7 @@ export default function VerifyClient() {
             <button
               type="button"
               onClick={handleProceed}
-              className="w-full py-3.5 px-6 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-950/40"
+              className="w-full min-h-[44px] py-3.5 px-6 rounded-xl text-xs font-bold text-white bg-orange-700 hover:bg-orange-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-950/40"
             >
               <span>Continue to Civic Services</span>
               <ArrowRight className="w-4 h-4" />
@@ -448,7 +450,7 @@ export default function VerifyClient() {
             .
           </p>
 
-          <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono text-zinc-500">
+          <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono text-zinc-400">
             <Compass className="w-3.5 h-3.5" />
             <span>SunShade Civic Infrastructure • Single-Human Protocol</span>
           </div>

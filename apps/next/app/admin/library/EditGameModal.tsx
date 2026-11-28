@@ -122,7 +122,7 @@ export default function EditGameModal({ game, onClose, onSave }: EditGameModalPr
       hideCloseButton={isSaving}
       size="lg"
       title={`Edit ${game.name}`}
-      className="bg-[#161616] border border-zinc-800 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl p-0 overflow-hidden text-white"
+      className="bg-[#161616] border border-zinc-800 rounded-xl w-full max-w-2xl flex flex-col shadow-2xl p-0 overflow-hidden text-white"
       headerClassName="p-6 border-b border-zinc-800 bg-[#161616]"
       bodyClassName="p-6 overflow-y-auto custom-scrollbar flex-1"
       footerClassName="p-6 border-t border-zinc-800 flex justify-end gap-3 shrink-0 bg-[#161616] rounded-b-xl"

@@ -3,13 +3,15 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@digitalcanopy/supabase';
 import {
-  AuthGate,
+  AppShell,
   EventsCarousel,
   GlassCard,
   AtmosphericBadge,
   TokenBalanceBadge,
-  PrimaryButton, Skeleton,
+  PrimaryButton,
+  Skeleton,
 } from '@digitalcanopy/ui';
+import { HubAuthGate } from '../login/HubAuthGate';
 import { OTAManager } from './OTAManager';
 import {
   LayoutDashboard,
@@ -434,123 +436,158 @@ export default function DashboardClient({
   }));
 
   return (
-    <AuthGate>
-      <div className="w-full h-screen bg-zinc-50 dark:bg-[#111111] text-zinc-900 dark:text-zinc-200 font-sans flex flex-col md:flex-row overflow-hidden selection:bg-orange-500/30 transition-colors duration-200">
-
-        {/* Sidebar */}
-        <aside className="hidden md:flex w-64 overflow-hidden shrink-0 border-r border-zinc-200 dark:border-zinc-800/60 bg-white/50 dark:bg-zinc-900/30 flex-col backdrop-blur-xl relative z-20">
-          <div className="h-16 flex items-center px-6 border-b border-zinc-200 dark:border-zinc-800/60 transition-colors duration-200">
-            <div className="flex items-center">
-              <img src="/logo-icon.png" alt="Icon" className="w-8 h-8 object-contain mr-3" />
-              <img src="/logo.png" alt="SunShade Systems" className="h-5 object-contain mt-1" />
-            </div>
+    <HubAuthGate>
+      <AppShell
+        testID="hub-dashboard-shell"
+        className="w-full h-screen bg-zinc-50 dark:bg-[#111111] text-zinc-900 dark:text-zinc-200 font-sans selection:bg-orange-500/30 transition-colors duration-200"
+        sidebarClassName="border-r border-zinc-200 dark:border-zinc-800/60 bg-white/70 dark:bg-zinc-900/40 backdrop-blur-xl"
+        headerClassName="h-16 border-b border-zinc-200 dark:border-zinc-800/60 bg-white/80 dark:bg-[#161616]/80 backdrop-blur-md px-4 sm:px-6"
+        mainClassName="flex-1 flex flex-col overflow-hidden min-h-0"
+        inspectorClassName="border-l border-zinc-200 dark:border-zinc-800/60 bg-white/50 dark:bg-[#141414] w-96 p-4"
+        headerLeft={
+          <div className="flex items-center gap-3 md:hidden">
+            <img src="/logo-icon.png" alt="Icon" className="w-8 h-8 object-contain" />
+            <img src="/logo.png" alt="SunShade Systems" className="h-5 object-contain mt-1 hidden sm:block" />
           </div>
-          <nav className="flex-1 py-6 px-3 space-y-1 min-w-[256px]">
-            <NavItem
-              icon={<LayoutDashboard size={18} />}
-              label="Overview"
-              active={activeView === 'Overview'}
-              onClick={() => setActiveView('Overview')}
-            />
-            <NavItem
-              icon={<Swords size={18} />}
-              label="Game Library"
-              active={activeView === 'Game Library'}
-              onClick={() => setActiveView('Game Library')}
-            />
-            {isArcadeDeckEnabled && (
-              <NavItem
-                icon={<Gamepad2 size={18} />}
-                label="Arcade Deck"
-                active={activeView === 'Arcade Deck'}
-                onClick={() => setActiveView('Arcade Deck')}
-              />
-            )}
-            <NavItem
-              icon={<Activity size={18} />}
-              label="Medical Vault"
-              active={activeView === 'Medical Vault'}
-              onClick={() => setActiveView('Medical Vault')}
-            />
-            <NavItem
-              icon={<Server size={18} />}
-              label="Edge Nodes"
-              active={activeView === 'Edge Nodes'}
-              onClick={() => setActiveView('Edge Nodes')}
-            />
+        }
+        headerRight={
+          <div className="flex items-center gap-2 sm:gap-4">
+            <NodeStatusPill />
 
-            <div className="pt-6 pb-2 px-3">
-              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Account</p>
-            </div>
-            <NavItem
-              icon={<User size={18} />}
-              label="Profile"
-              active={activeView === 'Profile'}
-              onClick={() => setActiveView('Profile')}
-            />
-            <NavItem
-              icon={<Settings size={18} />}
-              label="Settings"
-              active={activeView === 'Settings'}
-              onClick={() => setActiveView('Settings')}
-            />
-          </nav>
-        </aside>
+            <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 hidden lg:block">
+              Welcome back, {currentProfile?.display_name || currentProfile?.email || session?.user?.email || 'Citizen'}
+            </span>
 
-        {/* Main Workspace */}
-        <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <header className="h-16 border-b border-zinc-200 dark:border-zinc-800/60 bg-white/80 dark:bg-[#161616]/80 backdrop-blur-md flex items-center justify-between px-4 sm:px-8 shrink-0 transition-colors duration-200">
-            <div className="flex items-center gap-3">
-              <img src="/logo-icon.png" alt="Icon" className="w-8 h-8 object-contain md:hidden" />
-              <img src="/logo.png" alt="SunShade Systems" className="h-5 object-contain mt-1 hidden sm:block md:hidden" />
-            </div>
-            <div className="flex items-center gap-3 sm:gap-4">
-              <NodeStatusPill />
+            {/* Working Notifications Trigger */}
+            <button
+              type="button"
+              onClick={() => setIsNotificationsOpen(true)}
+              className="p-2 min-w-[36px] min-h-[36px] inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-colors relative"
+              title="System Notifications"
+              aria-label="System Notifications"
+            >
+              <Bell size={18} />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-white dark:border-[#161616] animate-pulse" />
+              )}
+            </button>
 
-              <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 hidden lg:block">
-                Welcome back, {currentProfile?.display_name || currentProfile?.email || session?.user?.email || 'Citizen'}
-              </span>
-
-              {/* Working Notifications Trigger */}
+            <div className="flex items-center gap-3 pl-3 sm:pl-4 border-l border-zinc-200 dark:border-zinc-800 transition-colors duration-200">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Active Citizens</p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-mono">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
+                  {onlineCount} Online
+                </p>
+              </div>
               <button
-                onClick={() => setIsNotificationsOpen(true)}
-                className="p-2 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-colors relative"
-                title="System Notifications"
+                type="button"
+                onClick={() => setActiveView('Profile')}
+                className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-full overflow-hidden bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-orange-400/30 hover:scale-105 transition-transform"
+                title="View Profile"
+                aria-label="View Profile"
               >
-                <Bell size={18} />
-                {unreadNotificationsCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-white dark:border-[#161616] animate-pulse"></span>
+                {currentProfile?.avatar_url ? (
+                  <img src={currentProfile.avatar_url} alt="Profile Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-bold text-sm text-white">
+                    {(currentProfile?.display_name ?? session?.user?.email ?? 'C').charAt(0).toUpperCase()}
+                  </span>
                 )}
               </button>
-
-              <div className="flex items-center gap-3 pl-4 border-l border-zinc-200 dark:border-zinc-800 transition-colors duration-200">
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Active Citizens</p>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-mono">
-                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
-                    {onlineCount} Online
-                  </p>
-                </div>
-                <button
-                  onClick={() => setActiveView('Profile')}
-                  className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-orange-500 to-orange-700 dark:from-orange-600 dark:to-orange-800 flex items-center justify-center shadow-lg shadow-orange-500/20 border border-orange-400/30 hover:scale-105 transition-transform"
-                  title="View Profile"
-                >
-                  {currentProfile?.avatar_url ? (
-                    <img src={currentProfile.avatar_url} alt="Profile Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="font-bold text-sm text-white">
-                      {(currentProfile?.display_name ?? session?.user?.email ?? 'C').charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </button>
-              </div>
             </div>
-          </header>
+          </div>
+        }
+        sidebar={({ collapsed, closeMobileDrawer }) => {
+          const selectView = (view: string) => {
+            setActiveView(view);
+            closeMobileDrawer();
+          };
+          return (
+            <div className="flex flex-col h-full">
+              <div className={`h-16 flex items-center ${collapsed ? 'justify-center px-2' : 'px-6'} border-b border-zinc-200 dark:border-zinc-800/60 transition-colors duration-200`}>
+                <div className="flex items-center">
+                  <img src="/logo-icon.png" alt="Icon" className={`w-8 h-8 object-contain ${collapsed ? '' : 'mr-3'}`} />
+                  {!collapsed && <img src="/logo.png" alt="SunShade Systems" className="h-5 object-contain mt-1" />}
+                </div>
+              </div>
+              <nav className="flex-1 py-6 px-3 space-y-1">
+                <NavItem
+                  icon={<LayoutDashboard size={18} />}
+                  label="Overview"
+                  collapsed={collapsed}
+                  active={activeView === 'Overview'}
+                  onClick={() => selectView('Overview')}
+                />
+                <NavItem
+                  icon={<Swords size={18} />}
+                  label="Game Library"
+                  collapsed={collapsed}
+                  active={activeView === 'Game Library'}
+                  onClick={() => selectView('Game Library')}
+                />
+                {isArcadeDeckEnabled && (
+                  <NavItem
+                    icon={<Gamepad2 size={18} />}
+                    label="Arcade Deck"
+                    collapsed={collapsed}
+                    active={activeView === 'Arcade Deck'}
+                    onClick={() => selectView('Arcade Deck')}
+                  />
+                )}
+                <NavItem
+                  icon={<Activity size={18} />}
+                  label="Medical Vault"
+                  collapsed={collapsed}
+                  active={activeView === 'Medical Vault'}
+                  onClick={() => selectView('Medical Vault')}
+                />
+                <NavItem
+                  icon={<Server size={18} />}
+                  label="Edge Nodes"
+                  collapsed={collapsed}
+                  active={activeView === 'Edge Nodes'}
+                  onClick={() => selectView('Edge Nodes')}
+                />
 
-          {/* Unified Smooth Scrolling Container for All Screens */}
-          <div className="flex-1 p-4 sm:p-8 custom-scrollbar relative overflow-y-auto min-h-0">
-            <div className="max-w-7xl w-full mx-auto space-y-6">
+                {!collapsed && (
+                  <div className="pt-6 pb-2 px-3">
+                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Account</p>
+                  </div>
+                )}
+                <NavItem
+                  icon={<User size={18} />}
+                  label="Profile"
+                  collapsed={collapsed}
+                  active={activeView === 'Profile'}
+                  onClick={() => selectView('Profile')}
+                />
+                <NavItem
+                  icon={<Settings size={18} />}
+                  label="Settings"
+                  collapsed={collapsed}
+                  active={activeView === 'Settings'}
+                  onClick={() => selectView('Settings')}
+                />
+              </nav>
+            </div>
+          );
+        }}
+        isInspectorOpen={activeView === 'Game Library' && Boolean(selectedGame)}
+        inspector={
+          activeView === 'Game Library' && selectedGame ? (
+            <GameDetailsDrawer
+              game={selectedGame}
+              isOpen={!!selectedGame}
+              onClose={() => setSelectedGame(null)}
+              isGuest={currentProfile?.status === 'pending_invite'}
+            />
+          ) : undefined
+        }
+      >
+        {/* Unified Smooth Scrolling Container for All Screens */}
+        <div className="flex-1 p-4 sm:p-8 custom-scrollbar relative overflow-y-auto min-h-0">
+          <div className="max-w-7xl w-full mx-auto space-y-6">
 
               {currentProfile?.status === 'pending_invite' && (
                 <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 mb-2 shrink-0">
@@ -708,9 +745,9 @@ export default function DashboardClient({
                     </div>
                   </div>
 
-                  {/* Right Column: Game Details Drawer */}
+                  {/* Mobile/Tablet inline Game Details Drawer (Desktop uses AppShell inspector) */}
                   {selectedGame && (
-                    <div className="w-full lg:w-96 shrink-0 transition-all duration-300">
+                    <div className="w-full lg:hidden shrink-0 transition-all duration-300">
                       <GameDetailsDrawer
                         game={selectedGame}
                         isOpen={!!selectedGame}
@@ -771,9 +808,8 @@ export default function DashboardClient({
                 />
               )}
 
-            </div>
           </div>
-        </main>
+        </div>
 
         {/* Notifications Modal */}
         <NotificationsModal
@@ -803,7 +839,7 @@ export default function DashboardClient({
         />
 
         {/* Bottom Nav Mobile */}
-        <nav className="md:hidden flex items-center justify-between bg-white dark:bg-[#161616] border-t border-zinc-200 dark:border-zinc-800/60 pb-[env(safe-area-inset-bottom)] px-2 pt-2 z-30">
+        <nav className="md:hidden flex items-center justify-between bg-white dark:bg-[#161616] border-t border-zinc-200 dark:border-zinc-800/60 pb-[env(safe-area-inset-bottom)] px-1 pt-1.5 z-30 shrink-0">
           <MobileNavItem
             icon={<LayoutDashboard size={20} />}
             label="Overview"
@@ -851,7 +887,7 @@ export default function DashboardClient({
         </nav>
 
         <OTAManager />
-      </div>
-    </AuthGate>
+      </AppShell>
+    </HubAuthGate>
   );
 }

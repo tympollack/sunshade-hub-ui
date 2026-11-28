@@ -12,7 +12,7 @@ import {
   Trash2,
   ChevronRight,
 } from 'lucide-react';
-import { Modal } from '@digitalcanopy/ui';
+import { AtmosphericBadge, Modal } from '@digitalcanopy/ui';
 import type { HubNotification } from '../types';
 
 interface NotificationsModalProps {
@@ -62,18 +62,18 @@ export function NotificationsModal({
     }
   };
 
-  const getCategoryBadgeClass = (category: string) => {
+  const getCategoryVariant = (category: string) => {
     switch (category) {
       case 'announcement':
-        return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20';
+        return 'core' as const;
       case 'reward':
-        return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
+        return 'cozy' as const;
       case 'node':
-        return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+        return 'success' as const;
       case 'security':
-        return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
+        return 'telemetry' as const;
       default:
-        return 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20';
+        return 'neutral' as const;
     }
   };
 
@@ -83,9 +83,9 @@ export function NotificationsModal({
       onClose={onClose}
       hideCloseButton
       size="md"
-      className="bg-white dark:bg-[#161616] border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-xl h-[560px] max-h-[85vh] p-0 overflow-hidden shadow-2xl text-zinc-900 dark:text-zinc-100"
+      className="bg-[#161616] border border-zinc-800 rounded-2xl w-full max-w-xl h-[560px] p-0 overflow-hidden shadow-2xl text-zinc-100"
       bodyClassName="p-0 flex flex-col flex-1 min-h-0 overflow-hidden"
-      headerClassName="p-5 border-b border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-[#161616]"
+      headerClassName="p-5 border-b border-zinc-800/80 bg-[#161616]"
       icon={
         <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500">
           <Bell size={18} />
@@ -93,27 +93,26 @@ export function NotificationsModal({
       }
       title={
         <div className="flex items-center gap-2">
-          <span id="notifications-title" className="font-bold text-zinc-900 dark:text-white text-lg">
+          <span id="notifications-title" className="font-bold text-white text-lg">
             System Notifications
           </span>
           {unreadCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500 text-white">
-              {unreadCount} New
-            </span>
+            <AtmosphericBadge label={`${unreadCount} New`} variant="core" size="sm" />
           )}
         </div>
       }
       subtitle={
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">
-          Ecosystem broadcasts, reward distributions & node health
+        <span className="text-xs text-zinc-400">
+          Ecosystem broadcasts, reward distributions &amp; node health
         </span>
       }
       headerExtra={
         <div className="flex items-center gap-2">
           {unreadCount > 0 && (
             <button
+              type="button"
               onClick={onMarkAllAsRead}
-              className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-500 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 transition-colors"
+              className="text-xs font-semibold text-orange-400 hover:text-orange-300 flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 transition-colors"
               title="Mark all as read"
             >
               <CheckCheck size={14} />
@@ -121,8 +120,9 @@ export function NotificationsModal({
             </button>
           )}
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            className="p-2 min-w-[36px] min-h-[36px] inline-flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
             title="Close notifications"
             aria-label="Close notifications"
           >
@@ -135,7 +135,7 @@ export function NotificationsModal({
           SunShade Ecosystem Sentinel • Real-Time Alert Mesh
         </div>
       }
-      footerClassName="p-3 bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-200 dark:border-zinc-800 justify-center"
+      footerClassName="p-3 bg-zinc-900/60 border-t border-zinc-800 justify-center"
     >
 
         {/* Filter Category Tabs with Dynamic Counts */}
@@ -217,13 +217,11 @@ export function NotificationsModal({
                           <span className="text-xs font-bold text-zinc-900 dark:text-white">
                             {notif.title}
                           </span>
-                          <span
-                            className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${getCategoryBadgeClass(
-                              notif.category
-                            )}`}
-                          >
-                            {notif.category}
-                          </span>
+                          <AtmosphericBadge
+                            label={notif.category}
+                            variant={getCategoryVariant(notif.category)}
+                            size="sm"
+                          />
                           {!isRead && (
                             <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" title="Unread" />
                           )}

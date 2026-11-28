@@ -32,6 +32,25 @@ async function safeQueryReels(supabase: any, userId: string) {
 }
 
 export async function getDashboardData(): Promise<DashboardData & { userId: string | null }> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  if (!supabaseUrl || supabaseUrl.includes('placeholder.supabase.co')) {
+    return {
+      userId: null,
+      profile: null,
+      edgeNodes: [],
+      gameLibrary: [],
+      ledgerHistory: [],
+      gameStats: [],
+      hubAchievements: [],
+      chessAchievements: [],
+      userHubUnlocks: {},
+      userChessUnlocks: {},
+      hubEvents: [],
+      notifications: [],
+      featureFlags: normalizeFeatureFlags([]),
+    };
+  }
+
   const supabase = await createSSRClient();
 
   const [

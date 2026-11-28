@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Modal } from '@digitalcanopy/ui';
+import { AtmosphericBadge, Modal } from '@digitalcanopy/ui';
 import {
   Server,
   Cpu,
@@ -162,11 +162,14 @@ export function EdgeNodesView({ edgeNodes, session }: EdgeNodesViewProps) {
                   <Server size={20} />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-bold text-sm text-zinc-900 dark:text-white">{node.name}</h4>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                      {node.status}
-                    </span>
+                    <AtmosphericBadge
+                      label={node.status}
+                      variant={node.status === 'online' ? 'success' : node.status === 'degraded' ? 'warning' : 'error'}
+                      statusDot
+                      size="sm"
+                    />
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500 mt-1">
                     <span>Region: {node.region}</span>

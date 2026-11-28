@@ -27,42 +27,50 @@ export async function DartUpWidget({
   userId: string | null;
   guestLaunchEnabled?: boolean;
 }) {
-  const supabase = await createSSRClient();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const isOfflinePlaceholder = supabaseUrl.includes('placeholder.supabase.co');
 
-  const [eraRes, pilotRes] = await Promise.all([
-    supabase
-      .schema('dart_up')
-      .from('eras')
-      .select('era_seed, pve_threat_multiplier')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    userId
-      ? supabase
-          .schema('dart_up')
-          .from('pilots')
-          .select('callsign, elo_rating')
-          .eq('user_id', userId)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
-  ]);
-
-  if (eraRes.error) throw new Error(`Dart Up! era lookup failed: ${eraRes.error.message}`);
-  if (pilotRes.error) throw new Error(`Dart Up! pilot lookup failed: ${pilotRes.error.message}`);
-
-  const era = eraRes.data as EraRow | null;
-  const pilot = pilotRes.data as PilotRow | null;
-
+  let era: EraRow | null = null;
+  let pilot: PilotRow | null = null;
   let rank: number | null = null;
-  if (pilot) {
-    const { count, error } = await supabase
-      .schema('dart_up')
-      .from('pilots')
-      .select('user_id', { count: 'exact', head: true })
-      .gt('elo_rating', pilot.elo_rating);
-    if (error) throw new Error(`Dart Up! rank lookup failed: ${error.message}`);
-    rank = (count ?? 0) + 1;
+
+  if (!isOfflinePlaceholder) {
+    const supabase = await createSSRClient();
+
+    const [eraRes, pilotRes] = await Promise.all([
+      supabase
+        .schema('dart_up')
+        .from('eras')
+        .select('era_seed, pve_threat_multiplier')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      userId
+        ? supabase
+            .schema('dart_up')
+            .from('pilots')
+            .select('callsign, elo_rating')
+            .eq('user_id', userId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+
+    if (eraRes.error) throw new Error(`Dart Up! era lookup failed: ${eraRes.error.message}`);
+    if (pilotRes.error) throw new Error(`Dart Up! pilot lookup failed: ${pilotRes.error.message}`);
+
+    era = eraRes.data as EraRow | null;
+    pilot = pilotRes.data as PilotRow | null;
+
+    if (pilot) {
+      const { count, error } = await supabase
+        .schema('dart_up')
+        .from('pilots')
+        .select('user_id', { count: 'exact', head: true })
+        .gt('elo_rating', pilot.elo_rating);
+      if (error) throw new Error(`Dart Up! rank lookup failed: ${error.message}`);
+      rank = (count ?? 0) + 1;
+    }
   }
 
   const requestHost = (await headers()).get('host') ?? undefined;
