@@ -27,6 +27,10 @@ export const DEFAULT_HUB_AUDIT_ROUTES = [
 export const DEFAULT_VIEWPORTS = 'mobile:375x667,desktop:1280x800';
 export const DEFAULT_PORT = 3105;
 
+/**
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {Record<string, string | undefined>}
+ */
 export function ensureAuditEnv(env = process.env) {
   if (env.SUNSHADE_AUDIT_LIVE === '1') {
     return {
@@ -46,6 +50,10 @@ export function ensureAuditEnv(env = process.env) {
   };
 }
 
+/**
+ * @param {string[]} argv
+ * @param {Record<string, string | undefined>} [env]
+ */
 export function parseDodUiArgs(argv, env = process.env) {
   let url = env.SUNSHADE_AUDIT_URL || '';
   let routesRaw = env.SUNSHADE_AUDIT_ROUTES || DEFAULT_HUB_AUDIT_ROUTES.join(',');

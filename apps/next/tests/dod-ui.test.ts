@@ -9,7 +9,8 @@ import {
 
 describe('dod:ui Playwright + axe-core Audit Suite Configuration', () => {
   it('defaults to all core Hub routes and mobile/desktop viewports', () => {
-    const parsed = parseDodUiArgs([], {});
+    const emptyEnv: Record<string, string | undefined> = {};
+    const parsed = parseDodUiArgs([], emptyEnv);
     expect(parsed.routes).toEqual(DEFAULT_HUB_AUDIT_ROUTES);
     expect(parsed.routes).toContain('/login');
     expect(parsed.routes).toContain('/dashboard');
@@ -37,7 +38,7 @@ describe('dod:ui Playwright + axe-core Audit Suite Configuration', () => {
         '--json',
         '--port=3200',
       ],
-      {}
+      {} as Record<string, string | undefined>
     );
     expect(parsed.url).toBe('http://127.0.0.1:4000');
     expect(parsed.routes).toEqual(['/login', '/dashboard']);
@@ -48,7 +49,7 @@ describe('dod:ui Playwright + axe-core Audit Suite Configuration', () => {
   });
 
   it('uses deterministic placeholder Supabase env vars by default unless SUNSHADE_AUDIT_LIVE=1', () => {
-    const cleanEnv = ensureAuditEnv({});
+    const cleanEnv = ensureAuditEnv({} as Record<string, string | undefined>);
     expect(cleanEnv.NEXT_PUBLIC_SUPABASE_URL).toBe('https://placeholder.supabase.co');
     expect(cleanEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY).toBeTruthy();
 
@@ -56,7 +57,7 @@ describe('dod:ui Playwright + axe-core Audit Suite Configuration', () => {
       SUNSHADE_AUDIT_LIVE: '1',
       NEXT_PUBLIC_SUPABASE_URL: 'https://custom-stag.supabase.co',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'custom-anon-key',
-    });
+    } as Record<string, string | undefined>);
     expect(liveEnv.NEXT_PUBLIC_SUPABASE_URL).toBe('https://custom-stag.supabase.co');
     expect(liveEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY).toBe('custom-anon-key');
   });
